@@ -1,12 +1,17 @@
-# Verifiable-Zero: The Ultimate Master Plan
+# ChessFM: 1.5B Chess Reasoning Roadmap
 
-**Version**: 3.3 (Definitive Production Plan)
+**Version**: 3.5 (Detailed Production Plan)
 **Last Updated**: 2024-12-15
+
+> [!NOTE]
+> **Project Status**: Educational Research
+> This is a personal project to explore Reinforcement Learning and reasoning in Small Language Models.
+> **"FM" stands for Foundation Model, not FIDE Master.** We are not claiming to build a 2300 Elo engine, but rather a reasoning agent that can explain its moves.
 
 ---
 
 ## Table of Contents
-1. [Executive Summary](#i-executive-summary)
+1. [Vision & Goals](#i-vision--goals)
 2. [Success Metrics & Exit Criteria](#ii-success-metrics--exit-criteria)
 3. [Infrastructure](#iii-infrastructure)
 4. [Board Representation & Tokenization](#iv-board-representation--tokenization)
@@ -21,17 +26,15 @@
 
 ---
 
-## I. Executive Summary
+## I. Vision & Goals
 
-### Project Goal
-Train a 1.5B parameter reasoning model to play chess at a **measurable, competitive level** using Group Relative Policy Optimization (GRPO) and Verifiable Rewards.
+### Core Objective
+Train a 1.5B parameter model to play chess at a **competent amateur level (1200 Elo)** by reasoning through positions, rather than just memorizing moves.
 
-### Context & Benchmarks
-- **State of the Art**: `gpt-3.5-turbo-instruct` (~1750 Elo) is the most consistent LLM player. `gpt-4o` (~1750 Elo) excels at puzzles but struggles with illegal moves in long games.
-- **Our Target**: A 1.5B model reaching **1200 Elo** (beating `gemini-3-pro-preview`'s ~1050 benchmark) would be a massive achievement.
-
-### Key Insight: "Regurgitation"
-Research from [Dynomight](https://dynomight.substack.com/p/more-chess) suggests that LLMs play significantly better when forced to **repeat the full game history (PGN)** before making a move. We will incorporate this into our SFT and RL prompts.
+### Long-Term Vision: "The Pocket Tutor"
+While current engines (Stockfish) are invincible calculators, they are terrible teachers. They give you a line like `+5.4 (1. e4 e5 2. Nf3)` but don't explain *why*.
+Our ultimate goal is a **tiny, quantized model** that can run locally on a phone, watching your game and whispering natural language advice:
+> *"Don't move the knight there! You'll leave your king open to a back-rank mate in 3 moves because the rook is controlling the d-file."*
 
 ---
 
@@ -45,7 +48,7 @@ Research from [Dynomight](https://dynomight.substack.com/p/more-chess) suggests 
 | Metric | Minimum Viable | Target | Stretch Goal |
 |:-------|:--------------|:-------|:-------------|
 | **Illegal Move Rate** | < 5% | 0% | 0% with no constrained decoding |
-| **Estimated Elo** | 800 (Beat GPT-5-nano) | 1200 (Beat Gemini 3 Pro Preview) | 1500 (Beat Grok/Claude Opus) |
+| **Estimated Elo** | 800 (Beat GPT-5-nano) | 1200 (Beat Gemini 3 Pro Preview) | 1500 (Club Player) |
 | **Stockfish Top-3 Agreement** | 30% | 50% | 70% |
 | **Self-Play Improvement** | >55% vs T-1 | >60% vs T-1 | >70% vs T-1 |
 
@@ -80,6 +83,9 @@ Research from [Dynomight](https://dynomight.substack.com/p/more-chess) suggests 
 
 ### Design Decision: Special Tokens
 We will add chess pieces (`<|R|>`, `<|n|>`, etc.) as special tokens to guarantee deterministic 1-to-1 tokenization.
+
+### "Regurgitation" Strategy
+Inspired by [Dynomight](https://dynomight.substack.com/p/more-chess), we will force the model to **output the full PGN history** before generating a move. This grounds the model in the game state.
 
 ### Implementation Plan
 1.  **Audit**: Run `audit_tokenizer.py` to confirm variance in base tokenizer.
@@ -249,4 +255,4 @@ $$R_{total} = 0.1 \cdot R_{format} + 1.0 \cdot R_{legality} + 1.0 \cdot R_{chess
 
 ---
 
-*This plan is Version 3.3. Verified against Dubesor.de benchmarks and Dynomight research.*
+*ChessFM Roadmap v3.5 (Detailed)*
