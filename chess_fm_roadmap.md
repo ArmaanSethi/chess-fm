@@ -95,15 +95,35 @@ Inspired by [Dynomight](https://dynomight.substack.com/p/more-chess), we will fo
 
 ---
 
-## V. Phase 0: Baseline Measurement
+## V. Phase 0: Baseline Measurement & Model Selection
 
 > [!IMPORTANT]
-> **Day 0 Baseline**: Before training, we measure the base `Qwen-2.5-Math-1.5B` model on 100 FENs.
+> **Goal**: Scientifically select the best *base* model and establish a rigorous "Day 0" benchmark.
 
-**Metrics to Record**:
-- Legal Move Rate (Expected: 10-30%)
-- Format Adherence (Expected: <10%)
-- Stockfish Agreement (Expected: ~5%)
+### 0.1 Model Selection Tournament
+We will test 3 candidate models (all < 3B parameters) to see which has the best *innate* understanding of chess notation and logic.
+
+| Candidate | Why? |
+|:----------|:-----|
+| **Qwen-2.5-Math-1.5B** | Strong reasoning/math pre-training. Likely best at logic. |
+| **Llama-3.2-1B** | Very fast, popular, good general instruction following. |
+| **DeepSeek-Coder-1.3B** | Code models often handle structured notation (like PGN) well. |
+
+### 0.2 The Benchmark (N=1,000)
+We will run **1,000 random FENs** (from Lichess database) through each model.
+**Metrics**:
+1.  **Legal Move Rate**: % of generated moves that are legal.
+2.  **Format Adherence**: % of outputs that strictly follow the requested format.
+3.  **Inference Speed**: Tokens/sec (crucial for RL rollout throughput).
+
+### 0.3 Prompt Engineering Experiments
+Before training, we will try to maximize performance via prompting:
+1.  **Zero-Shot**: `FEN -> Move`
+2.  **Few-Shot**: `FEN -> Move` (with 3 examples)
+3.  **Chain-of-Thought**: `FEN -> <think>...</think> -> Move`
+4.  **Regurgitation**: `FEN -> PGN History -> Move` (Dynomight Strategy)
+
+**Deliverable**: A report selecting the single best Base Model + Prompt Strategy to proceed with.
 
 ---
 
@@ -224,7 +244,8 @@ $$R_{total} = 0.1 \cdot R_{format} + 1.0 \cdot R_{legality} + 1.0 \cdot R_{chess
 - [ ] **0.1** Set up RunPod pod with RTX 4090.
 - [ ] **0.2** Run `setup_env.sh`. Verify all components.
 - [ ] **0.3** Run Tokenizer Audit (Pre-Fix).
-- [ ] **0.4** Run Baseline Measurement (100 FENs).
+- [ ] **0.4** **Model Tournament**: Run benchmark on Qwen/Llama/DeepSeek (1k samples).
+- [ ] **0.5** **Prompt Search**: Test Zero-shot vs Regurgitation vs CoT.
 
 ### Phase 1: Tokenization & Warm-up
 - [ ] **1.1** Add special tokens & resize embeddings.
