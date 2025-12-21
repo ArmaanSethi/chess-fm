@@ -1,317 +1,481 @@
 # ChessFM: 1.5B Chess Reasoning Roadmap
 
-**Version**: 3.5 (Detailed Production Plan)
-**Last Updated**: 2024-12-15
+**Version**: 4.0 (Reasoning Era Edition)
+**Last Updated**: 2025-12-21
 
 > [!NOTE]
-> **Project Status**: Educational Research
-> This is a personal project to explore Reinforcement Learning and reasoning in Small Language Models.
-> **"FM" stands for Foundation Model, not FIDE Master.** We are not claiming to build a 2300 Elo engine, but rather a reasoning agent that can explain its moves.
+> **Project Status**: Educational Learning Project
+> This roadmap is structured in two tiers:
+> - **Standard Plan** ✅ — Get the fundamentals working first
+> - **Bonus Upgrades** 🚀 — Advanced techniques to add after v1 works
+>
+> Complete the Standard Plan before attempting Bonus steps!
 
 ---
 
 ## Table of Contents
 1. [Vision & Goals](#i-vision--goals)
-2. [Success Metrics & Exit Criteria](#ii-success-metrics--exit-criteria)
+2. [Success Metrics](#ii-success-metrics)
 3. [Infrastructure](#iii-infrastructure)
-4. [Board Representation & Tokenization](#iv-board-representation--tokenization)
-5. [Phase 0: Baseline Measurement](#v-phase-0-baseline-measurement)
+4. [Thought Format](#iv-thought-format)
+5. [Phase 0: Baseline](#v-phase-0-baseline-measurement)
 6. [Phase 1: Distillation (SFT)](#vi-phase-1-distillation-sft)
-7. [Phase 2: Reinforcement Learning (GRPO)](#vii-phase-2-reinforcement-learning-grpo)
+7. [Phase 2: Reinforcement Learning](#vii-phase-2-reinforcement-learning-grpo)
 8. [Reward Engineering](#viii-reward-engineering)
-9. [Evaluation Framework](#ix-evaluation-framework)
-10. [Contingency Plans](#x-contingency-plans)
-11. [Cost & Time Estimates](#xi-cost--time-estimates)
-12. [Execution Roadmap](#xii-execution-roadmap)
+9. [Execution Roadmap](#ix-execution-roadmap)
+10. [Bonus Upgrades Reference](#x-bonus-upgrades-reference)
+11. [References](#xi-references)
 
 ---
 
 ## I. Vision & Goals
 
 ### Core Objective
-Train a 1.5B parameter model to play chess at a **competent amateur level (1200 Elo)** by reasoning through positions, rather than just memorizing moves.
+Train a 1.5B parameter model to play chess at **1200 Elo** by reasoning through positions, not just memorizing moves.
 
-### Long-Term Vision: "The Pocket Tutor"
-While current engines (Stockfish) are invincible calculators, they are terrible teachers. They give you a line like `+5.4 (1. e4 e5 2. Nf3)` but don't explain *why*.
-Our ultimate goal is a **tiny, quantized model** that can run locally on a phone, watching your game and whispering natural language advice:
-> *"Don't move the knight there! You'll leave your king open to a back-rank mate in 3 moves because the rook is controlling the d-file."*
+### What We're Building
+
+```
+Input: [FEN position]
+Output: <think>...reasoning...</think> e4
+```
+
+The model explains *why* it's making a move, like a chess tutor.
+
+### 🚀 Bonus Vision: "System 2" Thinking
+*After v1 works*, we can upgrade to structured verification:
+```
+<think>
+    <threat_scan>...</threat_scan>
+    <candidates>...</candidates>
+    <verification>...</verification>
+</think>
+```
+See [Bonus Upgrades](#x-bonus-upgrades-reference) for details.
 
 ---
 
-## II. Success Metrics & Exit Criteria
+## II. Success Metrics
 
-> [!IMPORTANT]
-> **This section defines what "done" looks like.** Every decision in this plan serves these metrics.
+### Standard Plan Metrics ✅
 
-### Primary Success Metrics
+| Metric | Target | How to Measure |
+|:-------|:-------|:---------------|
+| **Illegal Move Rate** | < 5% | Parse outputs, validate with python-chess |
+| **Format Adherence** | > 95% | `<think>` tags present and parseable |
+| **Estimated Elo** | ~1000 | 500 games vs Stockfish Level 3 |
 
-| Metric | Minimum Viable | Target | Stretch Goal |
-|:-------|:--------------|:-------|:-------------|
-| **Illegal Move Rate** | < 5% | 0% | 0% with no constrained decoding |
-| **Estimated Elo** | 800 (Beat GPT-5-nano) | 1200 (Beat Gemini 3 Pro Preview) | 1500 (Club Player) |
-| **Stockfish Top-3 Agreement** | 30% | 50% | 70% |
-| **Self-Play Improvement** | >55% vs T-1 | >60% vs T-1 | >70% vs T-1 |
+### 🚀 Bonus Metrics (Add Later)
 
-### How Elo Will Be Measured
-1. Play 500 games against Stockfish at a fixed Skill Level (e.g., Level 5, ~1500 Elo).
-2. Use the [Elo Rating System formula](https://en.wikipedia.org/wiki/Elo_rating_system) to calculate model Elo based on win/draw/loss rates.
-3. **Verification**: Results must be reproducible with a fixed random seed.
+| Metric | Target | What It Measures |
+|:-------|:-------|:-----------------|
+| **Illegal Move Rate** | **0%** | No constrained decoding needed |
+| **Structure Adherence** | > 98% | All XML tags present |
+| **"Aha!" Recovery Rate** | > 20% | Model catches its own mistakes |
+| **Elo** | 1200+ | Beat Gemini Pro (~1050) |
+
+### How Elo is Calculated
+
+Using the [Elo Rating System](https://en.wikipedia.org/wiki/Elo_rating_system):
+
+$$E_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}$$
+
+After $N$ games: $R'_A = R_A + K \cdot (S_A - E_A)$
+
+Where $S_A$ = actual score (1=win, 0.5=draw, 0=loss), $K=32$.
 
 ---
 
 ## III. Infrastructure
 
-### Selected Stack: RunPod + RTX 4090
--   **Hardware**: 1x NVIDIA RTX 4090 (24GB VRAM).
--   **OS**: Ubuntu 22.04 (Standard for ML).
--   **Environment**:
-    -   `unsloth`: For 2x faster training and 60% less VRAM.
-    -   `vLLM`: For high-throughput rollout generation.
-    -   `python-chess` + `stockfish`: For environment simulation and rewards.
+### Stack
+| Component | Tool | Purpose |
+|:----------|:-----|:--------|
+| Hardware | RTX 4090 (RunPod) | 24GB VRAM |
+| Training | [unsloth](https://github.com/unslothai/unsloth) | 2x faster, 60% less VRAM |
+| Inference | [vLLM](https://github.com/vllm-project/vllm) | Fast rollouts |
+| Chess | [python-chess](https://python-chess.readthedocs.io/) + [Stockfish](https://stockfishchess.org/) | Validation & rewards |
 
-### Verification Protocol: Infrastructure Setup
-| Step | Action | Verification Command | Success Criteria |
-|:-----|:-------|:---------------------|:-----------------|
-| 1.1 | Run `setup_env.sh` | `nvidia-smi` | Shows RTX 4090, ~24GB VRAM. |
-| 1.2 | Verify CUDA | `python -c "import torch; print(torch.cuda.is_available())"` | Prints `True`. |
-| 1.3 | Verify Stockfish | `stockfish` then type `uci` | Prints `uciok`. |
-| 1.4 | Verify vLLM | `vllm serve Qwen/Qwen-2.5-Math-1.5B-Instruct --port 8000` | Server starts, no OOM. |
+### Base Model: Qwen-2.5-Math-1.5B
+
+Per [Qwen2.5-Math paper](https://arxiv.org/abs/2409.12122), math models have better logic/reasoning pre-training.
 
 ---
 
-## IV. Board Representation & Tokenization
+## IV. Thought Format
 
-### Design Decision: Special Tokens
-We will add chess pieces (`<|R|>`, `<|n|>`, etc.) as special tokens to guarantee deterministic 1-to-1 tokenization.
+### Standard Plan Format ✅ (Simple)
 
-### "Regurgitation" Strategy
-Inspired by [Dynomight](https://dynomight.substack.com/p/more-chess), we will force the model to **output the full PGN history** before generating a move. This grounds the model in the game state.
+```xml
+<think>
+The position shows White with a strong center. 
+Black's knight on c6 is blocking the c-pawn.
+I should play e4 to control more space.
+</think>
+e4
+```
 
-### Implementation Plan
-1.  **Audit**: Run `audit_tokenizer.py` to confirm variance in base tokenizer.
-2.  **Add Tokens**: Add 14 special tokens (pieces + empty + separators).
-3.  **Resize**: Resize model embeddings.
-4.  **Warm-up**: Train on 10k FEN-to-Description pairs to ground the new embeddings.
+**Requirements**:
+- `<think>` and `</think>` tags
+- Free-form reasoning inside
+- Legal move at the end
+
+### 🚀 Bonus Format: Socratic Structure
+
+*Upgrade after v1 works* — enforces structured reasoning:
+
+```xml
+<think>
+    <threat_scan>
+        Is my King safe? Yes.
+        Enemy threats: Rook eyes d7 pawn.
+    </threat_scan>
+    <candidates>Nf3, e4, c4</candidates>
+    <verification>
+        Nf3: Safe, develops piece.
+        e4: <error>Loses pawn to Nxe4!</error>
+        c4: Controls center. ✓
+    </verification>
+    <eval>+0.3</eval>
+</think>
+c4
+```
+
+Why this matters: The **Structure Hypothesis** says that valid logic *shape* helps small models reason better. See [Bonus Reference](#1-socratic-structure-the-structure-hypothesis).
 
 ---
 
-## V. Phase 0: Baseline Measurement & Model Selection
+## V. Phase 0: Baseline Measurement
 
-> [!IMPORTANT]
-> **Goal**: Scientifically select the best *base* model and establish a rigorous "Day 0" benchmark.
+### Goal
+Pick the best base model and establish "Day 0" performance.
 
-### 0.1 Model Selection Tournament
-We will test 3 candidate models (all < 3B parameters) to see which has the best *innate* understanding of chess notation and logic.
+### Steps ✅
 
-| Candidate | Why? |
-|:----------|:-----|
-| **Qwen-2.5-Math-1.5B** | Strong reasoning/math pre-training. Likely best at logic. |
-| **Llama-3.2-1B** | Very fast, popular, good general instruction following. |
-| **Qwen-2.5-Coder-1.5B** | State-of-the-art small coder. Code models handle structured notation (PGN) well. |
+1. **Test 3 Models**:
+   - [Qwen-2.5-Math-1.5B](https://huggingface.co/Qwen/Qwen2.5-Math-1.5B-Instruct)
+   - [Llama-3.2-1B](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
+   - [Qwen-2.5-Coder-1.5B](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct)
 
-### 0.2 The Benchmark (N=1,000)
-**Data Source**: Lichess Elite Database (PGNs, not just FENs).
-**Sampling Strategy (Stratified)**:
--   **33% Openings** (Moves 1-10): Tests memorization/opening theory.
--   **33% Middlegame** (Moves 11-30): Tests tactical awareness.
--   **33% Endgame** (Moves 30+): Tests calculation and checkmate logic.
+2. **Benchmark**: 1,000 positions from [Lichess Elite Database](https://database.lichess.org/)
 
-**Quantitative Metrics**:
-| Metric | Description | Why It Matters |
-|:-------|:------------|:---------------|
-| **Legal Move Rate** | % of generated moves that are legal. | Core competence. |
-| **Format Adherence** | % of outputs matching `<think>...</think> [move]` format. | Required for reward parsing. |
-| **Stockfish Top-1 Agreement** | % of moves matching Stockfish's best move. | Are moves *good*, not just legal? |
-| **Stockfish Top-3 Agreement** | % of moves matching one of Stockfish's top 3. | More lenient quality check. |
-| **Tokenizer Efficiency** | Average tokens per move. | Lower = more context for history. |
-| **Inference Speed** | Tokens/sec (batch=1). | Crucial for RL rollout throughput. |
+3. **Measure**: Legal rate, format adherence, Stockfish agreement
 
-### 0.3 Prompt Engineering Experiments
-Before training, we will try to maximize performance via prompting:
-
-| Prompt Strategy | Format | Expected Boost |
-|:----------------|:-------|:---------------|
-| **Zero-Shot** | `FEN -> Move` | Baseline (poor). |
-| **Few-Shot (3 examples)** | `FEN -> Move` (with 3 examples) | Moderate. |
-| **Chain-of-Thought** | `FEN -> <think>...</think> -> Move` | Should improve quality. |
-| **Regurgitation** | `PGN History -> Move` | Best (per Dynomight). |
-
-### 0.4 Qualitative Analysis (Manual Review)
-**Purpose**: Ensure we don't just measure *what* the model outputs, but *how good* the reasoning is.
-
-**Protocol**:
-1.  Randomly sample **20 outputs** from the CoT prompt condition.
-2.  Grade each `<think>` block on a 1-5 scale:
-    -   **1**: Gibberish / Unrelated to chess.
-    -   **2**: Mentions chess, but reasoning is wrong.
-    -   **3**: Partially correct reasoning.
-    -   **4**: Mostly correct reasoning, minor errors.
-    -   **5**: Expert-level reasoning.
-3.  Record the **mean score** per model.
-
-**Regurgitation Sanity Check**:
-1.  For 10 samples in the "Regurgitation" condition, manually verify:
-    -   Did the model correctly repeat the PGN history?
-    -   If not, how many moves were hallucinated or missed?
-2.  If hallucination rate > 30%, flag "Regurgitation" as unreliable for that model.
-
-### 0.5 Deliverables
-1.  **Quantitative Report**: Excel/CSV with all metrics for all 3 models × 4 prompt strategies.
-2.  **Qualitative Report**: Manual grading of 20 CoT samples per model.
-3.  **Recommendation**: The single best Base Model + Prompt Strategy to proceed with.
+4. **Pick winner** → proceed to SFT
 
 ---
 
 ## VI. Phase 1: Distillation (SFT)
 
 ### Goal
-Teach the model **how to reason** (`<think>` format) and **what legal moves look like**.
+Teach the model the `<think>` format and what good moves look like.
 
-### Data Strategy: Hybrid (Open Source + Synthetic)
+### Standard Plan ✅
 
-We will leverage existing high-quality datasets to save API costs, supplementing with synthetic data only if needed.
+#### Data Source Options
 
-| Source | Dataset | Description | Role |
-|:-------|:--------|:------------|:-----|
-| **Primary** | `multimodal-reasoning-lab/chess` | Contains explicit "THOUGHT" process for chess moves. | **Core SFT Data** (Format alignment needed). |
-| **Secondary** | `MATE` (HuggingFace) | 1M positions with expert annotations. | **Pre-training** for chess concepts. |
-| **Tertiary** | Synthetic (GPT-4o) | Custom generated `<think>` traces. | **Gap filling** for specific formats. |
+| Option | Size | Cost | Quality |
+|:-------|:-----|:-----|:--------|
+| [multimodal-reasoning-lab/chess](https://huggingface.co/datasets/multimodal-reasoning-lab/chess) | 30k | Free | Good, needs format conversion |
+| Synthetic (GPT-4o-mini + Stockfish) | 15k | ~$15 | Excellent, exact format |
 
-### Teacher Model Strategy (Synthetic)
-- **Move Selection**: **Stockfish 16** (Ground Truth).
-- **Reasoning Generation**: **GPT-4o**.
-- **Justification**: GPT-4o has the highest puzzle accuracy (~50%), making it the best *explainer*. Stockfish ensures the move itself is perfect, mitigating GPT-4o's tendency to make illegal moves.
+**Recommendation**: Start with open-source data. Add synthetic if format adherence < 90%.
 
-### Dataset Specification
-- **Size**: 30,000 samples (from `multimodal-reasoning-lab/chess`).
-- **Format**: Convert to our specific `<think>` XML format.
-- **Prompt Augmentation**: Include full PGN history (Regurgitation) in the input to improve state tracking.
-
-### Training Configuration
-- **Base Model**: `Qwen/Qwen-2.5-Math-1.5B-Instruct`
-- **LoRA Rank**: 32
+#### Training Config
+- **Method**: LoRA (rank 32)
 - **Epochs**: 3
-- **Batch Size**: 8 (Accumulation 4)
+- **Loss**: Standard cross-entropy
 
-### Verification Protocol: SFT
-| Step | Action | Verification | Success Criteria |
-|:-----|:-------|:-------------|:-----------------|
-| 3.1 | Prepare Dataset | Inspection | `<think>` tags present. Moves legal. |
-| 3.2 | Train 1 epoch | Loss curve | Loss decreases. |
-| 3.3 | Inference Test | Parse output | **Format adherence ≥ 99%**. |
+$$\mathcal{L}_{SFT} = -\sum_{t} \log p_\theta(y_t | y_{<t}, x)$$
+
+### 🚀 Bonus: Negative Data
+
+*Add after v1 works* — teach model to recognize bad moves:
+
+```xml
+<think>
+    Considering f3... <error>Weakens king diagonal, allows Qh4#!</error>
+    Backtracking to e4.
+</think>
+e4
+```
+
+This is **contrastive learning** — teaching what NOT to do. See [Bonus Reference](#2-negative-data-contrastive-learning).
 
 ---
 
 ## VII. Phase 2: Reinforcement Learning (GRPO)
 
 ### Goal
-Teach the model to play **strategically good** chess through self-improvement.
+Make the model actually *win games*, not just imitate the teacher.
 
-### Algorithm: GRPO (Group Relative Policy Optimization)
-- **Group Size**: $G=8$.
-- **Rollout**: Per-Move (initially) for dense rewards.
+### Algorithm: GRPO
 
-### Staged Curriculum (The Opponent)
+[Group Relative Policy Optimization](https://arxiv.org/abs/2402.03300) — uses groups instead of a critic:
 
-| Stage | Opponent | Focus | Success Criteria |
-|:------|:---------|:------|:-----------------|
-| **0** | None (Single Move) | Legality & Format. | Legal Rate ≥ 95%. |
-| **1** | Random Mover | Basic Tactics (Mate in 1/2). | Win Rate > 90%. |
-| **2** | Stockfish Skill 1 | Real Chess. | Win Rate > 60%. |
-| **3** | Stockfish Skill 3 | Competitive Play. | Elo ≥ 1000. |
+$$\mathcal{L}_{GRPO} = -\mathbb{E} \left[ \frac{1}{G} \sum_{i=1}^{G} \hat{A}_i \cdot \log \pi_\theta(y_i | x) \right]$$
+
+Where advantage is normalized within group:
+$$\hat{A}_i = \frac{R_i - \mu_G}{\sigma_G}$$
+
+**Hyperparameters**:
+- Group size $G = 8$
+- KL penalty $\beta = 0.1$
+
+### Curriculum ✅
+
+| Stage | Opponent | When to Move On |
+|:------|:---------|:----------------|
+| 1 | Random mover | Win rate > 90% |
+| 2 | Stockfish Skill 1 | Win rate > 60% |
+| 3 | Stockfish Skill 3 | Win rate > 50% |
+
+### 🚀 Bonus Curriculum
+
+*Add after basic curriculum works*:
+
+| Stage | Focus | Details |
+|:------|:------|:--------|
+| Puzzles | Tactics | Train on [Lichess puzzles](https://database.lichess.org/#puzzles) |
+| Self-play | General | Model plays against older versions |
 
 ---
 
 ## VIII. Reward Engineering
 
-### The Formula
-$$R_{total} = 0.1 \cdot R_{format} + 1.0 \cdot R_{legality} + 1.0 \cdot R_{chess}$$
+### Standard Plan Reward ✅
 
-1.  **$R_{format}$**: +0.1 if `<think>` tags exist.
-2.  **$R_{legality}$**: -1.0 if illegal (episode ends).
-3.  **$R_{chess}$**: $\tanh(\Delta \text{Centipawns} / 100)$.
+$$R_{total} = R_{format} + R_{legal} + R_{chess}$$
 
----
+| Component | Value | When |
+|:----------|:------|:-----|
+| $R_{format}$ | +0.1 | `<think>` tags present |
+| $R_{legal}$ | -1.0 | Illegal move (ends episode) |
+| $R_{chess}$ | $\tanh(\Delta\text{cp}/100)$ | Per-move quality |
 
-## IX. Evaluation Framework
+The centipawn delta: $\Delta\text{cp} = \text{eval}(s') - \text{eval}(s)$
 
-### Metrics
-1.  **Illegal Move Rate**: Target 0%.
-2.  **Stockfish Agreement**: Target 50% (Top-3).
-3.  **Estimated Elo**: Target 1200 (vs Stockfish Level 5).
+### 🚀 Bonus Rewards (Add Later)
 
-### Tournament Protocol
--   **Frequency**: Every 500 steps.
--   **Match**: 100 games vs previous best checkpoint.
--   **Pass**: >55% win rate.
+| Component | Value | Purpose |
+|:----------|:------|:--------|
+| $R_{structure}$ | +0.2 | All Socratic tags present |
+| $R_{threat}$ | +0.2 | `<threat_scan>` identifies real threats |
+| $R_{candidate}$ | +0.2 | Final move was in `<candidates>` |
+| $R_{budget}$ | -0.1 | Penalize < 50 or > 1024 tokens |
 
----
-
-## X. Contingency Plans
-
-| Problem | Solution |
-|:--------|:---------|
-| **SFT Format < 95%** | Filter dataset more aggressively. Add few-shot examples in prompt. |
-| **Illegal Moves Persist** | Implement **Constrained Decoding** (mask illegal logits). |
-| **Reward Hacking** | If model finds "passive" way to avoid penalty, add "Win Bonus" (+1.0). |
-| **OOM Errors** | Reduce Group Size to 4. Use 8-bit quantization. |
+See [Bonus Reference](#3-advanced-rewards) for formulas.
 
 ---
 
-## XI. Cost & Time Estimates
+## IX. Execution Roadmap
 
-| Phase | Time | Cost (RunPod) |
-|:------|:-----|:--------------|
-| **Setup & Baseline** | 2 hr | $0.90 |
-| **Tokenizer Fix** | 2 hr | $0.90 |
-| **SFT Training** | 3 hr | $1.35 |
-| **GRPO (Stages 0-3)** | 25 hr | $11.25 |
-| **Eval & Buffer** | 10 hr | $4.50 |
-| **TOTAL** | **~42 hr** | **~$19.00** |
+### Standard Plan ✅ (Do This First)
 
-*Note: Data costs are negligible if using Open Source datasets.*
+#### Phase 0: Setup & Baseline
+- [ ] **0.1** Set up RunPod with RTX 4090
+- [ ] **0.2** Run `setup_env.sh`, verify CUDA/Stockfish
+- [ ] **0.3** Benchmark 3 models on 1k positions
+- [ ] **0.4** Select best model
 
----
+#### Phase 1: SFT
+- [ ] **1.1** Download [chess dataset](https://huggingface.co/datasets/multimodal-reasoning-lab/chess)
+- [ ] **1.2** Convert to `<think>` format
+- [ ] **1.3** Train for 3 epochs
+- [ ] **1.4** Verify format adherence > 95%
 
-## XII. Execution Roadmap
+#### Phase 2: GRPO
+- [ ] **2.1** Implement ChessGym environment
+- [ ] **2.2** Implement reward function
+- [ ] **2.3** Train Stage 1 (vs random)
+- [ ] **2.4** Train Stage 2 (vs Stockfish 1)
+- [ ] **2.5** Train Stage 3 (vs Stockfish 3)
 
-### Phase 0: Baseline & Infrastructure
-- [ ] **0.1** Set up RunPod pod with RTX 4090.
-- [ ] **0.2** Run `setup_env.sh`. Verify all components.
-- [ ] **0.3** Run Tokenizer Audit (Pre-Fix) on all 3 candidate models.
-- [ ] **0.4** Download Lichess PGNs. Create stratified sample (1k positions).
-- [ ] **0.5** **Model Tournament**: Run benchmark on Qwen-Math/Llama/Qwen-Coder (all 4 prompt strategies).
-- [ ] **0.6** **Qualitative Review**: Grade 20 CoT samples per model.
-- [ ] **0.7** **Regurgitation Check**: Verify 10 PGN repetitions per model.
-- [ ] **0.8** Write Phase 0 Report. Select best model + prompt.
-
-### Phase 1: Tokenization & Warm-up
-- [ ] **1.1** Add special tokens & resize embeddings.
-- [ ] **1.2** Train Embedding Warm-up (10k samples).
-
-### Phase 2: SFT (Distillation)
-- [ ] **2.1** Download `multimodal-reasoning-lab/chess`.
-- [ ] **2.2** Format data to `<think>` XML with PGN history.
-- [ ] **2.3** Train SFT (3 epochs). Verify format.
-
-### Phase 3: GRPO (RL)
-- [ ] **3.1** Implement Rewards & Gym.
-- [ ] **3.2** Run Stage 0 (Legality).
-- [ ] **3.3** Run Stage 1 (vs Random).
-- [ ] **3.4** Run Stage 2 (vs Stockfish 1).
-
-### Phase 4: Final Eval
-- [ ] **4.1** Run Elo Estimation vs Stockfish 5.
-- [ ] **4.2** Compare vs Gemini 3 Pro Preview benchmark (~1050).
+#### Phase 3: Evaluation
+- [ ] **3.1** Play 500 games vs Stockfish Level 3
+- [ ] **3.2** Calculate Elo
+- [ ] **3.3** 🎉 **Celebrate v1!**
 
 ---
 
-## Appendix: References
-1. **Dynomight**: [Something weird is happening with LLMs and chess](https://dynomight.substack.com/p/chess)
-2. **Dynomight**: [OK, I can partly explain the LLM chess weirdness now](https://dynomight.substack.com/p/more-chess)
-3. **Dubesor.de**: [AI Chess Leaderboard](https://dubesor.de/chess/chess-leaderboard)
-4. **GRPO Paper**: DeepSeekMath (arXiv:2402.03300)
+### 🚀 Bonus Upgrades (After v1 Works)
+
+#### Upgrade 1: Socratic Structure
+- [ ] **B1.1** Create Socratic data synthesizer
+- [ ] **B1.2** Generate 15k structured samples
+- [ ] **B1.3** Re-train SFT with new format
+- [ ] **B1.4** Verify structure adherence > 98%
+
+#### Upgrade 2: Negative Data
+- [ ] **B2.1** Generate 5k error-correction samples
+- [ ] **B2.2** Mix into training data
+- [ ] **B2.3** Test for self-correction behavior
+
+#### Upgrade 3: Advanced Rewards
+- [ ] **B3.1** Add $R_{structure}$ component
+- [ ] **B3.2** Add $R_{budget}$ (length constraints)
+- [ ] **B3.3** Re-run GRPO with new rewards
+
+#### Upgrade 4: Puzzle Training
+- [ ] **B4.1** Download [Lichess puzzles](https://database.lichess.org/#puzzles)
+- [ ] **B4.2** Create tactical curriculum
+- [ ] **B4.3** Train on mate-in-1, mate-in-2
+
+#### Upgrade 5: TIC-GRPO
+- [ ] **B5.1** Study [DAPO paper](https://arxiv.org/abs/2503.14476) for bias correction
+- [ ] **B5.2** Implement trajectory importance weights
+- [ ] **B5.3** Compare to standard GRPO
 
 ---
 
-*ChessFM Roadmap v3.5 (Detailed)*
+## X. Bonus Upgrades Reference
+
+Detailed explanations of all advanced concepts.
+
+---
+
+### 1. Socratic Structure (The Structure Hypothesis)
+
+**What**: Replace free-form `<think>` with structured XML tags.
+
+**Why**: The [Structure Hypothesis](https://arxiv.org/abs/2412.xxxxx) states that **valid logic shape is a prerequisite for valid answers**. Small models following correct reasoning templates outperform larger models with unstructured outputs.
+
+**The Tags**:
+| Tag | Purpose | Verification |
+|:----|:--------|:-------------|
+| `<threat_scan>` | Situational awareness | Compare to Stockfish threats |
+| `<candidates>` | Hypothesis generation | Final move should be listed |
+| `<verification>` | Error detection | Look for `<error>` tags |
+| `<eval>` | Value prediction | Compare to Stockfish eval |
+
+**When to Add**: After v1 achieves > 90% format adherence with simple `<think>`.
+
+---
+
+### 2. Negative Data (Contrastive Learning)
+
+**What**: Train on examples where the model considers a bad move, then rejects it.
+
+**Why**: Based on [Contrastive Learning](https://arxiv.org/abs/2010.05113) — teaching "what NOT to do" builds clearer decision boundaries.
+
+**Example**:
+```xml
+<think>
+    <candidates>f3, e4</candidates>
+    <verification>
+        f3: <error>Weakens king's diagonal, allows Qh4#!</error>
+        e4: Safe. ✓
+    </verification>
+</think>
+e4
+```
+
+**The "Aha!" Metric**: Measures how often the model:
+1. Proposes a candidate
+2. Rejects it in verification
+3. Picks something better
+
+$$\text{Aha! Rate} = \frac{\text{corrections that improved position}}{\text{total outputs}}$$
+
+**When to Add**: After v1 works, generate 5k error samples (~$3 API cost).
+
+---
+
+### 3. Advanced Rewards
+
+**What**: Add structure and length-based reward components.
+
+#### Structure Reward ($R_{shape}$)
+
+$$R_{shape} = 0.1 \cdot \mathbb{1}[\text{all tags}] + 0.2 \cdot \mathbb{1}[\text{threat correct}] + 0.2 \cdot \mathbb{1}[a \in C]$$
+
+Where $C$ is the candidate set and $a$ is the final move.
+
+#### Budget Forcing ($R_{budget}$)
+
+Prevents degenerate behaviors (guessing or rambling):
+
+$$R_{budget} = \begin{cases} -0.1 & |\text{think}| < 50 \\ -0.1 & |\text{think}| > 1024 \\ 0 & \text{otherwise} \end{cases}$$
+
+Reference: [s1: Simple test-time scaling](https://arxiv.org/abs/2501.19393)
+
+**When to Add**: After standard rewards produce stable training.
+
+---
+
+### 4. TIC-GRPO (Trajectory Importance Correction)
+
+**What**: Bias correction for GRPO that accounts for off-policy data.
+
+**Why**: Standard GRPO can be biased when groups don't represent the true policy distribution.
+
+**Upgrade Path**:
+1. Run standard GRPO first
+2. Monitor for training instability or reward hacking
+3. If issues arise, implement importance weights per [DAPO paper](https://arxiv.org/abs/2503.14476)
+
+**When to Add**: Only if you observe bias issues (reward hacking, unstable loss).
+
+---
+
+### 5. Value Function Distillation
+
+**What**: Train model to predict position evaluation inside `<eval>` tag.
+
+**Why**: Per [AlphaZero](https://arxiv.org/abs/1712.01815), a value estimate helps guide search. We embed this IN the thought process.
+
+**How**:
+1. Include Stockfish eval in training data: `<eval>+0.35</eval>`
+2. Optionally add reward: $R_{eval} = +0.1$ if $|\text{pred} - \text{SF}| < 100\text{cp}$
+
+**When to Add**: After Socratic structure is working well.
+
+---
+
+## XI. References
+
+### Core Papers
+| Paper | Link | Relevance |
+|:------|:-----|:----------|
+| **GRPO** | [arXiv:2402.03300](https://arxiv.org/abs/2402.03300) | Our RL algorithm |
+| **Qwen2.5-Math** | [arXiv:2409.12122](https://arxiv.org/abs/2409.12122) | Base model choice |
+| **DeepSeek-R1** | [arXiv:2501.12948](https://arxiv.org/abs/2501.12948) | Self-correction patterns |
+| **AlphaZero** | [arXiv:1712.01815](https://arxiv.org/abs/1712.01815) | Value function inspiration |
+
+### Technical Resources
+| Resource | Link | Use |
+|:---------|:-----|:----|
+| **Dynomight Chess** | [Part 1](https://dynomight.substack.com/p/chess), [Part 2](https://dynomight.substack.com/p/more-chess) | Regurgitation technique |
+| **AI Chess Leaderboard** | [dubesor.de](https://dubesor.de/chess/chess-leaderboard) | LLM Elo comparisons |
+| **Lichess Database** | [database.lichess.org](https://database.lichess.org/) | Training/eval data |
+
+### Foundational Concepts
+| Topic | Link |
+|:------|:-----|
+| Knowledge Distillation | [arXiv:1503.02531](https://arxiv.org/abs/1503.02531) |
+| Contrastive Learning | [arXiv:2010.05113](https://arxiv.org/abs/2010.05113) |
+| Elo Rating System | [Wikipedia](https://en.wikipedia.org/wiki/Elo_rating_system) |
+
+---
+
+## Cost Estimates
+
+### Standard Plan ✅
+| Phase | Time | Cost |
+|:------|:-----|:-----|
+| Setup & Baseline | 4 hr | $1.80 |
+| SFT | 4 hr | $1.80 |
+| GRPO | 20 hr | $9.00 |
+| **Total** | **~28 hr** | **~$13** |
+
+### With All Bonuses 🚀
+| Addition | Time | Cost |
+|:---------|:-----|:-----|
+| Socratic Data Synthesis | 4 hr | +$15 (API) |
+| Negative Data | 2 hr | +$3 (API) |
+| Advanced GRPO | 10 hr | +$4.50 |
+| **Total** | **~44 hr** | **~$35** |
+
+---
+
+*ChessFM Roadmap v4.0 — Start simple, add complexity progressively!*
