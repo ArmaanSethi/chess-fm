@@ -107,23 +107,58 @@ We will test 3 candidate models (all < 3B parameters) to see which has the best 
 |:----------|:-----|
 | **Qwen-2.5-Math-1.5B** | Strong reasoning/math pre-training. Likely best at logic. |
 | **Llama-3.2-1B** | Very fast, popular, good general instruction following. |
-| **DeepSeek-Coder-1.3B** | Code models often handle structured notation (like PGN) well. |
+| **Qwen-2.5-Coder-1.5B** | State-of-the-art small coder. Code models handle structured notation (PGN) well. |
 
 ### 0.2 The Benchmark (N=1,000)
-We will run **1,000 random FENs** (from Lichess database) through each model.
-**Metrics**:
-1.  **Legal Move Rate**: % of generated moves that are legal.
-2.  **Format Adherence**: % of outputs that strictly follow the requested format.
-3.  **Inference Speed**: Tokens/sec (crucial for RL rollout throughput).
+**Data Source**: Lichess Elite Database (PGNs, not just FENs).
+**Sampling Strategy (Stratified)**:
+-   **33% Openings** (Moves 1-10): Tests memorization/opening theory.
+-   **33% Middlegame** (Moves 11-30): Tests tactical awareness.
+-   **33% Endgame** (Moves 30+): Tests calculation and checkmate logic.
+
+**Quantitative Metrics**:
+| Metric | Description | Why It Matters |
+|:-------|:------------|:---------------|
+| **Legal Move Rate** | % of generated moves that are legal. | Core competence. |
+| **Format Adherence** | % of outputs matching `<think>...</think> [move]` format. | Required for reward parsing. |
+| **Stockfish Top-1 Agreement** | % of moves matching Stockfish's best move. | Are moves *good*, not just legal? |
+| **Stockfish Top-3 Agreement** | % of moves matching one of Stockfish's top 3. | More lenient quality check. |
+| **Tokenizer Efficiency** | Average tokens per move. | Lower = more context for history. |
+| **Inference Speed** | Tokens/sec (batch=1). | Crucial for RL rollout throughput. |
 
 ### 0.3 Prompt Engineering Experiments
 Before training, we will try to maximize performance via prompting:
-1.  **Zero-Shot**: `FEN -> Move`
-2.  **Few-Shot**: `FEN -> Move` (with 3 examples)
-3.  **Chain-of-Thought**: `FEN -> <think>...</think> -> Move`
-4.  **Regurgitation**: `FEN -> PGN History -> Move` (Dynomight Strategy)
 
-**Deliverable**: A report selecting the single best Base Model + Prompt Strategy to proceed with.
+| Prompt Strategy | Format | Expected Boost |
+|:----------------|:-------|:---------------|
+| **Zero-Shot** | `FEN -> Move` | Baseline (poor). |
+| **Few-Shot (3 examples)** | `FEN -> Move` (with 3 examples) | Moderate. |
+| **Chain-of-Thought** | `FEN -> <think>...</think> -> Move` | Should improve quality. |
+| **Regurgitation** | `PGN History -> Move` | Best (per Dynomight). |
+
+### 0.4 Qualitative Analysis (Manual Review)
+**Purpose**: Ensure we don't just measure *what* the model outputs, but *how good* the reasoning is.
+
+**Protocol**:
+1.  Randomly sample **20 outputs** from the CoT prompt condition.
+2.  Grade each `<think>` block on a 1-5 scale:
+    -   **1**: Gibberish / Unrelated to chess.
+    -   **2**: Mentions chess, but reasoning is wrong.
+    -   **3**: Partially correct reasoning.
+    -   **4**: Mostly correct reasoning, minor errors.
+    -   **5**: Expert-level reasoning.
+3.  Record the **mean score** per model.
+
+**Regurgitation Sanity Check**:
+1.  For 10 samples in the "Regurgitation" condition, manually verify:
+    -   Did the model correctly repeat the PGN history?
+    -   If not, how many moves were hallucinated or missed?
+2.  If hallucination rate > 30%, flag "Regurgitation" as unreliable for that model.
+
+### 0.5 Deliverables
+1.  **Quantitative Report**: Excel/CSV with all metrics for all 3 models × 4 prompt strategies.
+2.  **Qualitative Report**: Manual grading of 20 CoT samples per model.
+3.  **Recommendation**: The single best Base Model + Prompt Strategy to proceed with.
 
 ---
 
@@ -243,9 +278,12 @@ $$R_{total} = 0.1 \cdot R_{format} + 1.0 \cdot R_{legality} + 1.0 \cdot R_{chess
 ### Phase 0: Baseline & Infrastructure
 - [ ] **0.1** Set up RunPod pod with RTX 4090.
 - [ ] **0.2** Run `setup_env.sh`. Verify all components.
-- [ ] **0.3** Run Tokenizer Audit (Pre-Fix).
-- [ ] **0.4** **Model Tournament**: Run benchmark on Qwen/Llama/DeepSeek (1k samples).
-- [ ] **0.5** **Prompt Search**: Test Zero-shot vs Regurgitation vs CoT.
+- [ ] **0.3** Run Tokenizer Audit (Pre-Fix) on all 3 candidate models.
+- [ ] **0.4** Download Lichess PGNs. Create stratified sample (1k positions).
+- [ ] **0.5** **Model Tournament**: Run benchmark on Qwen-Math/Llama/Qwen-Coder (all 4 prompt strategies).
+- [ ] **0.6** **Qualitative Review**: Grade 20 CoT samples per model.
+- [ ] **0.7** **Regurgitation Check**: Verify 10 PGN repetitions per model.
+- [ ] **0.8** Write Phase 0 Report. Select best model + prompt.
 
 ### Phase 1: Tokenization & Warm-up
 - [ ] **1.1** Add special tokens & resize embeddings.
