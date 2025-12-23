@@ -308,14 +308,16 @@ $$R_{total} = R_{legality} + R_{outcome} + R_{quality}$$
 #### Phase 0: Setup & Baseline
 - [ ] **0.1** Set up RunPod with RTX 4090
 - [ ] **0.2** Run `setup_env.sh`, verify CUDA/Stockfish
-- [ ] **0.3** Benchmark 3 models on 1k positions
+- [/] **0.3** Benchmark 3 models on 1k positions *(in progress)*
 - [ ] **0.4** Select best model
 
-#### Phase 1: SFT
-- [ ] **1.1** Download [chess dataset](https://huggingface.co/datasets/multimodal-reasoning-lab/chess)
-- [ ] **1.2** Convert to `<think>` format
-- [ ] **1.3** Train for 3 epochs
-- [ ] **1.4** Verify format adherence > 95%
+#### Phase 1: SFT Data Preparation
+- [x] **1.1** Create data generation scripts (`data_generation/`)
+- [x] **1.2** Create position database (500 positions ready)
+- [x] **1.3** Create format converter for `<think>` format
+- [ ] **1.4** Generate 15k samples
+- [ ] **1.5** Train for 3 epochs
+- [ ] **1.6** Verify format adherence > 95%
 
 #### Phase 2: GRPO
 - [ ] **2.1** Implement ChessGym environment
