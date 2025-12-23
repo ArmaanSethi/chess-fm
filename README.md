@@ -46,11 +46,13 @@ The model explains *why* it's making a move — like a chess tutor, not a calcul
 
 ## 🔬 Approach
 
-### Phase 1: Distillation (SFT)
-Train the model to imitate GPT-4o + Stockfish reasoning traces.
+### Phase 1: Direct GRPO (Reinforcement Learning)
+Train directly on chess games using verifiable rewards (legal/illegal, win/lose).
+No synthetic data needed — Stockfish provides the reward signal.
 
-### Phase 2: Reinforcement Learning (GRPO)
-Reward moves that actually win games, not just look good.
+### Phase 2: SFT Enhancement (Optional)
+Add reasoning traces using the [data generation scripts](data_generation/).
+Use free AI credits from Antigravity, Kiro, or Qwen to generate `<think>` reasoning.
 
 ### Phase 3: Curriculum Learning
 Progressive difficulty: Random → Stockfish L1 → Stockfish L3
@@ -77,11 +79,13 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 │   FEN Position                                              │
 │        ↓                                                    │
 │   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
-│   │   SFT on    │ →   │   GRPO vs   │ →   │   Elo       │  │
-│   │   GPT-4o    │     │  Stockfish  │     │   Eval      │  │
-│   │   traces    │     │  curriculum │     │   (500      │  │
-│   │             │     │             │     │   games)    │  │
+│   │  Direct     │ →   │   GRPO vs   │ →   │   Elo       │  │
+│   │  GRPO on    │     │  Stockfish  │     │   Eval      │  │
+│   │  legal/win  │     │  curriculum │     │   (500      │  │
+│   │  rewards    │     │             │     │   games)    │  │
 │   └─────────────┘     └─────────────┘     └─────────────┘  │
+│         ↑                                                   │
+│   (Optional: SFT with data_generation/ for <think> traces) │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -121,6 +125,19 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 ## 📋 Roadmap
 
 See the full [ChessFM Roadmap](chess_fm_roadmap.md) for detailed implementation steps.
+
+---
+
+## 🗂️ Project Structure
+
+```
+chess-fm/
+├── README.md                 # This file
+├── chess_fm_roadmap.md       # Detailed implementation plan
+└── data_generation/          # SFT data generation scripts
+    ├── generate_sft_data_proxy.py  # Use Antigravity/Kiro/Qwen
+    └── README.md                   # Setup instructions
+```
 
 ---
 
