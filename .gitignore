@@ -61,3 +61,4 @@ bin/
 
 # Proxy-based data generation (uses free API credits - keep local)
 data_generation/generate_sft_data_proxy.py
+data_generation/data/*.txt
