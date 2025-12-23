@@ -2,64 +2,50 @@
 
 Generate high-quality reasoning traces for chess using FREE AI credits.
 
+> **Note**: SFT is optional! The main training uses Direct GRPO. But SFT data can improve reasoning quality and can be generated in parallel while GRPO runs.
+
+---
+
 ## 🏆 Recommended Models
 
-| Provider | Model | Quality | How to Get |
-|----------|-------|---------|------------|
-| **Antigravity** | `gemini-3-pro` | ⭐⭐⭐⭐⭐ | You already have it! (this IDE) |
-| **Antigravity** | `claude-sonnet-4.5` | ⭐⭐⭐⭐⭐ | Same as above |
+| Provider | Model | Quality | Setup |
+|----------|-------|---------|-------|
+| **Antigravity** | `gemini-3-pro` | ⭐⭐⭐⭐⭐ | Already have it! (this IDE) |
 | **Kiro** | `claude-sonnet-4.5` | ⭐⭐⭐⭐⭐ | [kiro.dev](https://kiro.dev) - 500 free credits |
-| **Kiro** | `claude-opus-4.5` | ⭐⭐⭐⭐⭐ | Best model if you have credits |
 | **Qwen Code** | `qwen3-coder-plus` | ⭐⭐⭐⭐ | Alibaba Cloud account |
 
 ---
 
 ## 🚀 Quick Start
 
-### Step 1: Set Up the Proxy
+### Step 1: Set Up Proxy
 
 ```bash
-# Clone and run AIClient-2-API
 git clone https://github.com/justlovemaki/AIClient-2-API
 cd AIClient-2-API
 chmod +x install-and-run.sh && ./install-and-run.sh
 ```
 
-### Step 2: Configure Your Providers
+Then open http://localhost:3000 and configure your providers.
 
-Open http://localhost:3000 and configure:
+### Step 2: Install Dependencies
 
-- **Antigravity**: Should already be authorized if you're using this IDE
-- **Kiro**: Download from [kiro.dev](https://kiro.dev), login once
-- **Qwen**: Login via Alibaba Cloud
+```bash
+pip install openai python-chess
+brew install stockfish  # macOS (or apt install stockfish on Linux)
+```
 
 ### Step 3: Generate Data
 
 ```bash
 cd data_generation
-pip install openai python-chess
-python generate_sft_data_proxy.py --model gemini-3-pro
+python generate_sft_data_proxy.py --model gemini-3-pro --samples 1000
 ```
 
----
-
-## 📋 Usage Examples
+### Step 4: Convert to Training Format
 
 ```bash
-# Use Gemini 3 Pro via Antigravity (RECOMMENDED)
-python generate_sft_data_proxy.py --model gemini-3-pro
-
-# Use Claude Sonnet via Kiro
-python generate_sft_data_proxy.py --model claude-sonnet-4.5
-
-# Use Qwen Code Plus
-python generate_sft_data_proxy.py --model qwen3-coder-plus
-
-# Generate 500 samples
-python generate_sft_data_proxy.py --model gemini-3-pro --samples 500
-
-# Custom rate limit (requests per minute)
-python generate_sft_data_proxy.py --model claude-sonnet-4.5 --rpm 20
+python convert_to_training.py
 ```
 
 ---
@@ -68,53 +54,72 @@ python generate_sft_data_proxy.py --model claude-sonnet-4.5 --rpm 20
 
 ```
 data_generation/
-├── generate_sft_data_proxy.py   # Main script (uses proxy)
-├── generate_sft_data.py         # Direct API version (backup)
-├── positions.txt                # Your FEN positions (one per line)
+├── generate_sft_data_proxy.py  # Generate raw data
+├── convert_to_training.py      # Convert to HuggingFace format
+├── positions.txt               # Your FEN positions (create this)
 ├── data/
-│   └── sft_data.jsonl           # Generated training data
-└── README.md                    # This file
+│   ├── sft_data.jsonl          # Raw generated data
+│   └── sft_train.jsonl         # Training-ready data
+└── README.md                   # This file
 ```
 
 ---
 
-## 📁 Adding Positions
+## 📊 Output Formats
 
-Create `positions.txt` with FEN positions (one per line):
-
-```
-rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1
-r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3
-# Comments start with #
-```
-
-**Where to get positions:**
-- [Lichess Elite Database](https://database.lichess.org/) (high-rated games)
-- [Lichess Puzzles](https://database.lichess.org/#puzzles) (tactical positions)
-
----
-
-## 📊 Output Format
-
-Data is saved to `data/sft_data.jsonl`. Each line:
+### Raw Format (`sft_data.jsonl`)
 
 ```json
 {
   "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
   "color": "Black",
-  "reasoning": "<think>\nWhite has played e4, claiming central space...\n</think>",
+  "reasoning": "<think>\nWhite played e4...\n</think>",
   "move": "e7e5",
   "model": "gemini-3-pro",
   "is_reasonable": true,
   "centipawn_loss": 15,
-  "stockfish_best": "e7e5",
-  "generated_at": "2024-12-22T21:00:00"
+  "stockfish_best": "e7e5"
 }
+```
+
+### Training Format (`sft_train.jsonl`)
+
+```json
+{
+  "instruction": "Position (FEN): ... Side to move: Black\n\nAnalyze this position and choose the best move.",
+  "output": "<think>\nWhite played e4...\n</think>\ne7e5"
+}
+```
+
+This matches the roadmap format:
+```xml
+<think>
+reasoning here
+</think>
+e2e4
 ```
 
 ---
 
-## 🧮 Estimated Throughput
+## 📋 Usage Examples
+
+```bash
+# Generate 500 samples with Gemini 3 Pro
+python generate_sft_data_proxy.py --model gemini-3-pro --samples 500
+
+# Generate with Claude
+python generate_sft_data_proxy.py --model claude-sonnet-4.5
+
+# Lower rate limit for stability
+python generate_sft_data_proxy.py --model qwen3-coder-plus --rpm 20
+
+# Convert to training format (only high-quality moves)
+python convert_to_training.py --only-reasonable
+```
+
+---
+
+## 🧮 Throughput Estimates
 
 | Model | Approx. RPM | Samples/Hour | Samples/Day |
 |-------|-------------|--------------|-------------|
@@ -122,26 +127,37 @@ Data is saved to `data/sft_data.jsonl`. Each line:
 | claude-sonnet-4.5 | ~20 | ~1,200 | ~25,000 |
 | qwen3-coder-plus | ~20 | ~1,200 | ~25,000 |
 
-**With multiple providers**: Pool them in AIClient-2-API for even higher throughput!
+**Target**: 15,000 samples is enough for initial SFT.
+
+---
+
+## ⚠️ Parallel with GRPO
+
+While this generates SFT data, you can simultaneously:
+1. Run GRPO training on the base model (no data needed)
+2. Once SFT data is ready, optionally fine-tune for better reasoning
+
+The output format is designed to work with:
+- `unsloth` SFT training
+- HuggingFace `SFTTrainer`
+- Any instruction-following fine-tuning setup
 
 ---
 
 ## 🛠️ Troubleshooting
 
-### "Connection refused at localhost:3000"
-→ Make sure AIClient-2-API proxy is running
+### "Connection refused"
+→ Start the AIClient-2-API proxy first
 
 ### "Stockfish not found"
 ```bash
 # macOS
 brew install stockfish
-
-# Linux  
-sudo apt install stockfish
+# Update STOCKFISH_PATH in generate_sft_data_proxy.py if needed
 ```
 
-### "Rate limited"
-→ Reduce `--rpm` parameter or wait a bit
+### High "illegal move" rate
+→ Normal! Some models make mistakes. The script filters them out.
 
-### "Illegal move" errors
-→ This is expected for some responses; the script skips them automatically
+### Rate limited
+→ Reduce `--rpm` parameter, or wait and retry
