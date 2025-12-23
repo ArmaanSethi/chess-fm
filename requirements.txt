@@ -1,0 +1,7 @@
+python-chess
+stockfish
+numpy
+transformers
+accelerate
+torch
+datasets
