@@ -39,6 +39,7 @@ venv.bak/
 *.h5
 *.onnx
 data/
+!data_generation/data/
 datasets/
 models/
 checkpoints/
@@ -55,3 +56,8 @@ runs/
 
 # Logs
 *.log
+bin/
+.tools/
+
+# Proxy-based data generation (uses free API credits - keep local)
+data_generation/generate_sft_data_proxy.py
