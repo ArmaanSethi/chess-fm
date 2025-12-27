@@ -48,7 +48,45 @@ stockfish --version  # Should show version
 # If not: brew install stockfish (Mac) or apt install stockfish (Linux)
 ```
 
-### 2. Run Verification Tests
+### 2. Download Base Models
+
+Our primary model is **Qwen-2.5-Math-1.5B-Instruct**. Models are downloaded automatically on first run, but you can pre-download:
+
+```bash
+# Option A: Using Hugging Face CLI (recommended)
+pip install huggingface_hub
+huggingface-cli download Qwen/Qwen2.5-Math-1.5B-Instruct
+
+# Option B: Using Python
+python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-Math-1.5B-Instruct')"
+
+# Option C: Using unsloth (faster, 4-bit quantized)
+python -c "from unsloth import FastLanguageModel; FastLanguageModel.from_pretrained('Qwen/Qwen2.5-Math-1.5B-Instruct', load_in_4bit=True)"
+```
+
+#### Alternative Models to Try
+
+| Model | Size | HuggingFace ID | Notes |
+|:------|:-----|:---------------|:------|
+| **Qwen-2.5-Math-1.5B** | 1.5B | `Qwen/Qwen2.5-Math-1.5B-Instruct` | Our primary choice, math-focused |
+| DeepSeek-Coder-1.3B | 1.3B | `deepseek-ai/deepseek-coder-1.3b-base` | Code-focused, may help with notation |
+| Gemma-2-2B | 2B | `google/gemma-2-2b-it` | Google's efficient model |
+| Phi-3-mini | 3.8B | `microsoft/Phi-3-mini-4k-instruct` | Strong reasoning for size |
+| Llama-3.2-1B | 1B | `meta-llama/Llama-3.2-1B-Instruct` | Smallest Llama, fast iteration |
+
+```bash
+# Download any model:
+huggingface-cli download <model-id>
+
+# Example: Download Gemma
+huggingface-cli download google/gemma-2-2b-it
+```
+
+> [!NOTE]
+> Models are cached in `~/.cache/huggingface/`. First download takes 2-10 minutes depending on size.
+> For gated models (Llama, Gemma), you need to accept terms on HuggingFace and run `huggingface-cli login`.
+
+### 3. Run Verification Tests
 
 ```bash
 # Run all unit tests first
@@ -61,7 +99,7 @@ python -c "from rewards import reward_legality; print('✅ Rewards OK')"
 python -c "from chess_env import ChessEnv; print('✅ Env OK')"
 ```
 
-### 3. Run Stage 0 (Legality Training)
+### 4. Run Stage 0 (Legality Training)
 
 ```bash
 # Quick test (100 steps, ~5 min)
@@ -71,7 +109,7 @@ python train_grpo.py --stage 0 --steps 100 --checkpoint-every 50
 python train_grpo.py --stage 0 --steps 2000 --checkpoint-every 500
 ```
 
-### 4. Evaluate Progress
+### 5. Evaluate Progress
 
 ```bash
 # Check legal move rate
