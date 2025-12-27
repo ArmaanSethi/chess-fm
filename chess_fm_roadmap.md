@@ -1,7 +1,7 @@
 # ChessFM: 1.5B Chess Reasoning Roadmap
 
-**Version**: 4.0 (Direct RL Approach)
-**Last Updated**: 2024-12-20
+**Version**: 4.1 (RL Infrastructure Added)
+**Last Updated**: 2025-12-27
 
 > [!NOTE]
 > **Project Status**: Educational Learning Project
@@ -319,12 +319,19 @@ $$R_{total} = R_{legality} + R_{outcome} + R_{quality}$$
 - [ ] **1.5** Train for 3 epochs
 - [ ] **1.6** Verify format adherence > 95%
 
-#### Phase 2: GRPO
-- [ ] **2.1** Implement ChessGym environment
-- [ ] **2.2** Implement reward function
-- [ ] **2.3** Train Stage 1 (vs random)
-- [ ] **2.4** Train Stage 2 (vs Stockfish 1)
-- [ ] **2.5** Train Stage 3 (vs Stockfish 3)
+#### Phase 2: Reinforcement Learning (rl/)
+- [x] **2.1** Implement ChessEnv environment (`rl/chess_env.py`)
+- [x] **2.2** Implement staged reward functions (`rl/rewards.py`)
+- [x] **2.3** Implement GRPO training script (`rl/train_grpo.py`)
+- [x] **2.4** Create unit tests (`rl/tests/`)
+- [ ] **2.5** Run Stage 0: Legality training (2k steps)
+- [ ] **2.6** Evaluate: If <5% legal after 2k steps → pivot to minimal SFT
+- [ ] **2.7** Run Stage 1: vs Random Mover
+- [ ] **2.8** Run Stage 2: vs Stockfish Level 1-3
+
+> [!NOTE]
+> **Current Experiment**: Testing RL-before-SFT hypothesis.
+> See `rl/README.md` for full curriculum learning explanation and future experiments.
 
 #### Phase 3: Evaluation
 - [ ] **3.1** Play 500 games vs Stockfish Level 3
