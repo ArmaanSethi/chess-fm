@@ -3,7 +3,7 @@
 > *A 1.5B parameter model that plays chess by reasoning, not memorizing.*
 
 [![Status](https://img.shields.io/badge/Status-Research-orange)]()
-[![Model](https://img.shields.io/badge/Base-Qwen--2.5--Math--1.5B-blue)]()
+[![Model](https://img.shields.io/badge/Base-Qwen--2.5--3B-blue)]()
 [![Target](https://img.shields.io/badge/Target-1200%20Elo-green)]()
 
 ---
@@ -46,13 +46,12 @@ The model explains *why* it's making a move — like a chess tutor, not a calcul
 
 ## 🔬 Approach
 
-### Phase 1: Direct GRPO (Reinforcement Learning)
-Train directly on chess games using verifiable rewards (legal/illegal, win/lose).
-No synthetic data needed — Stockfish provides the reward signal.
+### Phase 1: SFT Bootstrap
+Train on reasoning traces to teach the model chess fundamentals and `<think>` format.
 
-### Phase 2: SFT Enhancement (Optional)
-Add reasoning traces using the [data generation scripts](data_generation/).
-Use free AI credits from Antigravity, Kiro, or Qwen to generate `<think>` reasoning.
+### Phase 2: Direct GRPO (Reinforcement Learning)
+Train directly on chess games using verifiable rewards (legal/illegal, win/lose).
+Stockfish provides the reward signal for curriculum learning.
 
 ### Phase 3: Curriculum Learning
 Progressive difficulty: Random → Stockfish L1 → Stockfish L3
@@ -63,7 +62,7 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 
 | Component | Tool | Purpose |
 |-----------|------|---------|
-| **Base Model** | [Qwen-2.5-Math-1.5B](https://huggingface.co/Qwen/Qwen2.5-Math-1.5B-Instruct) | Better reasoning pre-training |
+| **Base Model** | [Qwen-2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct) | Best format adherence in benchmarks |
 | **Training** | [unsloth](https://github.com/unslothai/unsloth) | 2x faster, 60% less VRAM |
 | **Inference** | [vLLM](https://github.com/vllm-project/vllm) | Fast game rollouts |
 | **Chess Engine** | [Stockfish 16](https://stockfishchess.org/) | Reward signal + validation |
@@ -79,13 +78,11 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 │   FEN Position                                              │
 │        ↓                                                    │
 │   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
-│   │  Direct     │ →   │   GRPO vs   │ →   │   Elo       │  │
-│   │  GRPO on    │     │  Stockfish  │     │   Eval      │  │
-│   │  legal/win  │     │  curriculum │     │   (500      │  │
-│   │  rewards    │     │             │     │   games)    │  │
+│   │  SFT on     │ →   │   GRPO vs   │ →   │   Elo       │  │
+│   │  reasoning  │     │  Stockfish  │     │   Eval      │  │
+│   │  traces     │     │  curriculum │     │   (500      │  │
+│   │  (185 smpl) │     │             │     │   games)    │  │
 │   └─────────────┘     └─────────────┘     └─────────────┘  │
-│         ↑                                                   │
-│   (Optional: SFT with data_generation/ for <think> traces) │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -100,7 +97,7 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 
 ---
 
-## � Cost Estimate
+## 💰 Cost Estimate
 
 | Phase | Time | Cost |
 |-------|------|------|
@@ -116,7 +113,7 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 ## 📚 References
 
 - [GRPO Paper](https://arxiv.org/abs/2402.03300) — Our RL algorithm
-- [Qwen2.5-Math](https://arxiv.org/abs/2409.12122) — Base model
+- [Qwen2.5-Math](https://arxiv.org/abs/2409.12122) — Base model architecture
 - [DeepSeek-R1](https://arxiv.org/abs/2501.12948) — Self-correction patterns
 - [Dynomight Chess](https://dynomight.substack.com/p/chess) — Regurgitation technique
 
@@ -134,9 +131,41 @@ See the full [ChessFM Roadmap](chess_fm_roadmap.md) for detailed implementation 
 chess-fm/
 ├── README.md                 # This file
 ├── chess_fm_roadmap.md       # Detailed implementation plan
-└── data_generation/          # SFT data generation scripts
-    ├── generate_sft_data_proxy.py  # Use Antigravity/Kiro/Qwen
-    └── README.md                   # Setup instructions
+├── requirements.txt          # All dependencies
+├── setup_env.sh              # Environment setup script
+│
+├── data_generation/          # SFT data generation
+│   ├── README.md
+│   ├── fetch_elite_data.py   # Fetch FENs from Lichess
+│   ├── download_positions.py # Generate diverse positions
+│   ├── convert_to_training.py
+│   ├── positions.txt         # 25k elite FENs
+│   └── all_sft_data.jsonl    # 185 deduplicated samples
+│
+├── training/                 # SFT training
+│   ├── README.md
+│   └── train_sft.py
+│
+├── rl/                       # Reinforcement learning
+│   ├── README.md
+│   ├── chess_env.py          # Chess environment
+│   ├── rewards.py            # Reward functions
+│   ├── train_grpo.py         # GRPO training
+│   └── tests/
+│
+├── benchmarks/               # Evaluation & baselines
+│   └── phase0/
+│       ├── BASELINE_REPORT.md
+│       ├── STRATEGY.md
+│       ├── benchmark_models.py
+│       └── run_benchmark_mlx.py
+│
+├── scripts/                  # Utilities
+│   ├── audit_tokenizer.py
+│   └── download_models.py
+│
+└── tests/                    # Unit tests
+    └── test_data_generation.py
 ```
 
 ---

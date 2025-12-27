@@ -1,4 +1,4 @@
-# ChessFM SFT Data Generation
+# ChessFM Data Generation
 
 Generate high-quality reasoning traces for chess move selection using large language models.
 
@@ -6,27 +6,23 @@ Generate high-quality reasoning traces for chess move selection using large lang
 
 ---
 
-## 📊 Data Goals
+## 📊 Data Status
 
-| Metric | Target |
-|--------|--------|
-| **Total Samples** | 15,000 - 20,000 |
+| Metric | Current |
+|--------|---------|
+| **Total Samples** | 185 unique (deduplicated) |
 | **Position Source** | 25,000 elite FENs (Magnus, Stockfish, Leela games) |
 | **Quality Filter** | Stockfish-validated legal moves only |
 
 ---
 
-## 🤖 Current Models
+## 🤖 Models Used
 
-| Provider | Model | Notes |
-|----------|-------|-------|
-| **Gemini** | `gemini-3-pro-preview` | Google's latest, strong reasoning |
-| **Claude** | `claude-sonnet-4-5` | Anthropic via Kiro |
-| **Qwen** | `qwen3-coder-plus` | Alibaba, code-optimized |
-
-### Future Models (Planned)
-- **DeepSeek 3.2 Thinking** - Extended reasoning capabilities
-- **Kimi K2** - Strong multilingual reasoning
+| Provider | Model | Samples |
+|----------|-------|---------|
+| **Qwen** | `qwen3-coder-plus` | 63 |
+| **Claude** | `claude-sonnet-4-5` | 62 |
+| **Gemini** | `gemini-3-pro-preview` | 56 |
 
 ---
 
@@ -34,15 +30,12 @@ Generate high-quality reasoning traces for chess move selection using large lang
 
 ```
 data_generation/
-├── fetch_elite_data.py      # Fetch FENs from elite Lichess games
-├── convert_to_training.py   # Convert to HuggingFace format
-├── positions.txt            # 25,000 elite game FENs
-├── data/
-│   ├── combined_sft_data.jsonl   # All merged samples
-│   ├── gemini_sft_data.jsonl     # Gemini-generated
-│   ├── kiro_claude_sft_data.jsonl # Claude-generated
-│   └── qwen_sft_data.jsonl       # Qwen-generated
-└── legacy/                  # Archived older runs
+├── README.md                 # This file
+├── fetch_elite_data.py       # Fetch FENs from elite Lichess games
+├── download_positions.py     # Generate diverse FEN positions
+├── convert_to_training.py    # Convert to HuggingFace format
+├── positions.txt             # 25,000 elite game FENs
+└── all_sft_data.jsonl        # All merged SFT samples (deduplicated)
 ```
 
 ---
@@ -73,6 +66,20 @@ e2e4
 
 ---
 
+## 🔄 Workflow
+
+### 1. Generate Positions (if needed)
+```bash
+python fetch_elite_data.py --count 25000
+```
+
+### 2. Convert to Training Format
+```bash
+python convert_to_training.py --input all_sft_data.jsonl --output sft_train.jsonl
+```
+
+---
+
 ## 🎯 Quality Metrics
 
 - **Legal moves only** (validated by python-chess)
@@ -88,7 +95,8 @@ The generated SFT data works with:
 - HuggingFace `SFTTrainer`
 - Any instruction-following fine-tuning setup
 
-Run conversion before training:
+Run training with:
 ```bash
-python convert_to_training.py
+cd ../training
+python train_sft.py --data ../data_generation/sft_train.jsonl
 ```

@@ -44,6 +44,7 @@ We cannot "Skip SFT" completely on a 3B model because 4.2% legality is too low f
 *   **Logic:** At 7B+, effective context tracking allows for genuine novel reasoning.
 
 ## 4. Why DeepSeek-R1-Distill is (Currently) Out
-Although DeepSeek-R1-Distill-1.5B is a "distilled thinker" (copying a genius teacher), our benchmarks showed it was **too slow** (0.06 pos/s) to be viable for an efficient training loop on local hardware. 
+Although DeepSeek-R1-Distill-1.5B is a "distilled thinker" (copying a genius teacher), our benchmarks showed it was **too slow** (0.06 pos/s) for efficient RL training loops where thousands of game rollouts are needed. Even with cloud GPUs, the inference speed bottleneck makes it impractical for our curriculum learning approach.
 
-**Decision:** We proceed with **Qwen-3B + SFT Interaction**. We will manually "distill" intelligence into it via our generated dataset.
+**Decision:** We proceed with **Qwen-3B + SFT Bootstrap**. We will "distill" intelligence into it via our generated dataset, then use GRPO for RL training.
+
