@@ -1,0 +1,6012 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "total_positions": 1000,
+  "legal_moves": 42,
+  "format_adherence": 1000,
+  "time_elapsed": 218.6692922115326,
+  "speed_pos_sec": 4.573115822008684,
+  "details": [
+    {
+      "fen": "1rrq4/1p1nppk1/p2p1np1/3P3p/6PP/4N2B/PP1QPP1K/2R2R2 b - - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "r1b1r1k1/pp1n1ppp/2pq1n2/3pP3/8/2P2NP1/PPQNPPBP/R4RK1 b - - 0 11",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/1nr3p1/1p2pp2/1b1pP1pP/1P4P1/2PPRN2/5PB1/2R3K1 w - - 1 35",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/5pb1/6pp/pbp5/1p3B2/3P4/1P3KPP/2R1N3 w - - 6 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnbqr1k1/pp3pp1/2pb4/8/7p/3PPN1P/PPPQN1P1/R3KB1R b KQ - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr1k1/pp3ppp/2n2n2/3p4/1bpP1B2/2P2N2/PP2BPPP/R2Q1RK1 w - - 0 12",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/p2r2k1/1p4p1/n2BRPq1/6P1/P1p2Q1p/2P2P1P/4R1K1 w - - 1 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/p1qR2pp/1pp1Bp2/4pP2/4P3/2P4P/P4QP1/R5K1 b - - 7 22",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": true
+    },
+    {
+      "fen": "r2q1rk1/pp2pp1p/3p2p1/2pN4/3bP3/2PP1Q1P/PP3PP1/1R3RK1 b - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/p3Qpp1/b1p1p2p/3p4/5r2/1P2qN2/P1P2RPP/3R2K1 b - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k2r/1pNp1ppp/2n2n2/1p6/4PB2/8/PqP2PPP/R2Q1RK1 b kq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp1bppbp/1q1p1np1/8/B2pPP2/3P3P/PPP1N1P1/R1B1QRK1 w - - 1 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1r1k1/2q2pbp/p2p1np1/2pP2B1/Pp2P1PP/1P1Q1P2/4N3/2R1K1NR w K - 1 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/p1p3p1/1p6/3b3p/5p2/P1P2P2/1P3K2/8 b - - 2 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/p5pp/1p3p2/2q5/5P2/P3P1P1/1P5P/1K6 b - - 1 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r2k2r/pB1n1ppp/3b1q2/4p3/8/3P2P1/PPP2P1P/R1BQ1RK1 w k - 1 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1p3pbp/6p1/p3N2n/3RPP2/5P2/P1P1B2P/1K4R1 b - - 0 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/4r1kp/5pp1/1R5P/6K1/6P1/8 w - - 0 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4qk1/1p5p/p2b4/3Ppp2/5p2/PQ3P1P/1P3BP1/4R1K1 b - - 1 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1p3k1p/2p3p1/p7/2P1B3/1P2K1PP/P3RP2/3r4 w - - 2 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3qr1k1/pb2bppp/1pr2n2/3p4/3Pp3/P1N5/1PP1BQPP/R1B2RK1 w - - 4 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/4kpp1/p3p3/1p1n4/2p3P1/4P3/P1N1r3/KB2R3 b - - 11 41",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3rk2r/2p3pp/p4p2/1pb1nb1Q/5P2/1BP5/P1P3PP/R1B1R2K b k - 4 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1r4/2R5/2Rp1kp1/pB1P1p1p/P2b3P/1P2p3/5PP1/6K1 w - - 0 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7Q/pp1k4/2p1p3/3pP1b1/3P3p/PqP4P/1P4P1/3R1R1K w - - 1 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1br1k1/3q1pp1/pBp1p2p/P2p4/3Q4/1R6/2P2PPP/5RK1 w - - 6 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5r2/p1k3p1/2Ppb1Pp/pP6/P2K2P1/8/2R5 w - - 2 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk2r/1ppn1pp1/p3p2p/3pP3/5P2/P1NBP3/1PP3PP/R2QK2R b KQkq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r6r/2pbkp2/pp1p1n1b/3PpNq1/P3P1p1/2PB2P1/1P2QNP1/R3R1K1 b - - 7 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/p4Qpk/4pb1p/2p1N3/P7/8/5pPP/3r1R1K w - - 1 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1r3pp1/pP5p/2pq4/3p1Q2/3R2P1/1RP1rP1P/6K1 w - - 4 30",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/r2nnpp1/ppppb1qp/4p3/PPP1P3/2NP1N1P/2Q1BPP1/RR4K1 w - - 1 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q2k1/p2p1p2/r4pp1/3Np3/1p2P1Q1/6P1/PPP2PKR/7R b - - 1 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/p1p1p1bp/6p1/2BP4/2P5/2N5/PPb3PP/R4K2 b - - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "r1bqr1k1/pp1n1pb1/5Npp/6B1/4P3/5PN1/PP1QB1PP/R3K2R b KQ - 0 14",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "3k3r/p1p4p/n2p4/3Q4/8/5N2/PBP2PPP/4R1K1 w - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "b3k2r/3n1pb1/1qNpp2p/1p1P2p1/2B1P3/2P3P1/1P1N1PP1/3QK2R b Kk - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/1p2q1pp/p1p1pn2/4p3/nPPpP2N/P2P2PP/3Q1PBK/4RR2 w - - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b4r/pp1pkB1p/2n2n2/q1B1ppN1/8/2N5/PPP2PPP/R2QK2R b KQ - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/pp3pbp/1qn3p1/1N1p4/5B2/6P1/PP2PPBP/R2Q1RK1 w - - 3 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r2/1q4b1/pp5k/4p1pP/1NPp2P1/8/PP1Q4/5RK1 b - - 2 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r3k/1p5p/6p1/5p2/4p2P/1B2P3/1r3PP1/4R1K1 w - - 3 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3rk1/2p1qppp/2p1b3/p1b5/P2pP1P1/1P1P1N1P/2PK3Q/1N1R3R w - - 5 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p6p/2nk2p1/2pp1p2/5PP1/2PK1P1P/P5B1/8 w - - 1 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/5pp1/pp2b2p/3p4/1P1P4/P5P1/5PBP/2R2RK1 b - - 0 27",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1pp3pp/p1nbp3/5p2/3PQ3/2P2NB1/PP3PPP/R3KB1R w KQ - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/5pp1/4p2p/8/P7/1B2PP2/3b1P1P/5K2 w - - 3 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6r1/2pr1k2/p3Rpp1/P2n3p/1p2N2P/3P2P1/1P3P2/4R1K1 w - - 1 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn4k1/p5pp/P1pp4/4pq2/P7/4P1P1/2PQ2BP/3RR1K1 b - - 0 24",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "1q3b2/5p2/1P2pk1p/1B2p1p1/P3Q3/4B2P/1P3PP1/3R2K1 w - - 1 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1bpn1pbp/p2ppnp1/1p6/3P1B2/1BN1PN1P/PPP1QPP1/R2R2K1 w - - 2 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2krr3/7p/PP6/8/2pBp3/2P2Pp1/4K2b/R6R b - - 0 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pppb1pp1/2n2n1p/b2pp3/8/P1NPPN1P/1PP1BPP1/R1BQ1RK1 w - - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pp1b2bp/4p1p1/8/4P1n1/1B2B3/P3NPPP/2RQ1RK1 w - - 2 16",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/1q4b1/p4p1p/1pp1p3/3r1nQ1/PP6/3r1PPP/4RRK1 w - - 7 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q3r/1ppkbppp/p2p1n2/n2Pp1B1/4P3/P1N2N2/1PP2PPP/R2Q1RK1 b - - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1q5p/p2Pppp1/1pn4n/2p3P1/P1P2N1P/BP2QP1B/3R2K1 b - - 0 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb2rk1/pp2ppbp/3p2p1/q1p5/P3P1n1/1PNP1N2/1BP1QPPP/1R2KB1R w K - 3 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/pp2np1P/2n5/3ppbB1/8/P1N5/2P2PP1/R3KB1R w KQ - 3 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/ppp5/5p1p/3P4/3np1p1/2N3b1/PPP3P1/6K1 w - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/pR1k1p2/3p1b2/3R4/5P1p/2P3PK/PP2r2P/8 b - - 1 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "rr4k1/2qb1pbp/2n1p1p1/pp6/2B1QPP1/4B2N/PPP4P/1K1RR3 w - - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3qk1/p6p/1r4p1/3pP1N1/5Q2/P6P/1pP3P1/1R5K w - - 2 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/2p1pppp/p1n5/3q1b2/P2P4/B3PN2/4BPPP/1R1Q1RK1 w kq - 4 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p2q1p1n/6pb/1P2p3/P3P1P1/1Q1r2BP/6BK/5R2 w - - 3 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "b1r2rk1/4qpp1/p3p2p/1p1n4/8/bP1BPN1P/1B3PP1/1Q1R1RK1 w - - 0 21",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2k2r/pbqpnpb1/1pp1p1pp/8/2PPP3/1P1B1N2/PB1N1PPP/R2QR1K1 w kq - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/5pp1/4p2p/8/P7/1B2PP2/3b1P1P/5K2 b - - 2 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/ppq2b2/2p5/2npbPQ1/3P4/5B2/PPPBN3/7K b - - 0 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1nq1rk1/1p1bbppp/p2p1n2/P1pP4/8/2NB1N1P/1PP2PP1/R1BQ1RK1 w - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2k1b/R5Rp/2r2P1P/p2pBp2/3P4/2P5/5PP1/6K1 b - - 2 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p1b2ppp/2p2n2/3p1bB1/8/P1NB4/1PPQ1PPq/1R2R1K1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6r1/p3b2R/1p1k4/2p2PP1/4K3/4B3/P7/8 w - - 1 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/pp2bppp/2n4n/1B2pq2/8/2N1B2P/PPP1QPP1/R3R1K1 w - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1b3ppp/p1n1pn2/1pbp4/8/P2BPN2/1PPBNPPP/R2Q1RK1 b - - 3 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/5p2/3p2p1/p1pP4/Pp2r3/1P3K2/8/6RR b - - 1 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2R5/4r1p1/3N2kp/8/7P/3n2P1/6K1/8 b - - 0 40",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3b4/1p3p1p/p1k3p1/4p3/2P1P3/P7/1P2NP1P/6K1 b - - 1 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr3/pp1b1k1p/4nNp1/3RP3/8/1P4PP/PQ3PB1/4R1K1 b - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1n4k1/p1q2p1p/3np1p1/8/8/P4BPP/1P1Q2PK/5R2 b - - 3 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2k4r/ppp1nppp/2n1p1b1/2b1P3/5BP1/4NN2/PPP1BP1P/2K4R w - - 3 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4k3/1p1rP1p1/1P6/p4p2/4n2p/1Q5P/6P1/4R1K1 w - - 2 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5r1r/1p4Q1/p2k4/3p4/P1pP4/2P2Pp1/1P4K1/7R b - - 1 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5b2/5k2/p1pp1q2/np6/3r2N1/1P2N1B1/P4PP1/2RR2K1 b - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/1ppb1p2/p3p1Bp/4b3/2P5/2N1P3/PPQ3PP/2KR3R w kq - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/2p1qppp/b4n2/p1p3Q1/Pb6/2NRp2P/1PP1PPP1/4KB1R w K - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/pR3pbp/8/5NB1/3n4/6P1/q3PPBP/3Q1RK1 b - - 0 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r2k1/2b2ppp/1qpp1n2/3Pp3/P3P3/B1N5/3NQPPP/R4RK1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "5R2/6Bp/2P5/4p1K1/2n5/3kr3/1p4PP/8 w - - 0 42",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/1R3pbp/8/p2B1nB1/8/q3P1P1/5P1P/3Q1RK1 w - - 2 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp3r1p/2p2kn1/3p1p2/3P4/6P1/PPB2PP1/4R1K1 w - - 5 33",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/pp4p1/6qb/2p1p3/2PpNr1p/3P4/PP2QP1N/4R2K w - - 0 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2k4/1bpn1p2/p5pr/1p2p2p/P3P3/2P2P2/1PBN2PP/R4RK1 w - - 0 17",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p1nbpp1/p1p2n1p/2Pp2B1/PP1Pp3/1QN1P2P/4BPP1/R3K1NR w KQ - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/p1qn1ppp/1p6/4p3/3n4/P1N1P1P1/1P1N1P1P/2K2R2 b kq - 1 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1r3k1/1q4pp/8/p2pb1p1/N2p4/PP3Q1P/2P3P1/3R3K w - - 2 26",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/4kp2/p2p4/3P1p2/1P1Rp2p/P6P/4QPP1/2q3K1 w - - 1 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5p2/4p3/N4k1p/n4P1P/4PK2/8/8 w - - 0 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/3n1pp1/1q5p/p1p5/1bQP4/N4P2/PP4PP/3R2K1 b - - 7 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4k3/p1p1b2R/1pr5/4K1P1/8/4B3/P4P2/8 b - - 0 34",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1r1k1/p6p/1pq2pp1/3pp3/P4B1P/1QP5/5PP1/2R3K1 w - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/6pk/5p2/8/6RP/4K3/5r2 b - - 3 43",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p3n2p/3k2p1/2pp1p2/5P2/2PK1PPP/P5B1/8 w - - 0 34",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/1p3p1p/p1npqNp1/1B2p1B1/4P3/8/PPP2PPP/R2QK2R b KQ - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/pQ4p1/1pp1p3/4n1B1/1bp1N2P/5P2/PP2NqP1/1K1R3R w - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3k1q2/1r3P2/2p1B1P1/3pQ3/pP1P4/P7/2P4P/5RK1 b - - 0 36",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/1b1nnpb1/pp1p2pp/2pPp3/4P3/2NBBN1P/PPPQ1PP1/3RR1K1 w kq - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2k1nr/p1q1ppbp/1pp3p1/3P4/4P3/1QN1BP2/PP3P1P/R3KB1R w KQkq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p1n2p2/1p3k1p/2p5/8/P1P1KB1P/3r2P1/8 b - - 2 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pp3p1p/1q4p1/2nB4/4pQ2/2B1P2P/PP3PP1/6K1 b - - 2 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/5pbp/R5p1/1pN2p2/P7/2P2P2/1P4PP/6K1 b - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/1q3ppp/b1p2n2/Q2p4/1B4P1/P4P2/Nb2r2P/R2K3R b - - 1 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnbq1rk1/1p4pp/3B1n2/2pP1p2/2P1p3/p1N1P3/P2NBPPP/R2QK2R b KQ - 0 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/2q1bppp/p2p4/1p2p3/8/1N4B1/PPPQ1PPP/2KRR3 w - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/pp1q4/2n4b/3ppn1p/6p1/2PQ3P/PPNN1PPB/1K1R3R b - - 3 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6Rk/pp3p2/2p2n1q/3p3P/3P1P2/3Q4/PPP1N3/2K5 b - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/1p1r1k2/p1p1p1p1/4p1Pp/2P1N2b/4P2B/PP2KP2/7R b - - 0 23",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": true
+    },
+    {
+      "fen": "r3r3/2p2pkp/p5p1/1bN2n2/2N5/1P3P2/P4KPP/2RR4 w - - 5 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/p1p2pp1/2Qb3p/8/P1pP2q1/B3P3/1R3PPP/1R4K1 w - - 2 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pppq1ppn/2np3p/4p3/4P1P1/1PNPQN1P/PP3P2/2KR3R w - - 1 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1qk2r/pb2b2p/1p2ppp1/2p1N3/2PPp3/4P3/PPQBBPPP/R4RK1 w kq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r7/2k2p2/2n2rp1/p1Ppp3/R7/6K1/6BP/2R5 b - - 1 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq3r/Qp6/3pk3/1Pp5/2P1PpN1/3P2pP/P2B2K1/b7 b - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k6/pp6/2pb4/3p4/1PnPp3/P1P1P3/5pBr/2B2K2 w - - 0 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2b3k1/5p1p/1rB1p3/p3P1pP/8/4P1P1/P1RK1P2/8 w - - 4 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1bnr/p1p1kppp/npBp4/3P4/8/P4N2/1PP2PPP/RNBQ1RK1 w - - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1kb1r/5ppp/p1n1p3/1pp5/2N1n3/5NP1/PPP2PBP/R1BR2K1 w kq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q3r/3p2b1/3Pp1kp/2p3P1/1pQ5/4B1P1/PP1R3P/2K2R2 b - - 0 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/1p3ppp/p3pn2/3pN3/P1nP1B2/2PQ4/P4PPP/R4RK1 b - - 0 15",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp6/2pn4/3p1pkp/3P4/1P1BKPP1/P5P1/8 b - - 1 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/1pp2B2/p3p2p/8/2P1b3/2q1P3/P3Q1PP/1K1R3R w - - 1 21",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1r2/pbq2pkp/1pnpp1p1/2p5/4P1N1/1P1P3P/P1P1BRP1/R2Q2K1 b - - 5 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1pp3p1/p2b3p/3P2nq/2P5/2B1RN1P/PPQ2PP1/4R1K1 w - - 1 23",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1br2k1/ppp1qpb1/2n1p1pp/4Pn2/5B2/2NB1N1P/PPP1QPP1/R3R1K1 w - - 3 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnr3k1/5ppp/1q6/3n4/1p6/1Q3N2/PP3PPP/R4RK1 w - - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/3k1p2/4b2r/p1p3pp/1PPp4/1P1P1B1P/3K1PP1/R6R b - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp2ppb1/6p1/2P1p2p/4nP1P/P3qn2/1P2N3/3R1KR1 w - - 4 21",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqrbk1/pp1p1p1p/5pn1/3NpN2/4P1Q1/3B3P/PPP2PP1/R4RK1 b - - 2 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p4ppp/2p5/3pPb2/3P1n2/P4N2/1P1N1K1P/R6R b - - 1 19",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": true
+    },
+    {
+      "fen": "3r1bk1/5p2/5Pp1/N7/1p2p3/3p2NK/8/2B5 b - - 0 43",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q1k2/4npp1/p2p3p/Ppp2b2/8/4RB1P/1PPQ1PP1/4R1K1 b - - 7 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/1br1pp1p/pq1p2p1/1p1Pb3/1P2P3/P2BP2P/3QN1P1/2R2RK1 b - - 3 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1pp3p1/7p/bbPPp3/4N2P/2N2P2/3K2P1/R6R b - - 4 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1rbq3r/3kbpp1/1nn1p2p/3pP2P/2pP1N2/1pP5/1P3PPN/RBBQ1RK1 w - - 4 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/5ppp/bq2p3/p2pN3/1b6/1BP5/1P2QPPP/3RR1K1 w - - 1 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1k6/p7/1p5p/4R2P/2P5/8/PPK5/3r4 b - - 1 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2r1k1/3bqp2/p2p4/1ppP2p1/2P1N3/1P3P2/P4KPP/Q4B1R b - - 1 19",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/6p1/5p1p/p1r1pP2/2Bn3P/R2P4/P2K1P2/8 w - - 16 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1q1k3/pppr2b1/n2p1n2/4pNp1/1PP1P2p/P5PP/N3QP1B/3RR1K1 b q - 0 22",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pR4b1/3p2np/2pPpbp1/P1N1Bp2/3P2P1/3BPP1P/3Q1RK1 w - - 4 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/6pp/p1p5/4p3/1P2q3/P1P5/6QP/7K b - - 10 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/1p3ppp/4b3/1p4q1/4p3/2B1P2P/PP3PP1/RQ4K1 b - - 5 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pp2pp1p/3p1bp1/4n3/4P1b1/2N2N2/PQ2BPPP/3R1RK1 b - - 1 14",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r3k/1B1q2pp/p4p2/1p2b3/8/P2QB3/1P3PPP/2RR2K1 b - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1kb1r/2p3pp/p1n2p2/1p2pN2/3P4/1BP5/P1P2PPP/R1BQR1K1 b kq - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb2b1R/4k1p1/2p1pp2/1pPp4/pP1P4/P1NBPNP1/4KP2/8 w - - 3 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k2r3/pp3p2/2p2q2/2r4p/3P4/4PpPQ/PP3P1P/5RK1 w - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3q1k1/pp4pp/2pb4/3n1b2/2BP4/PP3N2/1BPQ1PPP/R5K1 w - - 3 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr1bnr/p2nq1pp/1ppp4/4p3/4PP2/2NPBQ1P/PPP5/2KR1B1R b - - 1 12",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/1p2pp1p/1qn2n2/2pp4/p4P2/2PP1Q1N/PP1N3P/R3K2R b KQkq - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "3k4/6pp/1R6/3PBp2/8/5P2/r2NK1PP/8 w - - 1 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/1p1b1pp1/p1n1p2p/2N5/3RP3/P1N2P2/1PP1B1PP/5RK1 b - - 0 19",
+      "output": "d1c1",
+      "move_candidate": "d1c1",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/pp1qppbp/2n2np1/3p4/3PP3/5N2/PP3PPP/RNBQR1K1 w kq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5qk1/1R3n1p/2p2pp1/4p3/8/PQN3PP/1PP2P1K/8 w - - 0 34",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rkb/1bpn1p2/pp1p1npB/3Pp3/4P2P/2N2N2/PPPQBPP1/3RR1K1 b - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "r1r4k/p5b1/2p1Np2/6pp/3Pp3/4n1P1/PP2P2P/2R1R1K1 w - - 2 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/pp1n1pp1/4pB1p/2p5/3P4/3B1N2/PPP2PPP/R2QK2R b KQ - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2r2pkp/pr2p1p1/3p4/1p6/1Nn2P2/P2R3P/4RBK1 b - - 4 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1q3b2/5p2/1P2pk1p/1B2p1p1/P7/4BQ1P/1P3PP1/3R2K1 b - - 2 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/2q2pb1/3p2pp/p1pPp3/P3P2Q/1r4PN/5P1P/5RK1 b - - 3 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/p5pp/3p4/4p3/Pnq1B3/4PQP1/2P2R1P/5RK1 b - - 8 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p3ppp/2p2b2/p1Ppn3/8/P1NBPN2/1P3PPP/R2QK2R w KQ - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p4pp1/1p2pn1p/2qb4/8/1P2PN2/P3BPPP/R2Q1RK1 b - - 1 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/1bq2p2/p3p3/1pp1b2p/3pNp2/P2P3P/BPP1QPP1/3RR1K1 w kq - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p3R1k1/7p/1p6/3P2PP/4PK2/3r4/8 b - - 1 39",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/1p3pp1/p3pnbp/3p4/3BP3/1PNP2P1/1P3PBP/R4RK1 b kq - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "5k2/6pK/1b3p1p/1B2pP2/P3P3/5P2/7P/8 b - - 0 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1p1nppbp/p2p1np1/3PP3/B4P2/2N5/PP3P1P/R1BQK2R w KQ - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/3np2p/1p1pp1p1/p7/RP2P3/2N2P2/P1PK2PP/7R b k - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r4k/p5b1/1np1N3/5p1p/2PPp1p1/4P1P1/P4K1P/2R5 w - - 0 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3n4/5k1r/1R3N2/pP6/P2r4/7P/5PP1/5RK1 b - - 0 40",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1bq2ppp/1p3n2/p7/1b6/2NQP3/PPP1BPPP/R3K2R w KQ - 4 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/4rppp/n1q5/3Q4/1p6/8/PP3PPP/R2R2K1 w - - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pb3ppp/1p2pn2/3pb3/8/P1NQP1P1/1PPB3P/1R2KB1R b K - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p1p1p1bp/6p1/2BP4/2P5/2Nb4/Pr4PP/R5K1 w - - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p1p1bk2/1p6/4pK2/6P1/2r1B3/P4P2/7R w - - 0 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1r3k1/1p1n2pp/4N3/3Pq3/2P1p3/4P3/1Q2B1PP/1R4K1 w - - 3 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p4pbp/4p1p1/8/1n2QP2/2Nq4/1P4PP/R1B2R1K w - - 0 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p5pp/1ppk2n1/3p1p2/3P1P2/2PK1BPP/P4P2/8 b - - 2 30",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/pp2nppp/3b4/2P1n3/2Pp4/P4PP1/5PBP/RNBQ1RK1 b kq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1b3ppp/p1q5/1pbp1QB1/2p5/P2P2N1/BPP3PP/R4R1K w - - 3 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3r1k/1b3p1p/p2p1qp1/1pp1pP1Q/4P3/P1NP2R1/BPP3PP/R5K1 w - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r3r/1p2kppp/p1b1p3/2b5/8/P3PN2/1PP3PP/1NKRR3 w - - 3 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3N4/3k2pp/1p6/p7/P4B2/1B6/2P1r1PP/5RK1 w - - 1 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/5kp1/p1p2p1p/2P1p3/1P1n1P2/P2R4/2P2KPP/R7 w - - 0 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/pp1q2b1/8/3p2nQ/2P4P/5PP1/PP4K1/R7 w - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn4k1/pp4pp/b2p4/1PpPpq2/P7/4P1P1/2PQ2BP/3RR1K1 w - c6 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1r1b1r/1bq5/pp1p1P1p/1npPp1p1/Q1N5/2P1B1PB/PP5P/R4RK1 w - - 3 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/2qb1pp1/1p2nn1p/3p1B2/P1pP4/2N2NPP/1Q3PK1/1R6 b - - 1 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/5ppp/2pp4/p1b5/1p1pP1b1/PB1P2B1/1PP2PPP/R4RK1 w - - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/5pk1/p5p1/1pr5/3pP3/PR6/3K2PP/1B1N4 w - - 4 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rk2r/2p4p/p4pp1/1pb1nb1Q/5P2/1BP5/P1P3PP/R1B1R2K w k - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/R7/6R1/p2prp2/3P4/2P5/5PP1/6K1 w - - 0 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2k1r2r/ppq3bp/2p3p1/4P3/3Pp3/1P2P2R/PB1Q4/2KR4 b - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/ppp3pN/3b3p/1B1P1p2/3np1b1/2N3RP/PPP3P1/6K1 b - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/1p1n2p1/p1p1q2p/2P1p3/1P1pP2P/P1nP1PP1/2Q4K/4RR2 w - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p4pp1/1p5p/8/4n3/q3PN2/PP3PPP/2R1KB1R w K - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2b2k1r/4bppp/p1B1p3/1pp5/2n5/6P1/PPP2P1P/R1BR2K1 w - - 3 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/1pp3pp/p2p4/4pQ1n/8/1PNPq3/1PP3PP/R4RK1 w - - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p1k1p2p/4r1p1/2p5/2P5/5P2/PPKR2PP/8 w - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": true
+    },
+    {
+      "fen": "3r1rk1/pbqnbp1p/1pp2np1/4p3/2P4N/P1N1B1PP/1PQ1PPB1/R2R2K1 b - - 0 15",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1pp3p1/p1nb3p/7q/2PP4/4RN2/PPQB1PPP/4R1K1 w - - 1 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": true
+    },
+    {
+      "fen": "5rk1/4b1pp/p2p4/1p1Rpr2/8/2P3B1/PPK3PP/3R4 w - - 5 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k2r/1pq2ppp/p3p3/2nPn3/8/5N2/PP2BPPP/R1BQ1RK1 b kq - 0 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/2Qb1pp1/2p1pn1p/2Np4/1P6/2P2P2/4B1PP/R5K1 b - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/Q4kpp/4p3/4Pp2/8/4BP2/2b1K1PP/1r6 b - - 2 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/5ppp/1p1p4/pPRPbP2/P5q1/3Q2P1/3B3P/5RK1 b - - 0 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p7/1p2pRkp/8/3PN1PP/4P3/P1rb2K1/8 b - - 0 35",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/pp6/2n4p/6p1/P3pp1P/8/2N2PPB/b4K2 b - - 1 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1p1nbppp/p2pbn2/1Pp1p3/P1P5/3PP1P1/1BQN1P1P/R3KBNR w KQ - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2b2r2/1pQ3pk/2p2n1p/2PpN3/3PpP2/4P3/3KB2r/8 w - - 5 31",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p2k3p/5n2/1pp5/3n2p1/PP4BP/1P3PP1/3R1K2 b - - 0 34",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5pkp/2pR1np1/1pPp2q1/1P1P2B1/2N2Q1P/5PP1/4r1K1 w - - 4 28",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "rnbq1rk1/ppp3pp/3p3b/3Pp2Q/2P1B3/2N2P2/PP4PP/R3K1NR b KQ - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4R3/2p4p/pk6/2p1N3/8/2Q5/P1P2PPP/6K1 b - - 1 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2k5/ppq5/2p4R/4P1p1/3Pp3/1PQ1P3/P7/2K2r2 w - - 1 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rk3r/1Q2bbpp/4pp2/1N1p4/3P4/P3P1P1/1P3PP1/R3K2R w KQ - 1 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/p1q1br1p/6p1/1P2pp2/3B3Q/1P1P3R/6P1/4R2K w - - 1 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5p1p/2k3p1/1p2p1b1/1P2P3/P7/4NPKP/8 b - - 2 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/1p1n1ppp/5n2/2pP3b/P1P1q3/1Q3NBP/1P3PP1/4R1K1 b - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r6/1p2ppk1/pq1p1np1/3P4/7P/7B/PP1QPP1K/2R5 w - - 3 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1rb2r1k/1pR3pp/p7/3B1p2/4p3/8/PP3PPP/3R2K1 w - - 1 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/1rb2b1p/p4pp1/P2Pq3/2p1p1P1/2P1N3/1P2QR1P/1R4K1 b - - 2 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2rbbk1/2q2p1p/3ppPp1/p5P1/1pnBP2P/PNN5/1PP4Q/R4RK1 w - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/p3pp1p/1p4pB/2p1P3/qnP5/3P1QPP/2PR2BK/8 b - - 4 26",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/pp1q1pp1/4p3/1P1pPnBp/P2P4/5Q2/5P1P/2RR2K1 b k - 4 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5p2/2p1pk2/p1Pp3p/5PrP/1P2P3/P2K3R/8 w - - 2 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pb3pp1/n1p2n1p/1pbpp3/4P1PP/P1NP4/BPP2P1N/R1BQ1RK1 w - - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1r1k1/pp3p1p/4pbp1/2B5/2n5/1NP3P1/PP3PBP/1R1R2K1 b - - 6 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3rk1/2p1pp1p/2qp2pb/p2b4/1n1P2P1/Q1B2NPP/1PPKB3/3R1R2 w - - 13 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/p3qppp/1p6/3Q4/4n3/4PBPb/PPR2P1P/3R2K1 b - - 0 28",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/1pp2rpn/4n1p1/p6p/8/2N2P2/PPP5/2KR3R w - - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p2n1pp1/2pbpn1p/qp6/3P4/2N1BN2/PPP1BPPP/R2Q1RK1 b - - 0 12",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pp3ppp/2n2n2/4p3/2B5/2B1Pb1P/PP3PP1/R2Q1RK1 w - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr1k1/pp1pnp1p/2pb1p2/3Pp3/4P2N/2NB3P/PPP2PP1/R2Q1RK1 b - - 1 12",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk2r/2p2pbp/p1n2np1/3pp3/8/P4N2/BPP2PPP/RNBQR1K1 b kq - 3 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/2Q2pp1/2p1p2p/1b1q4/p6P/5PK1/8/4R3 w - - 6 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/5p1p/1r2p2P/p3P1p1/4b3/4P1P1/P1RK1P2/8 w - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2pbQ3/1pk1p2P/4p1B1/p1P5/P4P2/1q3PK1/2R5 w - - 1 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/1p1pN1k1/p1bP4/2P1p3/1P6/P1K5/8 b - - 1 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/5kp1/p1p1pp1p/2P5/1P3P2/P4R2/2P1n1PP/R5K1 w - - 2 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/5pb1/6p1/2p3q1/p1Pp2BN/Pr3pQ1/1P1NnK2/1R6 b - - 3 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr1k1/pp2bppp/2n2n2/4N3/8/2N1Q3/PPP1PPPP/R3KB1R b KQ - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/2B1ppp1/p1n1q2p/5b2/Np1Pn2N/8/PPP1BPPP/R2QR1K1 w kq - 3 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q1rk1/pBp2pbp/3p2p1/5n2/2P5/1PNQP2P/P5P1/R4RK1 w - - 3 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/6p1/p3p2p/1pq2p2/2P2Q2/P3P3/1PB1r1PP/2R3K1 w - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/2r2ppp/1qbQpn2/pp1p4/8/P1NBP2P/1PP2PP1/3RK2R w K - 5 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/1p4pn/2p2n1p/2Pp1p2/3PpP1P/1QN1P2N/3KBP2/q6R w - - 0 21",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppq1bppp/n2p1n2/4p3/2b1P3/1NN1B2P/PPP1QPP1/R3R1K1 w - - 5 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/p5p1/4p2p/1Qpp4/P3P3/2P3P1/3n1PBP/R4RK1 w - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "q6r/4bRp1/1nn4p/1k1pP2P/2pP1NQ1/1pP5/1P5N/2B3K1 w - - 5 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rq2kb1r/1pp2np1/p1npp2p/4p3/B3P3/P1N1BN1P/1PP1QPP1/3R1RK1 b kq - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/p2q2pp/1b3p2/3p1N2/2rP4/7P/PP4P1/1R2RQ1K w - - 7 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rbk/pp4b1/3p1qpp/2p2p2/4PP2/3P3R/PPPQN1BK/4R3 w - - 2 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/p2q1pp1/1p4p1/1Nb1p3/2P2PPP/4PQ2/P5K1/R6R b - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/pppqn1b1/2n1b1pp/3ppp2/2P4P/BPNPP1P1/P3NPB1/1R1Q2KR w - - 3 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5p2/5kpp/pb1K4/1p3B1P/3p4/1b1N2P1/8 b - - 6 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp2ppbp/3p2p1/5b2/2P2P2/1B2BR2/PPR3P1/7K w - - 1 23",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2rk1/1p1q1pp1/p6p/4P3/3P1P2/b2QBBP1/7P/5RK1 w - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2rk1/2qbbp1p/p2ppnp1/1p2N1B1/1P2P3/3P4/B1PQNPPP/1R3RK1 b - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp4bk/8/8/6QP/1P3PPK/q7/8 w - - 0 36",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2b2rk1/p1p3pp/1p5r/7q/4Pp2/P1P2N1P/1PQ2PP1/3RR1K1 b - - 6 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bbk2r/ppp2qpp/2n2p2/1N2p3/3P4/5N2/PPP1QPPP/R1B1R1K1 b kq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp3r1p/2p2kn1/3p1p2/3P4/5PP1/PPB3P1/4R1K1 b - - 0 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/1p2kpp1/p3p2p/4P3/1P1b3P/PKNP1P2/4R3/8 b - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1P4pp/1r6/p2p4/4p3/2PR2P1/1PK1R1P1/r7 w - - 0 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1r3k1/1p2ppbp/3p2p1/p4b2/2P2P2/1B2B3/PP1R2P1/5R1K w - - 0 25",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/3p1pp1/5n1p/3Pp3/4P3/pR3P1P/Q5PK/4q3 b - - 4 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1r1k1/pb3pp1/1p2pn1p/3q2bP/3Pp3/1PP4B/PB1N1PP1/2RQR1K1 w - - 1 19",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/1pq2pp1/p2bb2p/3p4/P1pP4/2P1RP2/1PB3P1/RN1Q3K b - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/p3q1pp/1pp1Bp2/4pP2/4P3/2P4P/P4QP1/R2R2K1 b - - 5 21",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1q1r1k1/p2b2pp/1ppb1p2/3p1P2/3P4/1Q3N1N/PP3PPP/R3R1K1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2rb1pk1/2p3p1/p6p/P1nR3P/2N1P1P1/5P2/3B2K1 b - - 4 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2rn4/4qk2/1p2pprQ/pP1p4/P2P4/5N1P/5PP1/4RRK1 w - - 6 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1p4p1/p1p4p/2P5/1P1pPPRP/P1nP4/4qQ1K/8 b - - 0 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1N2/p4Qpk/4pb1p/2p5/P7/8/5pPP/3r1R1K b - - 12 31",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "rq2k2r/pp6/2p3pp/4Pp2/5Pn1/P3P3/1PPBQ1PP/R4RK1 w kq - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/ppp2pp1/1bn2n1p/3p1b2/1P1PpB2/P1N1PP1N/2P3PP/R2QKB1R w KQ - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk2r/1p3pb1/p1n5/3N2p1/2PpPP2/P2B2Np/1P5P/R2Q1RK1 b kq - 1 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/2B4p/2b2pk1/p7/6PR/5P1P/P6K/4b3 w - - 1 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/p5pp/1ppp1p2/4nP2/4PB2/2P4P/P3BQP1/R4RK1 w - - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3n4/6k1/1p4R1/3B2pP/1Pr3P1/8/5P2/6K1 b - - 3 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/2p1npb1/p2p3p/np4p1/3PP2B/2N2N2/PPB2PPP/R2Q1RK1 w - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppqnnbpp/2pb1p2/3p4/5PPN/2NP2QP/PPP3BK/R1B2R2 w - - 5 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pb2bpp1/1pp1p2p/3pP2n/P4B2/2PBP3/1PQ2PPP/RN3RK1 w - - 1 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/6k1/2p5/1pPp4/pP1PpP2/P1N1PbK1/2B5/8 w - - 4 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/6p1/p3p2p/1pq2p2/2P5/P3P1Q1/1PB1r1PP/2R3K1 b - - 2 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q1rk1/ppnNpp1p/2n3p1/8/8/P4BbP/1P3PP1/2RQ1RK1 w - - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/5ppp/5qn1/4P3/1PB3b1/1Q3NP1/P2N2KP/5R2 b - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/pp4p1/3Q3p/2p5/2P5/P2P4/1PK4P/6q1 b - - 5 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1p2ppk1/pq1p1np1/3P3r/2R1P2P/5P1B/PP3QK1/8 b - - 2 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1r2b3/6pp/p3p1k1/1P2Pp2/P7/4BP2/6PP/3R2K1 w - - 0 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1r3r/pp4p1/2n1ppp1/q1pn4/8/PP1PPN2/1Q2BPPP/2R2K1R w - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/ppqb1pbp/2n1p1p1/8/4Q3/4B2N/PPP2PPP/1K1R1B1R w kq - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1Qp2pk1/2bp1bpp/8/q1BPr3/5N1P/1P3PP1/5RK1 w - - 1 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4k2r/1p2qpb1/p3b2p/2p1p3/1nN1P3/1P1r4/P4PPP/R1Q2RK1 b k - 3 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rqr1k1/1p3ppp/p2p1b2/3P4/PP1p4/3Q4/R1PB1PPP/5RK1 b - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1bpq1ppp/ppn1pb2/8/4BP2/2NP3P/PPP3PN/R2Q1R1K b - - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5pk1/p5p1/1p6/3pP3/P1r3P1/3K1N1P/1B6 w - - 0 38",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pb2bppp/1pn2n2/4p3/2N1P3/2P2N2/PPB1Q1PP/R1B2RK1 b - - 3 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q3k/ppp1p1bp/3p2p1/8/8/1nN2P2/3Q1P1P/2BR2K1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1q4pp/5b2/p2p1Qp1/N2p4/PP5P/2P3P1/3R2K1 w - - 6 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/5pbp/4p1p1/6P1/q4P2/np3B1N/1P5P/2K1R3 w - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1q1rk1/2p2pp1/p1Pbpn2/B2pN2p/3P2P1/4PP2/1PQ4P/1BR2RK1 b - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2b2r1k/1p4pn/1np4p/2Pp4/3PpPNr/1Q2P3/3KB3/8 w - - 0 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/1q1bp1b1/pr1p2p1/2pPp3/2P1n3/R2BB3/1PQ2PP1/1R1N2K1 b - - 1 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb1qrk1/pp4bp/2p2np1/5p2/2P1p3/2B1P1P1/PPQ1NPBP/RN3RK1 w - - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rkb1r/1p2qp2/p3b2p/2p1p3/1n2P3/NP1B4/P2Q1PPP/R4RK1 b k - 1 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/5ppp/1p1p4/pPrPbP2/P5q1/3Q2P1/3B3P/2R2RK1 w - - 3 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/2qnbppp/b2p4/p2Pp3/Pp6/1N1QB1P1/1PP2PBP/R1R3K1 w - - 2 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1pR1ppk1/p2p4/3P2pn/4P2r/5PKB/PP6/8 w - - 2 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k1nr/3p1pp1/2pb1q1p/1p2p3/p3P3/PB1PBQ1P/1PPN1PP1/2KR3R w kq - 0 12",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2b1kb1r/2R1ppp1/B1n4p/8/P2P4/B3PN2/5PPP/6K1 b k - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "4r1k1/1p3pp1/7p/3p4/1p1P4/2R1P1qP/PP1Q2P1/6K1 w - - 0 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/2pn4/pp1p1pkp/3P4/1P2KPP1/P1B3P1/8 w - - 0 42",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/8/3p2p1/1pp4p/1p6/2PP2PP/P5K1/2b5 w - - 0 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/1b1q1ppp/p3pn2/1p2b3/3p4/P1NQPBP1/1PPB3P/2R2RK1 w - - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr1bnr/p2n3p/1pp3p1/4p1q1/4P3/2NP1Q1P/PPP5/1K1R1B1R b - - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2qk2r1/pp3bNp/1n3pn1/4p3/1b1pP3/1N1P1P2/PP2BBPP/1Q3RK1 w - - 1 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/pp2n1b1/3p2pp/2pPpp2/P1N5/3P2P1/1P2PPBP/R1BQ1RK1 w - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/pbRp1ppp/n4n2/3Pp3/3qP3/3B1P2/2Q3PP/1R4K1 w - - 6 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/ppp2p1p/2np2pb/3N4/3PP3/1P1Q1N2/PBP3PP/R2K1R2 w - - 6 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/Bp3k1p/p1p4P/P2p4/1P1Pb1p1/6P1/3n2K1/8 w - - 1 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q4/1p1nppk1/p2p1np1/3P4/6NP/7B/PP1QPP1K/2r2R2 w - - 0 24",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": true
+    },
+    {
+      "fen": "r2q1rk1/1p1b1pbp/p2ppnp1/2p5/QnN1P3/2PB1N1P/PP1P1PP1/R1B2RK1 w - - 2 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/1pp2ppp/p7/q1p5/2P2B2/1P3BP1/P1Q2P1P/R3R1K1 b - - 2 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp2pp2/2n2bp1/3R1bNp/q1B4Q/2P1B3/PP3PPP/4K2R w K - 2 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r7/6bp/6k1/1N1p4/1P3P2/P1pK4/6RP/8 b - - 6 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6rr/p2b1k2/2n1p1p1/1p2P3/2pP1PPq/2P5/P2N2R1/R1Q3K1 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6k1/8/2P3pp/3R1p2/7P/PP3PPK/4r3 b - - 0 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/7p/4k1p1/1p2pp2/1P2P2P/P4PK1/3bN3/8 w - - 1 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5kb1/p2rq2p/4pp2/2p2n2/Qp6/5PPP/4R1K1 w - - 0 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnbqk2r/4b1pp/2p1pp2/ppPp4/1P1P4/P1N1PNn1/5PPP/R2QKB1R w KQkq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/pppq2pp/1b1p4/8/4BBn1/3P3P/PPP1N2K/R2Q1R2 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1b1qbppp/ppn1p3/2p1P3/6Q1/PBBP2N1/1PP3PP/R4RK1 b - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/1b1pb1p1/p1n2p2/3Bp2p/1Pp1P3/P3BN2/5PPP/R2QK2R w KQkq - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p3qpp1/1p5p/Q7/4n3/4PN2/PP3PPP/2R1KB1R w K - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq2k1/pp3pb1/2n1p1p1/2p1P2r/5P1P/P1NPpQ2/1PP3B1/R3K2R b KQ - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1p4p1/p1p2n1p/2P5/1P1pPPqP/P1nP4/5Q1K/4R3 w - - 3 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1b3pbp/p2p1np1/1pqPp3/4P3/2P1BNPP/1P3PB1/R2QR1K1 b - - 1 17",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/pp6/2p3pp/4Pp2/1B3Pnq/P3P2P/1PP1Q1P1/3R1RK1 b kq - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1P4pp/1r6/p2pp3/8/1KPR2P1/1P2R1P1/r7 w - - 1 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/2qnbppp/1p1pb3/pPp1p3/P1P1N3/3PP1P1/1BQ2PBP/R4RK1 b - - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k2r/p4ppp/1qp1pn2/8/Q3P3/3P4/5PPP/RN2KB1R w KQkq - 0 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pb1nqpb1/1pp1pnp1/3p2Np/2PP3P/1P1BPP2/PBQN2P1/2KR3R b - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pQ1b1kpp/3p1b2/2pPq3/2P5/P6P/2P3P1/5R1K w - - 1 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1bq1npbp/p1npp1p1/1pp5/4PP2/P1NPBN2/1PP1B1PP/RQ3R1K w - - 10 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2r1k/1p4pp/pq6/3B1p2/4p3/8/PPQ2PPP/2RR2K1 w - - 6 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k3/1p2pp1p/8/2pp1P2/p7/4nqr1/P6P/3R2K1 w q - 0 25",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr4/pp3p1b/2n5/3p2B1/4p3/P1N5/2P2PP1/R3K3 w Q - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4kb1r/ppp1qppp/n7/4n3/1PP1N3/P2r1BP1/4QP1P/R1B2RK1 w k - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p1p1rpp1/1p3b1p/7r/R4P1P/8/8/2K5 b - - 3 38",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/1p1n1ppp/p4n2/q4PB1/4p3/2N5/PPP2PPP/R2QKB1R w KQkq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p3qppp/1p4r1/2pPn3/Q4B2/2P3P1/P3PP1P/R4RK1 b - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r5r/1bpnkp2/6p1/Np2p2p/4P3/2P2P2/1PB3PP/R2R2K1 w - - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "b5k1/3nq1p1/1pp2r2/P2p2p1/3PpB2/6PB/2Q1PP1P/R5K1 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr1r2/pppqb2p/4p3/1P1nP3/P1NPNpp1/2P5/2Q3PP/R4RK1 b - - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/pb3ppp/1pp1pb2/q7/1BP1R3/1R1B4/P4PPP/3Q2K1 b - - 7 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1qr1k1/1Q4bp/p4np1/2B2p2/P2p4/7P/1PB2PP1/R3R1K1 w - - 1 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k3/p4p2/4bnpr/2p1N2p/1pPp4/1P1P3P/P3BPP1/R3K2R b KQq - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/p2q1ppp/1pb2B2/1Pb5/4p3/1Q4P1/P3PPBP/2R2RK1 b - - 0 19",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q2kr/ppp1nbpp/3b1n2/3p2N1/3P4/1BN5/PP3PPP/R1BQR1K1 b - - 7 16",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5R2/p7/kr6/8/K7/P7/8 b - - 1 40",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/pb1n1pp1/1p2p2p/6bP/3Pp3/1P6/PBPNBPP1/2RQR1K1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4b1k1/6p1/5p1p/P1pP4/2P5/6QP/q4PPK/8 w - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/PRQ2pp1/8/3p2qp/3P4/4P2P/5PP1/1R4K1 b - - 1 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1pq1ppb1/6p1/1p1PP3/2n2P2/1B4p1/P1Q2B1P/6K1 w - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5Q2/7k/q6p/6p1/8/P7/KP5P/8 w - - 2 43",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3b1r/pp1q1kp1/2p1pnpp/8/2BP1BPP/2N5/PPP1QP2/R3K2R w KQ - 6 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/p1q1Qpbp/2b1p1p1/1pBp4/4PP2/2NP1N1P/PPP3P1/R4RK1 b - - 0 14",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1R6/r2k1p1p/p3pPp1/3p4/P7/8/6PP/6K1 b - - 12 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/pRp3pp/5p2/4p3/2P5/2r3B1/P4PPP/4R1K1 b - - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3r1k/ppq3pp/3b2p1/3Q4/6P1/1P2P2P/PB3P2/2R2RK1 b - - 2 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/p1qn1ppp/1p2p3/8/3P4/P1N1P1P1/1PnNKP1P/5R2 b kq - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "Q5R1/5p1p/6pk/8/1P3p2/2b1rP2/6PP/5K2 w - - 1 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/pp1nqpp1/2pb1np1/3p4/3PpPP1/PPN1P2P/2P3B1/R1BQ1RK1 w kq - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2k1b/R4p1p/4p2P/p2pPp2/r2P4/2P3R1/5PP1/2B3K1 w - - 4 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/1p1q4/p3Q3/3p4/P1pP1b1p/2P2P2/1PB5/R4N1K w - - 1 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1q1rk1/4ppbp/p5p1/1p6/3PP3/4BP2/P1B1R1PP/R2Q2K1 b - - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "4r2k/ppp2p2/2n2N1p/4PP2/3r1B2/8/5RKP/4R3 b - - 3 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppqb1ppp/2n1p3/2Ppb3/4nB2/2P1PN1P/PP2BPP1/R2QK2R w KQ - 0 12",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1p2bpp1/3p4/p2Pr1P1/r3N3/2P1RK2/1P6/3R4 w - - 1 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/pbq2pp1/1p4p1/1Nb1p3/5PPP/2P1PB2/P5K1/R2Q3R b - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/4bppp/pp1qb1r1/3p3Q/3PpB2/P1N4P/1PP3P1/4RRK1 b - - 2 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5pkp/2pR2p1/1pP5/1P2N1P1/8/6PK/2r5 b - - 2 34",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr1k1/pbp2ppp/1p1p1b2/4N3/2P5/P3P1B1/1PB1QPPP/R2R2K1 b - - 0 16",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp3ppp/2p1q3/6b1/4P1Q1/2N3P1/PPP2P1P/3RR1K1 b - - 1 18",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "4k3/p4p1p/5Bp1/3rP3/8/n7/3p2PP/3K4 w - - 3 42",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p3ppp/p3pn2/b2p4/3P4/2NN4/PPP1BPPP/R2QK2R w KQ - 5 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6rk/pp3p1p/8/4pPq1/1b6/5P1P/PP2QP2/R4B1K w - - 3 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qkb2/pppr4/3p1n2/2n1pNp1/1P2P2p/P1N4P/2P1QPPB/3RR1K1 b q - 1 19",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/3r1ppp/4p3/1q1n4/1N1B4/1PP3P1/5R1P/2R3K1 w - - 3 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr2k/p4p1p/1p1bpp2/3p4/3P2Q1/2P3P1/PP3PBP/RN3RK1 w - - 2 14",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2bk1/pp3q2/2p1pp1n/2P4B/3PN2p/1Q2P3/P4P1P/2RR2K1 b - - 1 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1r6/pkn3pp/2R5/5P2/3R2P1/1PP4P/P1K5/8 w - - 5 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk3/pppb1r1B/2n1p2b/3p3p/3P4/2P2N2/PPQN1PPP/R4RK1 w q - 1 14",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6pk/q6p/2p5/8/P7/KPQ4P/8 b - - 3 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr3/pp1b2kp/2p2n2/3pBpb1/3P2PN/2N5/PPP1Q1P1/R3K2R b KQ - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/pp3pbp/2q2np1/4p3/4P3/6P1/PPP1Q1BP/R1B2R1K w - - 5 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p2nqppp/1p2rn2/2p5/2P5/2P3P1/P3PPBP/R1BQ1RK1 w - - 3 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/pRp3pp/5p2/4p3/2P5/6B1/P1r2PPP/4R1K1 w - - 1 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2pbQ2P/1pk1p3/6B1/p1P1p3/P4P2/1q3PK1/2R5 w - - 0 35",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/1R1n2pp/8/2Pp1Q2/P1p5/5P2/4BKPP/1R6 w - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/p4pp1/1p5p/8/4B3/P3PN2/b4PPP/2R1K2R b K - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r6r/3q2pk/2p1p1p1/2Pn2BP/pp4P1/P4R2/1PP1QP2/2KR4 b - - 0 24",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3kb/R4p1p/4p1pP/p2pPQ2/2rP4/2P5/5PP1/2B1R1K1 b - - 0 25",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/1p2q1b1/p3bp1p/2p1p3/1nN1P3/1P1r4/PQ3PPP/R2R2K1 b - - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/6p1/2pp3p/p1b5/Pp1pP3/1P1P2B1/2P3PP/5RK1 b - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/ppp1qpb1/2n1b2p/4P1p1/5p2/2N2N1P/PPP1QPP1/2BR2K1 w - - 0 18",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/p1r1k2p/1p2p3/2b2p2/8/4PBP1/P1R2P1P/2R3K1 w - - 6 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/1pqn1pbp/p2p2p1/3Pp3/8/3B1PBP/PPP3P1/R2QR1K1 b kq - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr1k1/1pp2pbp/2n2np1/4p3/p1PpP1bP/3P1NP1/PP1NQPBK/R1B1R3 b - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "1r1q4/1p1nppk1/p2p2p1/3P4/6BP/8/PP1QPP1K/2R5 b - - 0 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1kb1r/p3pppp/2n1q3/2RPP3/1pN1P3/1P4Q1/1BP3PP/5RK1 b k - 0 26",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/QpNbqpp1/5n2/3pr2p/4p3/6P1/PP2PPBP/2RR2K1 w - - 0 19",
+      "output": "d1c1",
+      "move_candidate": "d1c1",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/p4pp1/1n2b2p/1Qpp4/5N2/2P3P1/P3PPBP/R4RK1 w - - 5 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "N1b2k1r/1p1p1ppp/2nB4/1p6/4n3/8/PqP2PPP/R2Q1RK1 b - - 1 13",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pbpnbpp1/1p2p2p/3n4/3P3B/2N1PN2/PP2BPPP/2RQK2R w K - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k2r/p2pnppp/1pp5/2b5/2PQPP1P/2N5/PP4P1/R1B1KB1R b KQkq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2krb1nr/ppp2qbp/2n3p1/1B1p1p2/8/1PN2N2/PBP1QPPP/R3R1K1 b - - 3 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3qkb1r/1r2ppp1/3pb2p/p2p4/3N4/P5B1/1PP1BPPP/1R1Q1RK1 b k - 1 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/pp2qppp/4b3/2p1p3/2P1P3/3P3P/PP4P1/R2QRBK1 w - - 0 18",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6B1/p3kp2/4p2p/8/P1r5/3K1PPP/8 b - - 3 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1Bpq1ppp/pp2pb2/8/5P2/2NP1n1P/PPP3P1/R2Q1R1K b - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r7/2R5/p4pk1/4bB2/4P2p/8/P5PP/5K2 b - - 5 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2k2r/pp3ppp/4p3/2b5/5P2/2P5/PPK1N1PP/R1B4R b kq - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/1qr2ppp/p3p3/2bn4/3pB3/1P3P2/PB1Q2PP/R4RK1 b - - 1 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp1b1pp1/3p3p/3NR1q1/2B5/P2Q4/1PP2PPP/R5K1 b - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2Q4p/3p2pk/2p5/2P1b3/PP3q1P/1KR5/8 w - - 1 34",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2r2/8/R1Rp1kp1/pB1P1p1p/Pb5P/1P4P1/6K1/8 b - - 4 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1bk1/3Prp2/p4q1p/3Q1Bp1/1p4P1/1P4B1/P4PP1/5RK1 b - - 0 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "3r4/p4k1p/1pn2np1/2p5/P3P2P/2P2P2/1PK3P1/2R4R w - - 0 21",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2rqk2r/1b2b1p1/p4p2/3Bp2p/1n2P3/P3BN2/5PPP/R2QK2R b KQk - 1 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pq2Nppp/1p6/3p4/4n3/1Q2PBPb/PPR2P1P/3R2K1 b - - 0 27",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2bnr/1pNqkppp/pBnpp3/8/4P3/5N2/PPP2PPP/R2QKB1R w KQ - 4 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1qk2r/2p1bpp1/p1P1pn2/B2pN2p/Q2P4/4P3/1P3PPP/1BR1K2R b Kkq - 2 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/5kpQ/3b1p2/3p4/3P4/P3P1P1/1P1K1PP1/3R4 w - - 3 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/p1p3p1/1p6/8/q7/P1PQB2P/5PP1/6K1 w - - 1 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr1bnr/ppp1pppp/8/8/2Pq4/2N5/PP2BPPP/R2QK2R w KQ - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr1b1r/Bp2pppp/n1p1n1q1/8/1P6/P1NP1QN1/2P2PPP/R3K2R b KQ - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1r3k1/3b1pp1/8/4q3/1P1P3p/1Qn4P/p3N1P1/K2R1B1R b - - 0 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5pk1/6p1/7p/4P2P/R2n1PP1/3r4/6K1 w - - 3 43",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rr2/p1k4p/2pbn3/1p2N2n/3P2p1/PPN3B1/1P3PPP/1R2RK2 w - - 2 26",
+      "output": "e2e3",
+      "move_candidate": "e2e3",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/p1q3pp/1p3p2/2nR4/5P2/P3P1P1/1P5P/2K5 b - - 0 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r5r1/pp1k2pp/4p3/2p5/3p4/P2P4/1PPBK1bP/R6R w - - 0 20",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/4p1p1/2n4p/5p2/1p1P4/5PB1/PPP3PP/R2Q2K1 w k - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/kp5Q/p7/7P/1q2B3/b4P2/PpP1rP2/1K5R b - - 0 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1bpnqpbp/p2ppnp1/1p6/3P4/PBN1PN1P/1PP1QPPB/R2R2K1 w - - 3 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2qk1/pp5n/5p1P/6p1/4P3/1Q3PN1/P5P1/5K1R b - - 0 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1p1qbppp/2n5/p1p1p3/2PpB3/P2P2Pb/1PNBPP1P/1R1QR1K1 b - - 4 15",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": true
+    },
+    {
+      "fen": "1r2r1k1/pppq2pp/2n5/b1P1pb2/4N3/3PB2P/P1P2PB1/1R1Q1RK1 w - - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/3q2p1/5pbp/2bPp3/1p6/4N1BP/1P3PPK/Q2R4 b - - 1 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p1p1rpp1/1pR2b1p/1P6/5P1P/P5r1/8/3K4 b - - 0 34",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/6pp/p3p3/1p2Pp2/2bP4/P1B2N2/5PPP/2R1K3 b - - 3 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2q4r/4kp2/p2p1b2/3P1p2/1P2p2p/P4N1P/4QPP1/3R2K1 w - - 0 28",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bk3r/2qpnQpp/p1p1p3/8/4P3/2NBP3/PPP3P1/R4R1K w - - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/3p1pp1/3n1n1p/3Pp3/3qP3/pR3P1P/Q5P1/5B1K b - - 5 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1b3ppp/pq2pb2/8/8/1PR5/P2NN1PP/2RQ2K1 w - - 3 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1bk1/5p1p/5rp1/p1Q5/P2p1q2/1P3PN1/2P3PP/3RR1K1 w - - 1 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1r2r1k1/p1b2ppp/1p6/2P2n2/5Pq1/P1B3P1/2Q2PBP/R2R2K1 w - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/pp1b1pp1/1q2p3/3pP2p/3b1P2/PP6/4B1PP/RN1Q1R1K w k - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pppqn1b1/2n1b1pp/3ppp2/2P4P/BPNPP1P1/P3NPB1/1R1Q2KR b - - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/4k1bp/p1p1b1p1/2p1p3/2N5/1P6/P1P2PPP/3R2K1 w - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/p4ppp/8/2r1q3/1P2p3/4Q1P1/P6P/4R1K1 b - - 0 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p1q2ppp/b2bp3/3pN3/3BnP2/2P5/PP4PP/RN1QR1K1 w - - 3 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1brn1k1/5pbp/pqnpp1p1/1pp3P1/4PB1P/1BNP1N2/PPPQ1P2/1K4RR b - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "r1b2rk1/p1qnbppp/1pp1pn2/8/2P2B2/2N2NP1/PPQ1PPBP/R2R2K1 b - - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1ppbqpp1/pbn4p/4p3/1P2P3/P4N1P/1BP1BRP1/R3Q1K1 b - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "5k2/p1p3p1/1p6/7p/4Pp2/P1P5/1P2KPb1/8 b - - 1 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/1pqnbppp/3pbn2/pPp1p3/P1P1N3/3PP1P1/1BQ1NPBP/R4RK1 b - - 3 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/2pn1p2/p4p2/P3p3/1p2b3/5P2/1PP2BKP/3R1RN1 w kq - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1bk1/1p3n2/3p1P1q/pNpPr1p1/2P1N1b1/1P4P1/P2Q1RB1/4R1K1 b - - 4 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/4Rnpp/2p2p2/2B1p3/8/PQN3PP/1PPq1P1K/8 w - - 3 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "4r1k1/1p4p1/p1p4p/q1p1BQ2/2P5/1P4P1/P4P1P/3rRK2 w - - 0 29",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/1ppb1pk1/p2prR2/4p3/4N1p1/1P1P4/1PP3PP/5RK1 w - - 4 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/1p3pp1/8/p3b1pP/P7/1P3P2/2qp1K2/3R3R b - - 1 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/p1ppqp2/1p3n1p/4p1p1/B3P3/2P3B1/2P2PPP/1R1QR1K1 w - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k2r/ppp3pp/2n5/4pp2/1bP5/1P1B1N1P/P2N1PP1/R3K2R w kq - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/5pb1/6p1/2p3q1/p1PppnBN/Pr3P2/1P1N4/1R2Q1K1 b - - 0 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p2bppp/3p1n2/p3p3/4PB2/PPN1Q2P/2P2PP1/R3KB1R b KQ - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r4/1pk4p/n1p2pp1/3n4/2R1NP2/1B6/P3P2P/2R3K1 b - - 0 23",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1r2k1/p3qppp/3b1n2/4p3/N5b1/1P2P1P1/PB3QBP/2R2RK1 b - - 4 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1rr3/ppp2p2/5q1p/2Q5/3P4/4PpP1/PP3P1P/2R2RK1 b - - 3 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "b1rr4/2q1ppkp/pp1p2p1/2n5/P1B1P3/1PN1QP2/1P4PP/R4R1K w - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rbk/pp4b1/3p1qpp/2p5/4PP2/7R/PPPQN1BK/7R b - - 0 22",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": true
+    },
+    {
+      "fen": "r2qr1k1/pp1n2pp/2p2p2/3pN3/3PbP2/2P5/P3BPPP/R2QR1K1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk2r/1p1n1pp1/p3p2p/3pP2Q/2p2P2/P1NBP3/1PP3PP/R3K2R w KQkq - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2Rr4/pb3k2/p4p1p/R7/1P1N1P1P/P4P2/5K2/8 b - - 0 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3Rr3/1p2k2p/2p3p1/4N3/pP6/7P/P4PP1/6K1 w - - 0 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/5p1p/b1p1pRp1/p2r4/3B4/2P5/PP4PP/4R1K1 w - - 7 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1b3ppp/p3pn2/1pbpB3/8/2P1PB2/PP1N1PPP/R2Q1RK1 b - - 5 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/1p3p1p/p1npqnp1/1B1Np1B1/4P3/8/PPP2PPP/R2QK2R w KQ - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qkb1r/ppp3p1/3p1n1p/2n1pN2/4P2B/P1N5/1PP2PPP/R2QR1K1 b kq - 1 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/1b3ppp/2p1p3/1pP5/p7/3r2P1/2R2PKP/2R5 b - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/6b1/pp5k/4p1pP/1NPp2P1/8/PPQ5/4Kq2 w - - 5 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3Rr1k1/pQ3ppp/1p6/8/6n1/Pq2P1P1/1P3P1P/3R2K1 b - - 1 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b3k1/1p1rqpbp/pB3np1/3pp3/2B5/P1N2P2/1PP1Q1PP/2KR3R w - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/pp4p1/2pn2P1/3p2R1/3Pp2P/1PP5/P3K3/8 b - - 2 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/p4p1p/1p4p1/4b3/1P6/P2B2P1/3p1PKP/1R2R3 b - - 0 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/4bpp1/p1n1p1p1/1p1p4/3Pn2P/2P2NP1/PP3P2/R1BQRBK1 b - - 2 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1qr1k1/3b1pbp/5np1/2p1p3/p1PpP2P/Pn1Q1NP1/1P1B1PBN/1R2R1K1 w - - 3 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1q1r1k/2p2p2/p1Pbpn2/B2pN2p/3P4/4PP2/1P4QP/1BR2R1K b - - 3 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1p1r2Q1/1P2k3/p7/4p2p/7P/6P1/6K1 w - - 0 44",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk1r1/1pp1p3/p1n1bb1p/3p1np1/P2P4/1PN2N1P/2PQBPPB/R3R1K1 b q - 0 15",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1b1qbp1p/p1n1p1p1/1pp1P2N/6Q1/PB1P4/1PPB2PP/R4RK1 b - - 1 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp3ppp/2n5/1B1pPb2/3P1n2/P4N2/1P1N3P/R3K2R w KQ - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/3nqpbp/2p1pn2/1p1p1p2/p2PPB2/2PN1PP1/PPQ3BP/4RRK1 b - - 0 17",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/1pq2p2/p5pp/3pP3/5Q2/P3P3/6PP/1B1N1RK1 w - - 1 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7R/p4r2/1p4k1/8/P6P/KP6/8/8 w - - 1 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/ppp1rp2/2n2N1p/4PP2/3r1B2/8/5RKP/4R3 w - - 4 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/1p1q1ppp/p1n1bn2/2bp2N1/N4B2/8/PPP1QPPP/2KR1B1R b kq - 3 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1r4/1p1rp1bp/1P4p1/2B5/4NP2/n2P2N1/6PP/2K1R2R b - - 0 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "1r1r1bk1/3npp1p/6p1/2p1P1B1/4N1P1/1b3N2/5PP1/1R2R1K1 b - - 4 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r2k1/pb2bppp/4P3/1p2q3/2p1P1Q1/2N5/1P3PBP/R4RK1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "R7/3r1pkp/1p1r2p1/p2Bp3/2P5/1P4P1/P4P1P/3R2K1 w - - 0 27",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/1ppb1p2/p3pq1p/4b2B/2P5/2NQP3/PP4PP/2KR3R b kq - 3 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1bk1/5p2/3p1Pp1/4p1q1/1p6/3n2N1/5B2/N5KQ w - - 1 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/pbq2pb1/1p2p1p1/n1p1P2r/5P1P/P1NP1Q2/1PP3B1/2KR3R w - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1br2k1/1pp1qpbp/p4np1/3Pp3/2B5/P1N1BP2/1PP3PP/R2QK2R w KQ - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk3/pppB1p2/3p1b2/4n3/4p2p/2P4P/PP2NPPB/R2QR1K1 b q - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5r1/3k3Q/pq6/1p1PpPB1/2n1P3/8/P1B1R1PK/8 b - - 4 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2r2/p3qpk1/2p3pp/4pN2/2Pp4/Q2P2P1/4PP1P/RR4K1 b - - 1 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "rr4k1/2q2ppp/bpn1pn2/pB1p2N1/3P1P1P/2N1Q3/PPP2P2/2K3RR b - - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/1p1kPp1p/pB1p1P2/P7/1K5P/nP6/8 b - - 4 38",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2rk1/ppqb1pp1/2n2n1p/3pN3/3N4/PP2P1P1/5PBP/2RQ1RK1 b - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/2p3p1/p1nb1pqp/1p1N4/5B1P/1PP4P/1P1Q1P2/3RRK2 b - - 3 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr1k1/pp3pb1/2n2npp/4p1N1/Q1Pp4/B2P2P1/3NPPBP/RR4K1 w - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q1rk1/ppn1ppbp/2n3p1/2N1P2b/8/P4NBP/1P2BPP1/2RQ1RK1 b - - 4 17",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p4ppp/2pq1n2/b2p2B1/8/P1N5/1PP1BPPP/1R1QR1K1 b - - 4 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p3qpp1/1p5p/8/4n3/Q3PN2/PP3PPP/2R1KB1R b K - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "r2q1r1k/1pp1bp1n/p1npb2Q/4p1N1/4P2P/1BNP4/PPP2PP1/R3K2R b KQ - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/2q2pp1/b2b1n1p/3p4/1p1N4/4PN1P/1PPQ1PP1/4R1K1 b - - 2 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rn1/ppqbb1k1/2n1p1p1/3pP2r/2pP1B2/2P2Q2/PP4N1/RN3RK1 w - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/3r1k1p/p2Ppn2/1p2Bp2/2pN1P2/P1P4P/1P3K2/3R4 w - - 3 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/1p3pp1/7p/1pB1P2P/2b2P1q/P3P3/6P1/3Q2K1 b - - 7 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1pp2ppp/1bn1pn2/pP6/2BP4/P1N1PN2/2QB1PPP/R3K2R b KQ - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/5pbp/p2p1np1/1pp3B1/P2QPP2/1BN5/1PP3PP/R4RK1 w - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6k1/1p5p/p2BK3/1PP3p1/P5P1/7P/8 w - - 0 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pp1bq2p/2p5/3pP1b1/3Q2p1/2N5/PPP5/R2K1R2 w - - 4 31",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p1n2pn/p1p4p/2Pp1p2/PP1PpP2/1QN1P2P/3KBP2/R5NR w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/4N3/7p/6pk/8/6P1/5K1n/8 b - - 0 35",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1rrq2k1/pp2ppbp/3p1np1/3Pn3/8/2B1N1PP/PP2PPB1/R2Q1RK1 w - - 1 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/2p5/ppbp2k1/4pp2/6p1/1P1P2P1/1PP1N2P/5RK1 b - - 5 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/1bpn1p2/p4p2/P3p3/1p2B3/5P2/1PP2BKP/3R1RN1 b kq - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/ppp3pp/1b1p2q1/7B/8/3Pr1B1/PPP1N1K1/4R2Q b - - 6 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2pbQ2P/1pk1p3/4p1B1/p1P5/P4P2/1q3PK1/2R5 b - - 0 34",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": true
+    },
+    {
+      "fen": "6k1/1p1n2p1/p1p4p/2P5/1P1pPPqP/P1nP4/2Q4K/4R3 w - - 1 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p3bppp/1p2pn2/4N3/1P6/4P2P/2qr1PP1/B3QRK1 w - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1r2/1b3pkp/pp4p1/n3p3/B1P4q/2P2Q2/PP3PPP/R4RK1 w - - 6 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1r1k1/p1qn1pbp/2pp1np1/1p2p3/3PP3/2P2NPP/PP1N1PB1/R1BQR1K1 w - - 0 12",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/7R/p3p1P1/1p2p2p/2p1B3/4P1K1/PP1r4/8 b - - 0 36",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/1b1nnpb1/pp1p2pp/2pPp3/4P3/P1NBBN1P/1PPQ1PP1/3RR1K1 b kq - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/7p/6p1/1kp1Bp2/5P2/p2K4/1p4P1/8 b - - 0 42",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/1b3pbp/1p3np1/p7/2p2N2/P1P2P1P/NP4P1/3R2K1 b - - 0 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/p4pp1/3R4/2Q5/2b1P3/P4P1q/2B5/2K5 b - - 0 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/R3p3/2p3r1/1p1p1kp1/4p3/1P2P3/P1P5/2K5 w - - 2 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r6r/1b1q2k1/p3p1Bp/3p2nP/1pP3P1/4QP2/PP6/1K1RR3 b - c3 0 28",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/P2k3p/1P6/8/2pP4/5Kp1/7b/R6R w - - 1 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/1pp3pp/p1qb1pb1/4n3/3PP3/2N1B2P/PPPQB1P1/2KR3R b - - 0 17",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1nb1k2r/rp2npp1/p1pp1q1p/4p3/1PP1P3/P1NP3P/2Q1BPP1/R3K1NR b KQk - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/5rp1/ppp4p/4n3/PP1R1q2/1R3PNP/5P1K/3Q4 b - - 3 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk1nr/4bppp/b1pp4/p7/3pP3/5N1P/PP3PP1/RNBQR1K1 w kq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppq1bppp/3p1n2/4p3/1nb1P3/1NN1BQ1P/PPP2PP1/2R1R1K1 b - - 8 14",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/3p1ppp/p1p5/1pb5/3pP3/1B6/PPPP1PPP/R1BQ1RK1 w - - 2 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6r1/p7/5k2/2p5/3npP2/7K/PR6/8 w - - 5 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/pp1q1pp1/1npbp3/4P1Nb/3P1PnP/1PNQ4/P7/R1B1K2R b KQkq - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb2rk1/ppp3pp/3p4/3Pp3/2P1Bb1P/2N2P2/PP4P1/R3K1NR w KQ - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r2k1/1b3ppp/p3p3/8/8/1PR5/P1Q1N1PP/3qNK2 b - - 6 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/p1b2ppp/5n1q/2Np1b2/2p2P2/2P2BB1/PP4PP/R1Q2RK1 w - - 7 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p4pn/2p2n1p/2Pp1p2/N2PpP1P/1Q2P2N/3KBP2/R6R b - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "2r1r2k/p5p1/R5Pp/5n2/1p3P2/8/PPP1NP2/2K1R3 b - - 6 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/p1q2r1p/3b2p1/1Pp1pp2/3P3Q/1P1P3R/1B4P1/4R2K b - - 0 25",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp2pp2/2n2bp1/6Np/2B4Q/2P1B3/Pq3PPP/3R1RK1 b - - 1 20",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pp3ppp/3p1q2/1Q6/3P4/4nPN1/Pr4PP/3R2K1 b - - 2 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p2q1pbn/3r2p1/1P2p3/P3P2B/1Q4PP/6BK/5R2 w - - 1 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/Q7/2pqrbp1/3p1pB1/4pP1N/8/PPP3P1/3R1K2 b - f3 0 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/2Q2ppp/b3pq2/p2p4/8/PPN1RP2/2P3PP/3R2K1 b - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1r1k/p1pb3p/3p2p1/2pQ2N1/2P1P3/PP5P/1bK5/4RR2 w - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qkb1r/1p1npp1p/p2p1np1/3P4/B3PP2/2N5/PP3P1P/R1BQK2R b KQkq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "3r1r2/5pk1/1p1p1R1p/p2P2pP/2P3P1/1PK2R2/P7/8 w - - 8 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/kp5Q/p7/8/1q2B3/b4P2/PpP2P1P/1K1R4 w - - 1 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rrbk1/4qp1p/p3p1p1/1pn1P2n/2p5/P1P2N1P/BP2QPPB/R2R2K1 w - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1b1n1pbp/p2Pp1p1/1p6/4NP2/3QBN2/PPP3PP/3R1RK1 b - - 2 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/pbq3pp/1pn1pp2/2b5/8/2N1BN2/PPP1QPPP/3R1RK1 b - - 6 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/r5p1/ppp3qp/4n3/PPP1p3/R4PNP/5P1K/1R1Q4 w - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/1p1RPQ1p/2p3p1/8/pP6/5N1P/P4PP1/6K1 b - - 0 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/pp2q1bp/2p1pp2/6pn/2PP4/1Q3NP1/P2BPPBP/2RR2K1 w - - 0 22",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1r1k/p1pp1pp1/1p3n1p/4p3/b3P2B/1BP5/2P2PPP/1R1QR1K1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq3r/pp6/3pkb2/1Pp1p3/Q1P1P2p/3PN1PP/P2Bn2K/R4R2 b - - 0 26",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p4q1k/5pp1/6p1/1P6/P2QP1PP/5PK1/8 b - - 1 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/1pn2pp1/p6p/3bP3/3P4/P3BPPq/4B1NP/R2Q1RK1 b kq - 2 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5r1/5k2/pq5p/1p1PpPB1/2n1P2Q/8/P1B1R1PK/8 w - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/n1q1bppp/b1P2n2/pN1pp3/B7/2P1PN2/P2B1PPP/1R1QK2R b K - 6 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/pp4pp/2n5/2b2b2/7N/1P1P2P1/P1PB2BP/R2Q1K1R b - - 5 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr1k1/1b1n1pbp/pp1B2p1/2ppP2n/P2P4/2NB1N1P/1P3PP1/R2QR1K1 w - - 1 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/pR5P/2p5/3pkP2/4p2P/2Pn2N1/PP6/5K2 w - - 1 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/pp2ppbp/2np2p1/1Np5/P3P1n1/1P1P4/1BPN1PPP/1R2KB1R b K - 0 13",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": true
+    },
+    {
+      "fen": "1r1q1rk1/1p2bp1p/3p1np1/p2Pp3/2P5/1P3P1B/PBQ3PP/R4RK1 b - - 0 19",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2rqrbk1/p4pp1/1p2p2p/2npP2P/b2N1B2/2PP2P1/PP1R1PB1/R2Q2K1 w - - 7 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1Q6/pppk1p2/4q2p/6p1/2b2p2/7P/1BP2PP1/6K1 w - - 8 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnbq1rk1/1p2b1pp/3p1n2/2P2p2/2PPpB2/p1N1P3/P2NBPPP/R2QK2R b KQ - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rn1k1r/4q3/1p2pp2/pP1p2Q1/P2P4/5N1P/5PP1/R4RK1 w - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/pp4p1/3Q3p/2p5/2P5/P2Pq3/1P5P/4K3 w - - 2 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp4k1/2p5/1PP1nppp/4p3/N3P1P1/Pr3PKP/R4B2 b - - 0 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": true
+    },
+    {
+      "fen": "r2q1rk1/pBp2pbp/3p2p1/8/2Pn4/1PN1n2P/P4PP1/R2Q1RK1 w - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1p1n2pn/p1p4p/2Pp1p2/PP1PpP1P/1QN1P3/3KBP2/R5NR b - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "r1b2nk1/1p3pp1/2pq1n1p/3p4/P2P4/2N2NPP/1Q3PB1/4R1K1 b - - 0 24",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "5rkb/pRn1r2p/2q3pP/2p3N1/2PpB3/3P2P1/P3QP2/1R4K1 b - - 0 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "r7/5kpp/3R4/3Ppp2/8/5P2/1B1N2PP/6K1 w - - 1 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/2pq1ppp/p2p1n2/1p6/3PP3/1B5P/PP3PK1/RNB2R2 w - - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/ppp1pp1p/5npb/1N2n3/8/P4B2/1PPP1PPP/R1B2RK1 w - - 6 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/q2pn1pp/2nbpp2/8/1p2PP1P/1P1P1NP1/N1KBQ3/R4B1R w - - 5 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4qk1/pp3p1p/3b4/3Pp3/5p2/P4P1P/1P1Q1BP1/4R1K1 b - - 0 28",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/5pb1/6pp/pbp3B1/1p6/3P4/1P3KPP/1R2N3 w - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r7/pp4k1/2pP2p1/2P1n1qp/1P2Bp2/PQ3P1b/6PP/R4RK1 w - - 1 29",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/2b2b1p/pr3pp1/3Pq3/P1p1p1P1/2P1N3/1P1Q1R1P/1R4K1 b - - 2 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/5p1p/4qPp1/p7/1p1p2b1/1P1N4/RB1P1PP1/4K2R w - - 3 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/p4pp1/1p2pn1p/2rb4/3N4/1P2PP2/P3BKPP/R7 b - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2k2r/pp1qBp2/2pP2p1/4p3/2B1Pn1p/2N2N1b/PP1Q1PP1/3R1RK1 w kq - 1 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/1p2rpp1/3q3p/1p1p4/3P4/6RP/PP1Q1PP1/2R3K1 w - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3k4/3n2pp/5p2/1pp1n3/4P3/2B2PP1/PPP1K2P/8 w - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "6rr/2pn1p2/p2bkp2/P3p3/1p2P3/6N1/1PP2B1P/3R1R1K w - - 7 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/p4r2/1p6/7R/8/P7/1P5P/1K6 w - - 1 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/1pnq1pp1/p6p/4Pb2/3P3N/P3B3/4BPPP/R2Q1RK1 b kq - 1 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1q5/6b1/1n1p1k2/p3p1pp/1p1pPp2/1P1N3P/2P1RPPB/3R2K1 b - - 3 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/p3Qpp1/2p1p2p/3p4/8/1P3P2/P1PqbR1P/6K1 w - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2B5/5pk1/p2p2p1/Pp5p/1P1R3P/6P1/1r3PK1/8 b - - 2 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1k1r/4b1pp/5p2/3p1Q2/3P4/P3P1P1/1P3PP1/2KR3R b - - 6 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2kb1r/p3pppp/2p5/3qP3/1p1P4/1P2P3/1BPN2PP/R2Q1RK1 w kq - 2 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1p1qbpp1/p1Nppn1p/8/PP2P3/2N1B3/2P2PPP/R2Q1RK1 b - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "r2qk1nr/2pb1p1p/p1n1p3/6p1/2BPP3/2P2N2/P1Q2PPP/R1B1K2R b KQkq - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3q1rk1/1p2bpp1/2r1pn1p/p7/PnBP1B2/1RN4P/1P2QPP1/3R2K1 b - - 1 18",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2Bk1/pp3qbp/2p1pp2/6pn/2PP4/1Q3NP1/P3PPBP/2RR2K1 b - - 0 23",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/ppp3pp/n2p4/1N1Pp3/2P1B2P/4bP2/PP2N1P1/R3K2R w KQ - 5 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/6p1/p3p2p/P4p2/8/7P/2pK2P1/2r5 w - - 0 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/3k3p/2n2p2/4n1p1/1p2PP2/PPp1K1PP/2P5/2B5 b - - 0 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p2k3p/8/1pp2n2/3B4/PP5P/1P3P2/3R1K2 b - - 0 38",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/pppn1ppp/3b4/3q4/3N4/8/PPP2PPP/R1BQ1RK1 w - - 2 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4k3/1b1r1pBp/4p1p1/p1pr4/7P/2P2RK1/PP4P1/5R2 b - - 5 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/1b3p2/p4p1p/np1B4/8/3R1N2/PP3PPP/6K1 b - - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1qk1n1/2pb4/2n1N2r/p3Pp2/2BP2p1/B1P3P1/P1Q4P/R3K2R w KQ - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q2k1/1p3pp1/7p/1pB1P2P/2b2P2/P3P3/6P1/1Q4K1 b - - 5 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5pp1/4p2p/b1k5/P1B1P3/3K1P2/5P1P/8 w - - 3 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/5q2/p2pbb2/2p5/1rP1B3/RP2N3/2Q2PP1/1R4K1 b - - 0 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2k1r2r/pp1nnpp1/2pq4/3p3p/3P2PP/2NN1P2/PPPQ4/2K1R2R b - - 0 16",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/2qn1p1p/p3p1pB/3pP3/P7/2N3Q1/2P2bPP/R3R1K1 w k - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/8/3kpp1p/8/B1K4P/5rP1/8 b - - 0 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rk2r/2p3pp/p4p2/1pb1nb2/5P2/1BP5/P1P3PP/R1BQR2K w k - 3 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "k2R1b1r/pp3ppp/2B5/q7/5Q2/2p2P2/PPP2P1P/2K4R b - - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6pp/P1b1p1k1/4Pp2/Pr6/4BP2/3RK1PP/8 w - - 7 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/p4ppp/2b5/1q6/1b2p3/4B1P1/PP5P/1R1QR1K1 w - - 0 22",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/3qbppp/b3pn2/p2p2N1/3Q1B2/P1N2P2/1PP3PP/3RR1K1 b - - 0 16",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/ppp1n1b1/3p1npp/3Pp3/2P1Pp2/2NB1NPP/PPQB1P2/R4RK1 b - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp1b1ppp/2n1p1n1/3pPP2/3P2P1/P2B1N2/1P1N3P/R3K2R b KQ - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p1q2p2/1pB1p1p1/1Pb1P2p/2Q2P1P/2P1P1K1/P7/8 b - - 0 32",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk2r/1p2bpp1/p1n1p1n1/3pP3/3P3p/5N1P/PP1N1PPB/R2QKB1R w KQkq - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp3Q2/3p2pk/1q1Pp1p1/1P2P3/P6P/5PP1/6K1 w - - 1 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3kb/R4p1p/4p2P/p2pPp2/2rP4/2P1R3/5PP1/2B3K1 b - - 1 26",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3n2k1/pppbq1pp/1b1p4/8/3P4/2P1B1Q1/P1P3PP/5R1K w - - 1 19",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/2q2ppp/pp1rb1r1/3pQ3/3Pp1P1/P1N4P/1PP2R2/5RK1 b - - 2 34",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/4R1p1/3B2Q1/7p/1P1P3N/5P2/P1P3PP/6K1 b - - 2 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/ppp1n1b1/3p1npp/3Ppp2/2P1P3/2NB1N1P/PP1B1PP1/R2Q1RK1 w - - 1 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1p3pp1/1p5p/3PP2P/3BbP1q/P3P3/5RP1/3Q2K1 b - - 4 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/ppp5/5p1p/3P4/3nr1p1/6b1/PPP3P1/6K1 w - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1r5/p2k1p1p/3p1b2/1p3p2/5P2/2PK2P1/PP5P/R2R4 w - - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2q1k2r/pp1rbp2/2p1n1p1/3pP2p/3P1P2/P2BQ2P/1PP1N1P1/3R1RK1 w k - 1 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3Q4/5pk1/6pp/p7/7P/P2RP2q/8/4K3 b - - 3 43",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/1p3pp1/p3bq1p/3p4/3n4/PP2P1P1/5PBP/2RQ1RK1 w - - 0 25",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "8/4kpp1/p3p2p/1pN1b3/1P5P/P2P1P2/1rK1R3/8 w - - 8 39",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pbp2pp1/1p1p1q2/4r2p/1PPRP3/P4P2/2BQ2PP/3R2K1 b - - 0 23",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/p1bR1pp1/1pP3n1/6p1/1B4P1/P6P/5P2/2R2K2 w - - 2 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/pp3qp1/4n2b/2p1pr1p/2PpN3/3P2P1/PP2QPK1/4RN1R w - - 4 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p3bppp/1qp1p3/1p2P3/P1p1PP2/2N5/1P3PBP/R2Q1RK1 w - - 1 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1r1k/1pp4p/3p3b/p1nPp3/2P1P3/2N2B1P/PPQN1P2/2KR2R1 w - - 1 18",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/pp2bppp/5n2/3p4/1n6/2NQPB2/PPP2PPP/R1BR2K1 w - - 5 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/2p1pp1p/3p2pP/p7/3P4/P2qR1PP/1r1B1K2/3R4 b - - 4 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "r2qk2r/1bpnnpb1/pp1pp1pp/8/2PPP1P1/2NBBP2/PPQ1N2P/R3K2R w KQkq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2k2r/pp3ppp/4pn2/2qp4/5P2/2NB1Q1P/PPP2PP1/2KR3R w kq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1bq2pbp/p2p1np1/1p1Pp3/4P3/2P1B1PP/1P1N1PB1/R2QR1K1 b - - 3 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/ppp2pbp/2n3pn/1N6/4PBb1/2P2NP1/PP4BP/R2R2K1 b - - 4 13",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pb2bpp1/1p2p2p/3pP3/P1p2PP1/2P2P2/1PQ1B2P/RN3RK1 b - - 1 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp1bppbp/1q1p2p1/8/4PP2/1B1p3P/PPP1N1P1/R1B1QRK1 w - - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1p3k1p/2p3p1/p7/2P1B3/1P2K1PP/P2r1P2/8 w - - 0 38",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/Q7/2pqr1p1/3p1pb1/4pP1N/8/PPP3P1/3R1K2 w - - 0 27",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r5r1/1pp2p1k/p6p/1b1PpPb1/4P3/4N1q1/PP1KB3/R2Q3R b - - 9 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/6kp/5pp1/3P4/1p1BPR2/7P/1P1K4/7r w - - 7 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/7p/p1p1k1p1/2p1b3/2P5/6P1/P1r4P/4R1K1 w - - 0 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pQ4bk/Pp4qp/2p1pn2/5p2/2PBB1P1/1P3P2/4R1K1 b - - 0 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1r1k/p1p1b1pp/1pn5/4pP2/6P1/2PP1N2/P3BP1P/1RBQ1RK1 b - - 0 12",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/5r1p/5Bp1/3P4/1p2P3/3K1R1P/1P6/7r b - - 0 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2q5/p4pkp/1p2pnp1/8/3Q4/1P3NP1/P3PPKP/8 w - - 0 24",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": true
+    },
+    {
+      "fen": "r4rk1/1b3ppp/pq6/1pbp1QB1/2p5/P2P2N1/BPP3PP/R4R1K b - - 2 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r2k1/5p1p/pb1N1q2/1pnp2p1/4p1b1/2P1P1BP/PPQ2PP1/R4RK1 b - - 0 23",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk3/1pp4p/p1n1pb1n/3p4/3P4/2P2N1P/PP2BPP1/RN1Q1RK1 w q - 0 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/p2b1ppp/1qp1p3/2b5/3Np3/4B1P1/PPP4P/R2QR1K1 w - - 0 17",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppb3pp/2n3q1/2p1pbN1/2PpN2P/3P2P1/PP3PB1/R2QR1K1 w - - 1 19",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2k1b/R4p1p/4p2P/p2pPpB1/r2P4/2P3R1/5PP1/6K1 b - - 5 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1b2bppp/pqnppn2/8/Pp2PB2/1B1Q1N2/1PPN1PPP/3R1RK1 b - - 3 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "2r2rk1/3qb1pp/4pp2/p2p1b2/1p1P4/P1P3B1/1P1N1PPP/2RQR1K1 w - - 0 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/2R2pp1/3n1pp1/1P6/P2P4/5N1P/5PP1/6K1 w - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5p2/pp6/3pPk2/3P4/1P3K2/P7/8 w - - 0 42",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1r1k1/1p3pp1/1p5p/3PPb1P/5P1q/P3P3/5RP1/2BQ2K1 b - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppqbbppp/2np1n2/1B2p3/3NP2P/2N1B3/PPP1QPP1/3R1RK1 w - - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r3r/pkp2pp1/4pn2/1q5p/PP6/2b3P1/1Q3P1P/4RRK1 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2b1r3/rp2ppkp/p2pn1p1/2pN4/P1N1P1n1/1PPP4/5PPP/1R2KB1R w K - 1 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/pbqnbppp/1pp2n2/4p3/2P4N/2N1B1PP/PPQ1PPB1/R2R2K1 b - - 2 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1rb2rk1/6pp/pb1q1p2/3p1P2/2pPp3/P1N1Q3/1PP3PP/R3NRK1 b - - 0 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/2q1b1pp/1p6/pPpBpp2/P7/3PP1P1/2QB1P1P/R4RK1 b - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/ppp1pppp/2n2n2/8/8/2N5/PPPPBPPP/R1B1K2R w KQkq - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r4/p7/7k/np1BR3/5P2/P1p3P1/2P2K2/8 b - - 1 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1r3k1/3b1pp1/5q2/8/1P2Pb1p/1QnP1N1P/p3N1P1/K2R1B1R w - - 0 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/8/2p1r1p1/3p2P1/2P1pp1q/4Q3/PP4P1/3R1K2 w - - 0 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/6P1/p3qp1p/Q2pB2P/1p1Pn3/5R2/6P1/6K1 w - - 0 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/2rk1p1p/pR2pPp1/3p4/P7/8/6PP/6K1 b - - 10 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/5p2/6p1/3R3p/4KP2/7P/6P1/5r2 b - - 2 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1q1rk1/pbp1bppp/1p2p3/1N6/2PP1B2/8/PP3PPP/R2QKB1R b KQ - 4 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/ppp3b1/n7/2PPp2p/4PpP1/P1NQ1N2/1P3BP1/R4RK1 b - - 0 17",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "2k3r1/qp1b4/p1nP3p/4p3/P3p2P/6r1/1PPQ1R1N/5R1K w - - 0 31",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/p2nbpp1/1p2bn1p/2ppN3/3P3B/2NBP3/PP3PPP/2RQ1RK1 b - - 1 12",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/5pbp/5rp1/pQp5/P2p1q2/1P3PN1/2P3PP/3RR1K1 w - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1R6/5pkp/6p1/4P3/2p2P2/r1N2KP1/7P/8 w - - 7 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn1q1b1r/ppk1p1p1/2p1pnQ1/3pN3/3P3p/8/PPP2P2/RNB1K2R w KQ - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bnk2r/pp2p1bp/2p3p1/8/5B2/2N2BP1/PPP4P/2KR3R b kq - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "2rqnrk1/1p1bbppp/p3p3/P2pP3/1n3P2/1NN1BB2/1PP3PP/R2Q1RK1 w - - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1qr2k1/ppp1ppb1/5np1/3PN2p/2P4P/3Q2P1/PP3PK1/R1B1R3 b - - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3rk1/1bq1bppp/p2p1n2/1pp1pP1N/4P3/P1NP4/BPP3PP/R1BQ1RK1 b - - 1 12",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/5p2/6p1/p2p2P1/4RK2/8/1P6/8 b - - 0 42",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3n4/1p2kpp1/4n1p1/2P3P1/2B1NP1P/4K3/8/8 w - - 1 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r2k/pp4pp/8/2b2n2/8/1P1P2P1/P1PBK1BP/4R2R w - - 4 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p1qnbppp/b3p3/2ppP3/2pP1P2/P1N1B2P/1PP3PN/R2Q1R1K b - - 3 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/p6p/1pqBppp1/3p4/P6P/1QP5/5PP1/5RK1 w - - 1 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2b4r/2q1kpbp/pNnppnp1/1p6/4P3/P2BBN1P/1PP2PP1/1R1Q1RK1 b - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr3k/pp3Np1/3b4/3p2q1/3P4/3Q2P1/PP3P1P/4RRK1 b - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r2/pp1Rpkbp/2p1n1p1/5b2/2B2B2/2N3P1/PPP4P/2K1R3 b - - 9 18",
+      "output": "a7a6",
+      "move_candidate": "a7a6",
+      "is_legal": true
+    },
+    {
+      "fen": "r3k2r/p1qn1ppp/1p2p3/3n4/1Q1P4/4P3/PP1N1PPP/RN2KR2 b Qkq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1pq2ppp/p3bn2/2bp4/1n3R2/2N1PB1P/PP3PP1/R1BQ2K1 b - - 0 20",
+      "output": "b7a6",
+      "move_candidate": "b7a6",
+      "is_legal": false
+    },
+    {
+      "fen": "4Rk2/ppp2p1p/2b2p2/8/7P/3B4/PPPr1PP1/4R1K1 b - - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2B1b1k/ppn2B1p/2p3p1/4Pp2/5P2/1Q4PP/PPP5/6K1 b - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "1k6/2p2BBp/1p4p1/5p2/p1r5/1b6/5PPK/8 w - - 2 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/5p1p/1R4p1/4P3/1np2P2/2N3P1/P5KP/8 b - - 5 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1rr3k1/5ppp/1p1p4/p2Bp3/P1P1P1P1/2R3B1/1P5P/2b3K1 b - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrkb/p1n4p/1p3qpP/2B1p3/2Pp4/3P1NP1/P3QPB1/1R3RK1 b - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr1r2/pppq2pp/2nbp3/1P6/P1N1Pp2/2PP1N2/4Q1PP/R3K2R b KQ - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/Qb2rpk1/1p4p1/3p3p/4n2P/P2B1N2/1qP2PP1/4R1K1 w - - 0 29",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3rk2r/ppp1bpp1/7p/2P1Q3/PR1P4/4P3/4qPPP/2B2RK1 w k - 1 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pbp2pp1/1p1p1q2/4r3/1PPRP2p/P4P2/2BQ2PP/3R2K1 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/pb1qbppp/1pn1p3/1NpnP3/8/PB1PB1N1/1PP3PP/R2Q1RK1 w - - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1r4/2R5/2Rp1kp1/pB1P1p1p/P2b3P/1P2P3/6P1/6K1 b - - 0 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/pp3pbp/2n3p1/1N1p4/5B2/6P1/PP2PPBP/R2Q1RK1 b - - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/7R/4kp2/4p1p1/P1r5/6BP/1r3PPK/R7 b - - 0 31",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rqr1k1/1pNn1ppp/5n2/2pP4/P1P3b1/5NB1/1P3PPP/R2Q2K1 w - - 5 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/5p2/1N2pk2/p6p/P4P1P/1n2P3/6K1/8 w - - 0 36",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2rk1/3qppbp/p2p2p1/1p1P3n/5P2/1BN1BQ2/PP3P1P/R3R1K1 b - - 5 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "5r1k/p1p3pp/8/4b3/3n4/R3B1NP/Pr3P1K/3R4 b - - 4 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rr4k1/2qn1pb1/3p1ppp/p1pP4/P1N1P2N/6P1/1P3P1P/1R1Q1RK1 b - - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/Bp1bbppp/n3pn2/1N6/8/2N5/PPP2PPP/2KR1B1R w kq - 2 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p4ppp/1p2pn2/4N3/4b3/P3P3/RP3PPP/3r1BK1 b - - 5 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/2p2p2/6p1/p2b4/4p3/2n1P3/r5PP/2R2BK1 b - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/2pr1k2/R4pp1/P2n3p/1p2N2P/3P2P1/1P3P2/2R3K1 b - - 2 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/2Q2pp1/2p1p2p/1b1q4/p6P/5PK1/8/4R3 b - - 5 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pb1n2k1/1p6/4p2R/2Pp4/1B6/KB2q3/8 b - - 3 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/p1p2p1p/2p1bp2/4b3/8/1P1B4/PBP2PPP/R2K3R w - - 5 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "b1r2rk1/4qppp/p3p3/1pbnN3/8/PP2P2P/1B2BPP1/1Q1R1RK1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb3k1/pp2q2p/2p5/3p4/1P1P1PpP/P3R1P1/1B4K1/R2Q4 b - - 0 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/7p/3R2k1/6p1/7P/5PB1/7K/q5r1 b - - 1 42",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/pp3pp1/2p2np1/4n3/1PP5/2N3P1/P3BP1P/1R2R1K1 w - - 0 21",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr2k1/1p3pp1/p1n1bq1p/3p4/8/PP2PNP1/5PBP/2RQ1RK1 w - - 6 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/p1q4p/b2bp1p1/1Np2p2/P2p3Q/1P1P3R/1BP3P1/4R2K b - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/pp3pp1/5n2/5b1p/1bpPp2P/2N3P1/PP2PPB1/R1BQ1RK1 b kq - 2 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r3r/k3p2p/5ppn/1PN1b3/1p1p4/8/1PP2BPP/4RRK1 b - - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2k2/6p1/5p1p/p3pP1n/2B4P/3P4/PK3P2/4R3 w - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/6bp/3N4/3p4/1Pp2P2/p7/PP2R1KP/8 w - - 0 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/1r3ppb/4p3/3p2pP/3Pn3/PN2P3/6K1/1N3R2 w - - 7 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/3nqppp/p3p3/1pp1P3/3PQ3/2P2N2/P4PPP/R4RK1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/pp2bppp/3p4/3n4/3N4/8/PPP1QPPP/RN2K2R w KQ - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pp2ppbp/2p3p1/2n1P3/5P2/2Q2BPP/PPP5/R1B2RK1 b - - 0 14",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/1ppn2bp/3p4/p1nPp3/2P1Pp2/2N1B2P/PP1NBP2/R2QK1R1 w Q - 0 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1b2kpbp/1p4p1/p2n4/2pN1N2/P1P2P1P/1P4P1/6K1 w - - 1 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": true
+    },
+    {
+      "fen": "r2qkb1r/p2b1pp1/4pn1p/2pp4/Q7/2N1PN2/PPP2PPP/R1B1K2R w KQkq - 2 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pp3pk1/1q2p1p1/1b1pP1N1/5P2/PP2bB2/2Q3PP/7K b - - 0 26",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "5k2/5pp1/8/5b1p/3r4/6P1/PPR3BP/6K1 w - - 4 29",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3k2/3q1pp1/p2p2np/PppB1b2/6P1/4R2P/1PPQ1P2/4R1K1 b - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/pp1bbppp/4p3/3pn3/2pP4/2P1P1P1/PPBNQPP1/1R2K2R w Kkq - 0 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/ppq1nbpp/2pb1p2/2np4/5PPN/2NP2QP/PPPB2B1/4RR1K b - - 10 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1q3rk1/4n1b1/3p1n1p/1P1P4/8/p5BP/Q4PP1/4R1K1 b - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/3q1ppp/3b1n2/3p4/p2Np3/1PP1P2P/3B1PP1/3Q1RK1 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/pn1R1pp1/bp2p2p/2p1P3/1b1NN3/4P3/P1B2KPP/8 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4R3/ppp2rp1/2n3k1/5n1p/P2P4/2PQ2P1/2P2P1P/2B3K1 w - - 4 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/4bppp/pqnppn2/8/Pp2PB2/1B1Q1N2/1PP2PPP/1N1R1RK1 b - - 1 13",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/ppp1b1pp/2n5/3B4/3P4/5N2/PPP2PPP/R1BQK2R b KQkq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r2kb1r/p2bpp2/5n1p/4p3/2R3p1/q1N3B1/P1PQBPPP/5RK1 w - - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/ppp3p1/3q2P1/Q2n3p/2pP3P/2P5/P2B4/2KR1R2 b - - 0 25",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1p2ppk1/p2p1np1/3P3r/2R1P2P/5P1B/PP3qK1/8 w - - 0 32",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p7/5k2/1p2Q3/3P4/1PK1P3/P7/8 b - - 2 43",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/1p4pp/p1p5/q1p1B1Q1/2P5/1P4P1/P2r1P1P/R3R1K1 b - - 3 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk3/pppb1p2/2nppb2/1B3p2/3PN2p/2P4P/PP2NPPB/R2Q1RK1 b q - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4kn1/4p2Q/p4p2/2pB4/1q1BP3/8/PPP2PPP/R3K2R w KQ - 1 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3rk1/pp3pp1/2p4p/3pP1q1/6b1/2NBP2P/PPQ2PP1/R3K2R b KQ - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r7/1p2p1kp/2pp1qp1/p7/8/8/1Q3P1P/2R3K1 w - - 2 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3rk1/ppq3pp/3bpnp1/8/3P2P1/1P2P2P/PB3PB1/R2Q1RK1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r1nk1/pbq1bpp1/1pn1p2p/2p1P3/5B1P/2P2NP1/PP2QPB1/R3RNK1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/2q2ppp/p2ppn2/2pp1b2/3P4/P1N1PN2/1PP1QPPP/3R1RK1 w - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "R7/1p1kp3/p1p3p1/3p1r2/4p3/1P2P3/P1P5/2K5 w - - 0 29",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "rnq2rk1/pp3pbp/2p1p1p1/3nN3/2BP4/1R2B3/P1P2PPP/3Q1RK1 w - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p4ppp/1p6/2p1P3/2b5/B1P2P2/P1Pr1K1P/4R3 w - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/3nqpbp/2p1pn2/1p3p2/p2PPB2/2PN2P1/PPQ3BP/4RRK1 b - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "4r3/4bRp1/1nn3Np/1k1pP2P/2pP4/1pP5/1P2Q3/2q2NK1 w - - 2 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r3k1/p4ppp/8/2r1q3/4p3/1P2Q1P1/P6P/4R1K1 w - - 1 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4kr2/p6p/2pN4/1p5n/3n2p1/PP4B1/1P3PPP/1R3K2 b - - 1 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2R5/5pkp/3N2p1/2P5/2r5/8/6PK/8 b - - 4 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/ppp2pp1/2n4P/4PP2/3r1B2/2N5/5RKP/4R3 b - - 0 29",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/5p1k/3R2p1/7p/1P3P2/4P2P/3Q2PK/5q2 w - - 3 43",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/pp1k4/1qp1p3/3pP1b1/3P3p/P1P2Q1P/1P4P1/3R1R1K w - - 0 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/6bp/p2q2p1/2p1pp1n/2R5/P1Pn1N1P/1P1P1PP1/R1B3K1 w - - 0 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/pr3ppp/2R1p3/1P6/3kP3/1b3P2/4B1PP/6K1 w - - 7 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/p4pp1/8/8/1Qb1Pq2/P4P2/2Br4/2K5 w - - 0 41",
+      "output": "e2e4",
+      "move_candidate": "e2e4",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3rk1/pp3pp1/2p1b2p/3pP3/5P2/2NBP1qP/PPQ3P1/R4K1R b - - 2 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr1k1/4bp1p/p1p1p1pB/3p3n/4P3/2NB2Q1/PPP2PPP/3RR1K1 w - - 4 14",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/2q1n1pp/p1nbpp2/1p6/3PP3/1PN2N2/PB2BPPP/2RQ1RK1 b - - 1 12",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rn1k1r/4qpp1/1p2p3/pP1pP1Q1/P2P3N/7P/5PP1/R4RK1 w - - 1 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3Q4/5pk1/6pp/p7/7P/P2RPqP1/8/6K1 b - - 0 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3rk1/1p1qbppp/p2ppn2/6B1/P2NP3/2N5/1PP2PPP/R2Q1RK1 w - - 1 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/pn2bppp/1p2p3/4P3/3P4/4BN2/P4PPP/2RQ1RK1 b - - 3 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/r2nnpp1/ppppbq1p/4p3/1PP1P3/P1NP1N1P/2Q1BPP1/RR4K1 w - - 6 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq2k1/pp3pb1/2n1p1p1/2p1P2r/3p1P2/P1NPB2Q/1PP3BP/R3K2R w KQ - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6rk/pp2qp1p/8/4pP2/1b6/5P1P/PP2QP2/R4B1K b - - 2 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/1pp1kpp1/p3p3/4n1N1/6P1/1B2P3/PP6/2K2R2 w - - 4 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/Qb3ppp/1p2pn2/3pB3/3P4/4PPP1/PP4BP/2R1R1K1 b - - 0 19",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/5pp1/1pq2n1p/pN6/1bPP4/8/PP2QPPP/R5K1 w - - 0 26",
+      "output": "e2e3",
+      "move_candidate": "e2e3",
+      "is_legal": true
+    },
+    {
+      "fen": "r1bq1rk1/2ppnpb1/p5pp/np6/3PP2B/5N2/PPB2PPP/RN1Q1RK1 b - - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1r4/pp2n3/2n1p3/q1p3p1/4Pp2/PP1P2P1/1Q1NBPK1/2R5 w - - 1 26",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1rbq1rk1/1pn1p1bp/p2p2pB/2pPp3/P1P1P3/2N5/1P1QBPPP/R3R1K1 w - - 0 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rqr1k1/pp3ppp/1n1p4/8/2bP4/8/PP3PPP/RN1Q1RK1 b - - 6 19",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1k2r/p2p1ppp/1p3n2/2q1p3/3pP3/P2P4/1PPBBPPP/2RQ1RK1 b kq - 3 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6pk/7p/2p5/2q5/PQ6/KP5P/8 b - - 1 39",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1nrr2k1/1R4pp/8/2Pp1Q2/P1p5/5P2/4BKPP/1R6 b - - 0 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pB4b1/3qb3/7Q/3n3B/6P1/PP3P2/R4RK1 b - - 0 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1q4/1p2ppk1/p2p1np1/3P4/6BP/8/PP1QPP1K/2R5 w - - 1 26",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/4b1p1/p4p2/3qp2p/8/P3BN2/4KPPP/Q2R4 b k - 1 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r2k1/4N1pp/p2p4/6q1/PPnBPp2/7b/5PP1/R1RQ2K1 b - - 1 24",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2b2rk1/2b2pp1/pNp4p/p1Pp1P2/7q/P3P2P/1PQ3P1/1R3RK1 w - - 1 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pp1nppbp/2p2np1/2Pp4/1P1P1B2/2NBPQ1P/P4PP1/R4RK1 b - - 0 12",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4k2r/1p1qbppp/p3pn2/8/3B4/1P2PQ2/P2N1PPP/2R3K1 w k - 1 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1r2/pQpkb3/Pp2p3/3nP3/3PN1p1/4qp2/3R3P/6RK b - - 5 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/1bpq4/pp1p2PB/3Ppp2/4n1Pb/4Q3/PPP1BP1N/3RR1K1 w - - 1 21",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qkb1r/1p2pppp/p1bp4/6Q1/P7/1P6/2P2PPP/RNB1K2R b KQkq - 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "2r2rk1/1p2bppp/pB2p3/Pq1pPP2/1n6/5B2/1PP3PP/R2Q1RK1 w - - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn3rk1/1p1b2pp/5n2/1NpPqp2/2P1p3/p3P3/P2NBPPP/1R1Q1RK1 b - - 5 17",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/5ppp/p1pp4/1pb5/3pPB1q/1B1P1Q2/PPP2PPP/R4RK1 b - - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p7/1p2pk1p/5p2/1PbKPP2/P7/7P/2N5 b - - 2 37",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1q2k1r1/2pr1p2/p3p1p1/P1Rn2Qp/1p2N2P/3P4/1P3PP1/4R1K1 b - - 2 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/ppq1ppbp/2np1np1/8/2P1P3/2NBBN1P/PP3PP1/R2Q1RK1 w - - 3 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2krr3/pp1b1p2/5p1p/2p5/8/P1nR3P/2N2PP1/2R2BK1 b - - 1 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rr1k1/1b1qbp1p/2n1p1p1/ppp1P2N/6Q1/PB1P4/1PPB2PP/R4RK1 w - - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1q1r1k1/ppp3pp/2npbp2/3P1n2/2P2B2/2PB1N2/P4PPP/R2Q1RK1 w - - 1 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "b2r1bk1/p1qr1p1p/1pnNp3/2p1P1Q1/5P2/1PP4P/PB4PN/4RRK1 b - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/1kp2p2/1p1q2pp/3P2P1/1np1P2P/r1N1KP2/1Q2N3/3R3R b - - 4 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2kr3r/1pq2p2/p3b2p/3p4/P1pP1bp1/2P2P2/1PB1R1P1/RN2Q2K w - - 0 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2rk1/pb3ppp/1pp1pb2/8/2P1RB2/1RqB4/P4PPP/3Q2K1 b - - 3 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/p1b2ppp/7q/2NB1b2/PPp2Pn1/2P3P1/3Q2P1/R4RK1 w - - 1 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/pp4b1/1nn4p/4pbp1/4Np2/2P2N1P/PPB2PPB/3RR1K1 b - - 0 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1p3pp1/3R3p/3p4/3P4/4r2P/1P4PK/8 w - - 0 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/pb1p1ppp/1npQp3/4P3/2P5/8/PP3PPP/R1B1KB1R w KQkq - 1 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r3rk1/2p1pp1p/3p2pP/p7/1n1Pq3/Q1B3PP/1PP2K2/3R1R2 b - - 2 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": true
+    },
+    {
+      "fen": "8/1pR2k1n/5p1P/p4Np1/4P3/1r3P2/5K2/8 b - - 3 36",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4r1k/1bq1bppp/p2ppn2/1pn5/4P3/P1N1BPQ1/BPP1N1PP/R4RK1 w - - 6 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/pp1np2p/3pp1p1/8/1R2P3/2N2P2/PPPK2PP/7R b k - 3 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr1k1/p1p2pbp/bp4p1/2n5/3pP3/P4QP1/1PPN1PBP/R1B1R1K1 w - - 2 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp2ppbp/1q1p1np1/8/B2pPPb1/3P3P/PPP1N1P1/R1B1QRK1 b - - 0 12",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/1pnbbppp/pB2p3/P2pP3/1n1N1P2/2N2B2/1PP3PP/R2Q1RK1 b - - 4 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "5bk1/1p2pp2/6p1/1q1PP3/2n2P2/3Q2P1/2B2BK1/8 w - - 0 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "b2q1rk1/3n1pb1/p1rPp1pp/1p6/5P2/1NPQ1N2/PP3BPP/3RR1K1 b - - 3 20",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn2k2r/ppqbbp2/2p2np1/3Pp1B1/2B1P2p/2N2N1P/PP2QPP1/3R1RK1 b kq - 1 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r4/5p1k/p2Rpp1b/1p6/4PP1p/1B6/PPP3PP/3R2K1 b - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/1pp1Rrp1/p6q/2PP2p1/3Q4/2B3P1/PP3P2/4R1K1 b - - 5 32",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/4R1b1/8/8/7B/5bPK/1r3P2/8 w - - 0 42",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k1nr/1bq1bppp/2pp4/p7/Q2NP3/7P/PP3PP1/RNB1R1K1 w kq - 3 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r3k/1p5p/p2r2p1/1P3p2/4p2P/NB1bP3/5PP1/4R1K1 w - - 0 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/6pp/P3p1k1/4Pp2/b7/4BP2/2R1K1PP/1r6 w - - 0 38",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1k2r/pp1q1pp1/4p3/1P1pPnBp/P2P4/5Q2/5P1P/R2R2K1 w k - 3 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn5r/3k1p2/p2p1Pp1/1P2p3/R3P3/2PB1R1P/7P/6K1 b - - 0 33",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/1ppp1ppp/pq6/2b5/2P2B2/2N2BP1/PP3P1P/R2QR1K1 w - - 6 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r4k/p5b1/2p1Np2/3n2pp/2PPp3/6P1/P3P2P/2R3K1 b - - 0 27",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r4k/p7/1np5/5pb1/2PPpN2/4P1Pp/P4K2/2R5 b - - 2 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2krr3/p2b1p2/1p3p1p/2p5/4n3/P2RN2P/5PP1/2R2BK1 w - - 0 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/2qn1pb1/3p1ppp/p1pP4/2N1P2N/6P1/PP3P1P/1R1Q1RK1 b - - 0 20",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2Q1rk1/1p3pp1/p1b1p2p/2P5/1P2B3/P1n2N2/2P2PPP/R4RK1 b - - 0 17",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": true
+    },
+    {
+      "fen": "r3n1k1/1R1p1ppp/5n2/3Pp3/4P3/p4P2/Q5PP/3q1B1K w - - 2 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/pb2b2p/2p3p1/1pP2pN1/1P5P/2BP2P1/2n2PB1/6K1 b - - 2 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1r1k/5ppp/p2b4/1pn5/5N2/P3BPP1/1PP3P1/3R1RK1 b - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r2rk1/1p1bppbp/p4Np1/8/4q3/1n2BN1P/PPP1Q1P1/3RR1K1 b - - 0 21",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p5R1/2kp1K2/5P2/8/2P2r2/PP3r2/8 w - - 3 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/1b3p2/pp1npPpp/3pN3/3P4/BPR2P2/P5PP/3QR1K1 w - - 1 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2r1kb1r/pp2pnpp/2p1pq2/8/3P4/2NQ1P2/PPP1R1PP/R1B3K1 w k - 4 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2rn1k1/6bp/1qnpb1p1/2p3P1/p3PB2/2pPQN2/PPP2P1R/1K5R b - - 1 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/pR3p2/2kp1b2/3R4/5P1p/2P3PK/PP2r2P/8 w - - 2 34",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r1rk1/p4pp1/2b4p/1p1Np3/2B5/P5R1/1PP2PPP/5K2 w - - 0 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "5rk1/p4p2/1p1Q2p1/7p/1P6/Pq2P2P/5PP1/3R2K1 w - - 5 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r3/6p1/1nn3Np/1k1pP2P/2pP4/1pP3N1/1R4K1/8 b - - 0 37",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p6b/p1N1pp1p/8/3P1P1P/P1R2P2/1P3K2/7R b - - 1 24",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "rnbqkb1r/1p3ppp/p7/3NpN2/2PpP3/P7/1P3PPP/R2QKB1R b KQkq c3 0 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "5r2/p2rn3/Qpnk4/3ppq1p/5bp1/2P3BP/PPN2PP1/1K1R3R w - - 2 28",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/ppq1bp2/2p1pn1p/2Pp3Q/1P1P1P2/2NBP3/P5PP/R4RK1 w - - 0 18",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/1p3p2/6p1/4p3/1r1pP3/3PbPPp/qBQ1K2n/1R2N3 w - - 1 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/p7/3n1k2/2p5/4pPK1/8/P6R/8 b - - 0 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb4q/3kb1p1/2p1pp2/1pPp4/pP1P4/P1NBPNP1/5PP1/R2QK3 b Q - 2 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/QR6/2p1p3/1k1pP3/3P3p/P1P4P/1P4PK/3q4 b - - 2 44",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/p1q3pp/1p3p2/2nR4/5P2/P3P1P1/1P5P/2K5 w - - 1 26",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "1r4k1/2q1bppp/3p1n2/4p3/R1P5/5N1P/4QBP1/6K1 b - - 0 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3k4/pp1Bn1b1/6p1/1PN3pp/3pP3/3P2P1/P2r1r1P/1R2R1K1 w - - 3 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2k1r2r/ppp3b1/2nq2bp/4p1p1/2P2p2/3P1N1P/PP1QBPPB/2KRR3 w - - 4 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "q6r/2kbb1p1/1nn4p/3pPp1P/2pP2Q1/1pP5/1P2N2N/1BB2RK1 w - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "3rrbk1/4qp1p/p2Rp1p1/1pn1P2n/2p5/P1P2N1P/BP2QPPB/R5K1 b - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1r1k/1pp4p/3p3b/p1nPp3/2P1P1B1/2N4P/PPQN1P2/2KR2R1 b - - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn4k1/pb1p1ppp/5n2/3Pp3/4P3/P1qB1P2/6PP/R2Q1RK1 w - - 0 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/1bq2pb1/p1n1p3/1pppP2p/5p2/P1NP1N1P/BPP1QPP1/R3R1K1 w kq - 0 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1r1b2/1bq4r/pp1pBP1p/1npPp1p1/Q1N5/2P1B1P1/PP5P/R4RK1 w - - 5 23",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/1q3pp1/3n3p/2bp1N2/1pbN4/4PP1P/1PP3P1/3QR1K1 w - - 1 30",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2rk3r/3p2b1/3Ppq1p/2p3p1/1p6/4B1P1/PPQR1P1P/2K4R w - - 0 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/1pp4p/3p4/p1NPp3/2P1P1P1/2N1b3/PP3r2/1K1R4 b - - 0 26",
+      "output": "d2d4",
+      "move_candidate": "d2d4",
+      "is_legal": false
+    },
+    {
+      "fen": "3r3r/ppp2pk1/4pqp1/n3R3/3P1P2/P1P2QPp/B1P2P1P/R5K1 b - - 6 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/2p2p2/p5p1/3b4/4p3/2n1P3/r3B1PP/4R1K1 w - - 2 31",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/p2b1ppp/1qp1pn2/2bp4/3N4/2N1B1P1/PPP4P/R2QR1K1 b - - 4 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/pp2pppp/nqp1b3/4P3/3P4/4P3/1PPNB1PP/R1BQ1RK1 w kq - 1 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kb1r/1pPq1pp1/p3n2p/4Pb2/3P4/P3BN2/4BPPP/R2Q1RK1 b kq - 2 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3kbr1/ppqbnp2/2nppBpp/2p5/4P3/2NP1N2/PPP1BPPP/R2Q1RK1 w q - 4 11",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r5k1/2p3p1/p1nb1p1p/1p1N1q2/5B1P/1PP1R1QP/1P3P2/3R1K2 b - - 9 29",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/p2nb1pp/bpp1p3/P2p1p2/2PPnB2/1P3NP1/2Q1PPBP/RN3RK1 w - - 0 13",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/pp3pbp/2n5/3N2p1/5B2/6P1/Pq2PPBP/R2Q1RK1 w - - 0 16",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "4rr2/2q3kp/5pp1/3P1b2/1p1BBR2/3P2QP/1PP4K/8 b - - 5 30",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/pbq2pp1/1p2p1p1/2b5/3N1PP1/2P1PB2/P5KP/R2Q3R w - - 4 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "6k1/5pp1/1Qp1p1qp/1b6/p2r3P/5P1K/8/7R b - - 17 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rqn1k2r/1b1n1p2/pp2pPpp/1B1p4/3P4/BP3N2/P4PPP/2RQR1K1 w kq - 0 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/1P6/2n3p1/p3P3/4pP2/2P3p1/8/2K2B2 w - - 0 37",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3N4/1p6/2p2kp1/3p1r1p/rP5P/4P1K1/8/1R6 b - - 8 40",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2krr3/ppp2p2/3b1q1p/4n1p1/8/1N2P1P1/PPP2PBP/R1Q2RK1 b - - 2 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rq1rk1/pb1Nbppp/1pp1pn2/8/2PPpB2/2NB4/PP3PPP/R2QR1K1 b - - 0 12",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp4pp/3ppn2/q1p2p2/b1PPn3/P1PBP3/1B1N1PPP/R1Q2RK1 b - - 8 15",
+      "output": "d7d5",
+      "move_candidate": "d7d5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1rk1/pp2npbp/2n3p1/1N1p4/3N1B2/6P1/PP2PPBP/R2Q1RK1 b - - 2 11",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "3rrnk1/pbq1bp1p/1pp2np1/4p3/1PP4N/P1N1B1PP/2Q1PPB1/R2R2K1 w - - 1 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/p1q4p/3bp1p1/1Pp2p2/3p3Q/1P1P3R/1BP3P1/4R2K b - - 0 23",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b2rk1/p1q2pbp/2p1p1p1/3pPnB1/3N4/5N1P/PPP2PP1/R2Q1RK1 w - - 1 13",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/1pp1nr2/4RN2/5PB1/p5K1/3r4/4R2P/8 b - - 1 39",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2r2k1/ppp1qpb1/2n1b1pp/4Pp2/5B2/2N2N1P/PPP1QPP1/3RR1K1 w - - 2 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr1k1/pp2nppp/1bn5/2P5/Q2p1P2/PN4P1/5PBP/R1B2RK1 b - - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/1p1pN3/p1bPk3/2P1p3/1P6/P2K4/8 w - - 4 42",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1p2bpp1/p6p/3qP3/3P1P2/n2QB1P1/4B2P/2R2RK1 w - - 1 27",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "3qb3/pp2b1k1/2n1p1pr/3pP3/2pP1Q2/2P5/PP1N2N1/5RK1 w - - 3 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/1ppb2pn/2n1pbp1/p3P2p/5B2/2N2PNB/PPPQ4/2KR3R b - - 0 16",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "7k/1pp4p/3p3b/p1nPp3/2P1P1P1/1NN5/PP3r2/1K1R4 b - - 2 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2bR4/1p2rpkp/r3p1p1/p7/8/2P3P1/PP3PBP/3R2K1 w - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rnn1k2r/pbq2pb1/1pppp1pp/4P3/2PPN3/1P1B1N2/PB3PPP/R2QR1K1 w kq - 2 14",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1k1r4/ppq5/2n1BQ2/2p3p1/2N1P3/Pn1P2P1/6K1/7R b - - 0 31",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "8/p1kn4/1pb1N2p/5B2/2p5/P6P/3r2P1/4R1K1 b - - 0 40",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "rnb1r1k1/pp3pbp/2p2np1/q5B1/3Np3/P1N1QP1P/2P3P1/R3KB1R w KQ - 0 16",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqr1k1/2p2ppp/p3pn2/1p6/3P4/BPPQPN2/5PPP/3R1RK1 w - - 0 14",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr4/p3qpkp/1p2p1p1/2nbN3/8/1P4P1/P3PPBP/2RRQ1K1 b - - 1 18",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2rbbk1/2q2ppp/3ppP2/pp4P1/2nBP2P/PNN5/1PP3Q1/R4RK1 b - - 0 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bqk2r/1p1pb1p1/p1n2p2/4p2p/1P2P3/P3BN2/2P2PPP/R2QKB1R w KQkq - 0 13",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r6r/3q2pk/2p1p3/2Pn4/2P3P1/p6R/1p1BQP2/1K1R4 b - - 1 29",
+      "output": "a8a7",
+      "move_candidate": "a8a7",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/pp1b1ppp/n3p3/2bpPn2/1P6/P1N2N2/2PBBPPP/R2Q1RK1 b - - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/2r1pk2/p2p2pp/Pp3p2/n2P4/2P2P1P/1P1R2P1/R4KB1 b - - 0 28",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "1r1r1bk1/4pp1p/6p1/2R1P1B1/8/5P2/5P2/4R1K1 b - - 0 33",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/3kp2R/1b4p1/3r4/2p3P1/6BP/6K1/8 w - - 0 36",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/p7/3n1k2/2p5/4pPK1/8/P6p/7R w - - 0 41",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r3k2r/pp1bbppp/2n1p3/7q/1PPP4/P4N1P/4BPP1/R1BQR1K1 b kq - 2 18",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rn4k1/pbRp1ppp/5n2/3Pp3/1q2P3/3B1P2/6PP/3Q1RK1 w - - 2 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q3r/p4kb1/3p1B1p/2pNpP2/Q1Pn4/3P1pPB/P4P2/R4RK1 b - - 0 19",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "3r2k1/p4ppp/1p6/2p1P3/2b5/B1P2P2/P1P2K1P/4R3 b - - 1 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1pp3pp/p2p4/4pNqn/8/1PNPP3/1PP2QPP/R4RK1 b - - 0 16",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1k1r/p1p2ppp/2BpP3/2n5/8/5N2/P1P2PPP/R1BQ1RK1 w - - 1 13",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r1b1r1k1/1p2qpb1/3p1n2/pNpP2p1/2P1P2p/1PN3P1/P3QPB1/3RR1K1 b - - 0 20",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "r3r1k1/pb1qbppp/1pn1pn2/1Np1P3/8/PB1PB1N1/1PP3PP/R2Q1RK1 b - - 0 14",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/p1qb1ppp/2p1pn2/8/Q1N1P3/3P4/4BPPP/R3K2R w KQ - 6 17",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4rrk1/pp3pp1/2p2n1q/3p2RP/3P1P2/3Q4/PPP1N3/2K3R1 b - - 2 22",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qk2r/p2b1ppp/2p1pn2/2bp4/3N4/2N5/PPP2KPP/R1BQR3 w kq - 0 12",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "Q7/pppb4/3kp3/3qp1B1/8/P1P2P2/5P1P/R6K w - - 1 26",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2r5/4Bkpp/p3bp2/P1p5/1p6/1P4P1/2PR1P1P/3R2K1 b - - 0 24",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "rBb3k1/5p1p/2p1p3/pp2P1pP/8/2P1P1P1/P1Kr1PB1/7R w - - 0 22",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r1bq1k1r/pp3p1p/2n3pP/2pNP3/2p3n1/5N2/PP1Q1PP1/R3KB1R w KQ - 1 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/1pqbppbp/p1np1np1/3N4/2P1P3/P2BBN1P/1P3PP1/2RQ1RK1 b - - 2 13",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    },
+    {
+      "fen": "7r/2p2p2/p2bkp2/P1n1p3/1p2P1r1/6N1/1PP2B1P/3R1R1K w - - 11 28",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "8/8/1pR5/p5k1/8/P7/1PPr1PK1/8 w - - 2 35",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "4r1k1/pp3pb1/2qr1np1/4p1Bp/4P3/2P3P1/PP2Q1BP/R4R1K w - - 2 21",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "1r2r2k/1p1qb1pp/2n5/2pBpp2/2Pp4/PR1P2Pb/2NBPP1P/1Q2R1K1 w - - 4 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "2rr4/1p1nppkp/1qbp2p1/p7/2P1PP2/2N2B1P/PP1Q2PK/2R2R2 w - - 4 20",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r6k/pp4pp/8/2b2Q2/3n4/1P1P2P1/P1PB2BP/R4K1R b - - 0 25",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r4rk1/pp1qb1pp/4pp2/3p1b2/3P4/1QP3B1/PP1N1PPP/R3R1K1 b - - 1 15",
+      "output": "b2b4",
+      "move_candidate": "b2b4",
+      "is_legal": false
+    },
+    {
+      "fen": "r2qr1k1/pp2nppp/2n5/2b5/Q1Pp1P2/PN4P1/5PBP/R1B2RK1 b - - 6 15",
+      "output": "e7e5",
+      "move_candidate": "e7e5",
+      "is_legal": false
+    },
+    {
+      "fen": "r2q1rk1/ppp2p1p/2npb1pb/3N4/2PPP3/1P1Q1N2/PB4PP/R2K1R2 w - - 1 16",
+      "output": "d7d6",
+      "move_candidate": "d7d6",
+      "is_legal": false
+    }
+  ],
+  "legal_rate": 4.2,
+  "format_rate": 100.0
+}
