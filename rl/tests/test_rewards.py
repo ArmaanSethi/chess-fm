@@ -134,6 +134,15 @@ class TestRewardMoveQuality(unittest.TestCase):
         self.assertIn("move_quality", result["components"])
         self.assertEqual(result["total"], 1.0 + 0.1 + 1.0)
 
+    def test_stage1_without_engine_raises(self):
+        """Stage 1/2 must never silently degrade to Stage 0."""
+        with self.assertRaises(ValueError):
+            combined_reward(self.STARTING, "e2e4", "e2e4", stage=1, engine=None)
+
+    def test_stage2_without_engine_raises(self):
+        with self.assertRaises(ValueError):
+            combined_reward(self.STARTING, "e2e4", "e2e4", stage=2, engine=None)
+
 
 if __name__ == "__main__":
     unittest.main()

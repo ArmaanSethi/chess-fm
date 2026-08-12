@@ -44,6 +44,7 @@ def load_dataset(filepath: Path) -> list[dict]:
 
 def load_model(model_name: str):
     """Load the base model with unsloth (4-bit + LoRA) or a PEFT fallback."""
+    torch = _get_torch()
     try:
         from unsloth import FastLanguageModel
         model, tokenizer = FastLanguageModel.from_pretrained(
@@ -121,7 +122,7 @@ def main():
     print(f"   Loaded {len(raw_data)} samples")
 
     # Filter valid samples (drop weak/unreasonable moves)
-    valid_data = [s for s in raw_data if "instruction" in s and "output" in s
+    valid_data = [s for s in raw_data if "prompt" in s and "completion" in s
                   and s.get("is_reasonable", True)]
     print(f"   Valid & reasonable samples: {len(valid_data)}/{len(raw_data)}")
 
@@ -130,6 +131,14 @@ def main():
         return
 
     if args.dry_run:
+        # Validate balanced <think> tags across the dataset.
+        bad_tags = sum(
+            1 for s in valid_data
+            if s["completion"].count("<think>") != s["completion"].count("</think>")
+        )
+        print(f"   Samples with unbalanced <think> tags: {bad_tags}")
+        if bad_tags:
+            print("   ⚠️ Run convert_to_training.py to fix these.")
         print("\n✅ Dry run complete. Data looks good!")
         return
 
@@ -138,38 +147,39 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    print("\n📊 Preparing dataset with ChatML template...")
+    print("\n📊 Preparing dataset with prompt/completion columns...")
     from datasets import Dataset
 
     dataset = Dataset.from_list(valid_data)
 
-    def formatting_func(examples):
-        texts = []
-        for inst, out in zip(examples["instruction"], examples["output"]):
-            messages = [
-                {"role": "user", "content": inst},
-                {"role": "assistant", "content": out},
-            ]
-            if hasattr(tokenizer, "apply_chat_template"):
-                text = tokenizer.apply_chat_template(messages, tokenize=False)
-            else:
-                text = f"<|im_start|>user\n{inst}<|im_end|>\n<|im_start|>assistant\n{out}<|im_end|>"
-            texts.append(text)
-        return {"text": texts}
+    # Loss is computed on completion tokens only (TRL's documented behavior
+    # for datasets with 'prompt'/'completion' columns), so the model never
+    # trains loss on the user prompt.
+    dataset = dataset.select_columns(["prompt", "completion"])
 
-    dataset = dataset.map(formatting_func, batched=True)
+    # Train/Val split at the FEN level so identical positions never leak
+    # between train and validation.
+    fens = {s["fen"] for s in valid_data}
+    import random
+    rng = random.Random(42)
+    fens = list(fens)
+    rng.shuffle(fens)
+    val_fens = set(fens[: max(1, round(0.15 * len(fens)))])
+    val_indices = [i for i, s in enumerate(valid_data) if s["fen"] in val_fens]
+    train_indices = [i for i in range(len(valid_data)) if i not in set(val_indices)]
 
-    # Train/Val Split
-    split_dataset = dataset.train_test_split(test_size=0.15, seed=42)
-    train_ds = split_dataset["train"]
-    eval_ds = split_dataset["test"]
-    print(f"   Train samples: {len(train_ds)}, Val samples: {len(eval_ds)}")
+    train_ds = dataset.select(train_indices)
+    eval_ds = dataset.select(val_indices)
+    print(f"   Train samples: {len(train_ds)} (unique FENs: {len(fens) - len(val_fens)})")
+    print(f"   Val samples:   {len(eval_ds)} (unique FENs: {len(val_fens)})")
+    print("   Split is by FEN: no position appears in both sets.")
 
     print("\n🚀 Starting training...")
     args.output.mkdir(parents=True, exist_ok=True)
     torch = _get_torch()
 
-    # TRL >= 0.12 uses SFTConfig (with dataset_text_field/max_seq_length in config).
+    # TRL >= 0.12 uses SFTConfig. With 'prompt'/'completion' columns, TRL
+    # computes loss on completion tokens only.
     try:
         from trl import SFTConfig, SFTTrainer
         training_args = SFTConfig(
@@ -186,7 +196,6 @@ def main():
             fp16=torch.cuda.is_available(),
             optim="adamw_8bit" if torch.cuda.is_available() else "adamw_torch",
             seed=42,
-            dataset_text_field="text",
             max_seq_length=MAX_SEQ_LENGTH,
         )
 
@@ -223,7 +232,7 @@ def main():
             tokenizer=tokenizer,
             train_dataset=train_ds,
             eval_dataset=eval_ds,
-            dataset_text_field="text",
+            dataset_text_field="completion",
             max_seq_length=MAX_SEQ_LENGTH,
             args=training_args,
         )

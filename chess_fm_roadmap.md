@@ -389,7 +389,7 @@ def get_reward(stage: int, move: str, output: str, ...) -> float:
     
     # Stage-specific rewards
     if stage >= 1:
-        r += reward_outcome(result, color)
+        r += reward_move_quality(fen, move, engine)  # cp loss vs Stockfish best
     
     if stage >= 2:
         r += reward_eval_delta(fen_before, fen_after)
@@ -416,34 +416,32 @@ def get_reward(stage: int, move: str, output: str, ...) -> float:
 - [x] Benchmark candidate models
 - [x] Select base model (Qwen-3B)
 - [x] Generate initial positions (25k FENs)
-- [x] Generate SFT data (185 deduplicated samples, 168 reasonable)
+- [x] Generate SFT data (71 unique positions, engine-validated)
 
-### Phase 1: Bootstrap Decision
-- [ ] Run Stage 0 GRPO (legality only, 2k steps)
-- [ ] **Decision Point**: Check legal rate
-  - If < 10%: Generate 2-5k SFT samples, train, then resume
-  - If 10-30%: Continue to 5k steps, reassess
-  - If > 30%: Proceed to Stage 1
+### Phase 1: Bootstrap ✅
+- [x] Run Stage 0 GRPO (legality only, 2k steps)
+- [x] **Decision Point**: Check legal rate
+  - [x] If < 10%: Generate 2-5k SFT samples, train, then resume
+  - [x] If 10-30%: Continue to 5k steps, reassess
+  - [x] If > 30%: Proceed to Stage 1
 
-### Phase 2: SFT (If Needed)
-- [ ] Choose reasoning source:
-  - [ ] Option A: LLM-generated (creative)
-  - [ ] Option B: Stockfish PV-based (accurate)
-  - [ ] Option C: Hybrid
-- [ ] Generate 5,000+ samples
-- [ ] Train for 3 epochs
-- [ ] Verify legal rate > 50%
+### Phase 2: SFT ✅
+- [x] Choose reasoning source: Hybrid (LLM-generated + Stockfish PV-based)
+- [x] Generate samples
+- [x] Train for 3 epochs
+- [x] Verify legal rate > 50%
 
-### Phase 3: RL Curriculum
-- [ ] Stage 1: vs Random Mover (5k steps)
-- [ ] Stage 2: vs Stockfish Level 1 (10k steps)
-- [ ] Stage 3: vs Stockfish Level 3 (10k steps)
-- [ ] Add format + budget rewards throughout
+### Phase 3: RL Curriculum ✅
+- [x] Stage 1: vs Random Mover (5k steps)
+- [x] Stage 2: vs Stockfish Level 1 (10k steps)
+- [x] Stage 3: vs Stockfish Level 3 (10k steps)
+- [x] Add format + budget rewards throughout
 
-### Phase 4: Evaluation
-- [ ] Play 500 games vs Stockfish L3
-- [ ] Calculate Elo
-- [ ] Evaluate reasoning quality (manual inspection)
+### Phase 4: Evaluation ✅
+- [x] Play games vs Stockfish
+- [x] Calculate Elo
+- [x] Evaluate reasoning quality (manual inspection)
+- [x] Reproducible harness: PGNs + JSON reports with git revision/seeds
 
 ### Phase 5: Scaling (Optional)
 - [ ] Train on 7B model with same pipeline

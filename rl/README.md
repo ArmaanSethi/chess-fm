@@ -1,32 +1,29 @@
 # RL Training for ChessFM
 
-## 🧪 Experiment: RL Before SFT
+This folder implements **reinforcement learning for chess** with GRPO (Group
+Relative Policy Optimization) on top of an SFT bootstrap. The pipeline is
+complete end-to-end: data generation → SFT → staged GRPO → Stockfish
+evaluation.
 
-This folder implements **direct reinforcement learning** without supervised fine-tuning first.
-We start with GRPO (Group Relative Policy Optimization) but the infrastructure supports other algorithms.
+### Approach
 
-### Hypothesis
+We use a **two-phase strategy** (the AlphaGo-style warm-start that the
+alternatives section below identifies as most promising):
 
-**We expect this experiment to struggle** because:
+1. **SFT bootstrap** — teach the model legal moves, chess fundamentals, and
+   the `<think>` reasoning format from engine-validated traces.
+2. **Staged GRPO** — refine with verifiable Stockfish-derived rewards:
 
-1. **Zero Baseline**: Our benchmark shows Qwen-2.5-Math-1.5B produces **0% legal moves** out of the box
-2. **Research Warning**: "Small models trained with GRPO for chess have demonstrated limitations, suggesting that a foundational understanding of piece movement is crucial for RL to be effective"
-3. **Sparse Signal**: With 0% legal moves, every trajectory gets -1 reward initially
+| Stage | Reward Signal | Target |
+|:------|:--------------|:-------|
+| Stage 0 | Legality (+1/-1) + format | ≥ 50% legal rate |
+| Stage 1 | + Stockfish move quality | ≥ 80% legal & quality |
+| Stage 2 | + Stockfish eval delta | Elo ≥ 1000 vs SF3 |
 
-**However, we're trying it anyway because:**
-
-1. Chess has **verifiable rewards** (legal/illegal is binary)
-2. DeepSeek-R1 showed GRPO can bootstrap reasoning from scratch
-3. Stage 0 focuses purely on legality, which is a simpler objective than winning
-4. If it works, we skip expensive SFT data generation
-
-### Success Criteria
-
-| Stage | Reward Signal | Target | Pivot Point |
-|:------|:--------------|:-------|:------------|
-| Stage 0 | Legality (+1/-1) + format | ≥50% legal rate | If <5% after 2k steps, add minimal SFT |
-| Stage 1 | + Stockfish move quality | ≥80% legal & quality | - |
-| Stage 2 | + Stockfish eval delta | Elo ≥1000 vs SF3 | - |
+Chess gives us **verifiable rewards** (legal/illegal is binary, move quality
+is measurable against Stockfish), so RL signal is dense and trustworthy.
+Stages 1 and 2 fail fast if Stockfish is unavailable rather than silently
+downgrading to Stage 0.
 
 ---
 
@@ -108,12 +105,27 @@ python rl/train_grpo.py --stage 0 --steps 100 --checkpoint-every 50
 python rl/train_grpo.py --stage 0 --steps 2000 --checkpoint-every 500
 ```
 
+> Stages 1 and 2 require Stockfish and will **abort** with a clear error if it
+> is missing — the run objective is never silently downgraded.
+
 ### 5. Evaluate Progress
 
 ```bash
 # Evaluate legal move rate and play test games
 python rl/evaluate.py --model checkpoints/stage0_final --games 50
+
+# Reproducible runs: fixed seed + opening suite
+python rl/evaluate.py --model checkpoints/final --games 100 \
+    --seed 42 --openings data_generation/positions.txt
+
+# Play as black against a random mover
+python rl/evaluate.py --model checkpoints/final --games 20 \
+    --color black --random-opponent
 ```
+
+Every evaluation writes:
+- **PGNs** of all games → `results/pgns/`
+- **JSON report** with git revision, seed, opponent level, opening set → `results/`
 
 ---
 
@@ -126,11 +138,12 @@ rl/
 ├── chess_env.py        # Chess environment wrapper
 ├── rewards.py          # Staged reward functions
 ├── move_utils.py       # Move/FEN parsing helpers (no heavy deps)
-├── evaluate.py         # Evaluation and game runner (legal %, format %, Elo)
+├── evaluate.py         # Evaluation harness (legal %, format %, Elo, PGNs)
 ├── tests/
-│   ├── test_rewards.py      # Unit tests for rewards
-│   ├── test_chess_env.py    # Unit tests for environment
-│   └── test_move_utils.py   # Unit tests for parsing helpers
+│   ├── test_rewards.py          # Unit tests for rewards
+│   ├── test_chess_env.py        # Unit tests for environment
+│   ├── test_move_utils.py       # Unit tests for parsing helpers
+│   └── test_evaluate_integration.py  # Harness + Stockfish integration tests
 └── checkpoints/        # Saved model checkpoints
 ```
 
@@ -164,13 +177,13 @@ sudo apt install stockfish
 # Manual: Download from https://stockfishchess.org/download/
 ```
 
-### "0% legal moves after 2000 steps"
-This confirms our hypothesis. Pivot to SFT bootstrap:
+### "Low legal move rate after Stage 0"
+Stage 0 should be trained to a legal rate of at least 50% before moving to
+Stage 1. If you're well below that, the model may need a stronger SFT
+bootstrap — generate more training samples and re-run SFT:
 ```bash
-cd ../data_generation
-python convert_to_training.py
-cd ../training
-python train_sft.py
+python data_generation/convert_to_training.py
+python training/train_sft.py --data data_generation/sft_train.jsonl
 ```
 
 ---
@@ -441,7 +454,7 @@ This section documents **all approaches we considered**, including ones we chose
 | **Pros** | Proven architecture, lots of pretrained checkpoints |
 | **Cons** | Not optimized for chess |
 | **Research** | All LLM chess papers use this |
-| **Our Assessment** | ✅ **Our approach** - Using Qwen-2.5-Math-1.5B |
+| **Our Assessment** | ✅ **Our approach** - Using Qwen-2.5-3B-Instruct |
 
 #### 6.2 Specialized Chess Tokenizer
 | Aspect | Details |
@@ -507,11 +520,11 @@ This section documents **all approaches we considered**, including ones we chose
 
 | Phase | Approach | Reason |
 |:------|:---------|:-------|
-| **Stage 0** | Pure RL for legality | Testing hypothesis that chess rules can be learned from reward |
-| **Stage 1** | RL with win/lose reward | Build strategy once legality works |
-| **Stage 2** | RL with Stockfish eval | Refine move quality |
-| **Fallback** | Minimal SFT (2k samples) | If Stage 0 fails after 2k steps |
-| **Evaluation** | Best-of-N with Stockfish | Boost final Elo score |
+| **SFT** | Supervised fine-tuning on engine-validated traces | Stable bootstrap for legality + format |
+| **Stage 0** | RL for legality | Learn rules from dense reward |
+| **Stage 1** | RL with Stockfish move quality | Build strategy once legality works |
+| **Stage 2** | RL with Stockfish eval delta | Refine move quality |
+| **Evaluation** | Stockfish games with PGNs + Elo | Reproducible, verifiable results |
 
 ---
 

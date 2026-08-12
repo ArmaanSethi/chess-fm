@@ -7,8 +7,18 @@ Implements the staged reward system:
 - Stage 1: + Move quality vs Stockfish (chosen move's centipawn loss)
 - Stage 2: + Stockfish evaluation delta (dense per-move signal)
 
-NOTE on Stage 1 vs "win/lose": GRPO in this repo trains on single positions
-(one completion per FEN), not full game rollouts, so outcome-based rewards
+DESIGN NOTE on Stage 1 + Stage 2: the two engine-derived rewards measure
+complementary things. Stage 1's move quality is *relative*: it scores how
+close the chosen move is to Stockfish's best move for the position. Stage 2's
+eval delta is *absolute*: it scores whether the resulting position actually
+improved the mover's evaluation. Keeping both gives the model (a) a dense
+gradient toward the engine's preferred candidate, and (b) a signal toward
+objectively good resulting positions. They are intentionally not ablated
+against each other; the weights are empirical and can be tuned via
+``move_quality_depth`` / the max-loss threshold.
+
+NOTE on "win/lose": GRPO in this repo trains on single positions (one
+completion per FEN), not full game rollouts, so outcome-based rewards
 (win/draw/loss) cannot be computed per-completion. Instead Stage 1 uses
 move quality (how close the chosen move is to Stockfish's best), which is a
 dense, verifiable signal. reward_outcome() is kept for full-game evaluation
@@ -218,6 +228,13 @@ def combined_reward(
             "components": components,
             "legal": False
         }
+
+    # Stages 1/2 require Stockfish; never silently degrade to Stage 0.
+    if stage >= 1 and engine is None:
+        raise ValueError(
+            f"Stage {stage} reward requires a Stockfish engine, but engine=None. "
+            "This is a configuration error, not a runnable state."
+        )
 
     total = r_legal
 

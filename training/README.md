@@ -22,7 +22,7 @@ pip install -e ".[dev]"
 ### Usage
 
 ```bash
-# First, convert data to training format
+# First, convert data to training format (dedupes by FEN, fixes tags, writes manifest)
 python data_generation/convert_to_training.py
 
 # Then train (from the project root)
@@ -36,6 +36,13 @@ python training/train_sft.py \
     --batch-size 4 \
     --output ./checkpoints
 ```
+
+### Data Format
+
+The converted dataset uses TRL's `prompt`/`completion` columns, so the loss
+is computed **on completion tokens only** (the user prompt is never trained
+on). The train/validation split is done at the **FEN level**, so no position
+appears in both sets.
 
 ### Dry Run (Validate Data)
 

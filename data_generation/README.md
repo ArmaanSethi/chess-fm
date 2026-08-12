@@ -1,29 +1,24 @@
 # ChessFM Data Generation
 
-Generate high-quality reasoning traces for chess move selection using large language models.
+Engine-validated reasoning traces for chess move selection, and the scripts
+that produce them.
 
-> **Note**: SFT is optional! The main training uses Direct GRPO. SFT data can improve reasoning quality and can be generated in parallel.
+> The committed JSONL files are a **small reproducibility sample**. The full
+> training set was generated with the same pipeline on the training machine;
+> the committed files are enough to verify every step of the pipeline works.
 
 ---
 
 ## 📊 Data Status
 
-| Metric | Current |
-|--------|---------|
-| **Total Samples** | 185 unique (deduplicated) |
-| **Reasonable Samples** | 168 (centipawn loss < 200) |
+| Metric | Value |
+|--------|-------|
+| **Raw samples** | 185 |
+| **Unique FENs (after dedup)** | 71 |
+| **Converted training samples** | 71 (one per position) |
 | **Position Source** | 25,000 elite FENs (Magnus, Stockfish, Leela games) |
-| **Quality Filter** | Stockfish-validated legal moves only |
-
----
-
-## 🤖 Models Used
-
-| Provider | Model | Samples |
-|----------|-------|---------|
-| **Qwen** | `qwen3-coder-plus` | 63 |
-| **Claude** | `claude-sonnet-4-5` | 62 |
-| **Gemini** | `gemini-3-pro-preview` | 56 |
+| **Quality Filter** | Stockfish-validated legal moves only (centipawn loss < 200 for "reasonable") |
+| **Provenance** | `data_manifest.json` written on every conversion |
 
 ---
 
@@ -33,17 +28,19 @@ Generate high-quality reasoning traces for chess move selection using large lang
 data_generation/
 ├── README.md                 # This file
 ├── fetch_elite_data.py       # Fetch FENs from elite Lichess games
-├── download_positions.py     # Generate diverse FEN positions
+├── download_positions.py     # Curated FEN seed positions
 ├── convert_to_training.py    # Convert to HuggingFace format
-├── positions.txt             # 25,000 elite game FENs
-└── all_sft_data.jsonl        # All merged SFT samples (deduplicated)
+├── positions.txt             # 25,000 elite game FENs (sample)
+├── all_sft_data.jsonl        # Raw samples (sample)
+├── sft_train.jsonl           # Converted training format (deduped by FEN)
+└── data_manifest.json        # Provenance manifest (counts, sources, timestamp)
 ```
 
 ---
 
 ## 📋 Output Format
 
-Each sample follows the ChessFM reasoning format:
+Each raw sample follows the ChessFM reasoning format:
 
 ```json
 {
@@ -53,16 +50,25 @@ Each sample follows the ChessFM reasoning format:
   "move": "e7e5",
   "model": "gemini-3-pro-preview",
   "is_reasonable": true,
-  "centipawn_loss": 15
+  "centipawn_loss": 15,
+  "stockfish_best": "e7e5",
+  "generated_at": "..."
 }
 ```
 
-Training format (after conversion):
-```xml
-<think>
-reasoning here
-</think>
-e2e4
+Converted format (`sft_train.jsonl`) — uses TRL `prompt`/`completion`
+columns so SFT loss is computed on completion tokens only:
+
+```json
+{
+  "prompt": "Position (FEN): ... Side to move: White\n\nAnalyze ...",
+  "completion": "<think>\n...reasoning...\n</think>\ne2e4",
+  "fen": "...",
+  "move": "e2e4",
+  "is_reasonable": true,
+  "centipawn_loss": 15,
+  "stockfish_best": "e2e4"
+}
 ```
 
 ---
@@ -77,17 +83,24 @@ python fetch_elite_data.py --count 25000
 ### 2. Convert to Training Format
 ```bash
 # From the project root
-python data_generation/convert_to_training.py --input data_generation/all_sft_data.jsonl --output data_generation/sft_train.jsonl
+python data_generation/convert_to_training.py
 
 # Only include reasonable moves (centipawn loss < 200)
 python data_generation/convert_to_training.py --only-reasonable
 ```
 
+Conversion:
+- **Deduplicates by FEN**, keeping the highest-quality sample per position
+  (reasonable first, then lowest centipawn loss).
+- **Balances `<think>` tags** on every trace.
+- **Preserves metadata** (`centipawn_loss`, `stockfish_best`, `is_reasonable`).
+- **Writes `data_manifest.json`** with raw/unique/output counts + timestamp.
+
 ---
 
 ## 🎯 Quality Metrics
 
-- **Legal moves only** (validated by python-chess)
+- **Legal moves only** (validated by python-chess + Stockfish)
 - **Reasonable moves** (centipawn loss < 200)
 - **Diverse positions** (mid-game focus, moves 10-45)
 
@@ -95,13 +108,12 @@ python data_generation/convert_to_training.py --only-reasonable
 
 ## 🔄 Integration with Training
 
-The generated SFT data works with:
-- `unsloth` SFT training
-- HuggingFace `SFTTrainer`
-- Any instruction-following fine-tuning setup
+The converted SFT data works with:
 
-Run training with:
 ```bash
-cd ../training
-python train_sft.py --data ../data_generation/sft_train.jsonl
+# Validate without training (no GPU needed)
+python training/train_sft.py --data data_generation/sft_train.jsonl --dry-run
+
+# Train
+python training/train_sft.py --data data_generation/sft_train.jsonl
 ```

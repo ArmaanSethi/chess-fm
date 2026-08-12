@@ -1,0 +1,10 @@
+{
+  "input_file": "/Users/armaan/Documents/Code/chess-fm/data_generation/all_sft_data.jsonl",
+  "output_file": "/Users/armaan/Documents/Code/chess-fm/data_generation/sft_train.jsonl",
+  "raw_samples": 185,
+  "unique_fens": 71,
+  "output_samples": 71,
+  "only_reasonable": false,
+  "generated_at": "2026-08-12T02:40:42.517111+00:00",
+  "prompt_template": "make_prompt() in config.py"
+}

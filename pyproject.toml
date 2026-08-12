@@ -26,6 +26,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
+    "pre-commit>=3.5.0",
     "zstandard>=0.21.0"
 ]
 mlx = [
@@ -37,6 +40,26 @@ mlx = [
 pythonpath = [".", "rl"]
 testpaths = ["tests", "rl/tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["data_generation/*.jsonl", "results"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"data_generation/fetch_elite_data.py" = ["E402"]
+
+[tool.coverage.run]
+source = ["config", "rl", "training", "tests"]
+omit = ["*/__pycache__/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
 
 [tool.setuptools]
 packages = ["rl"]

@@ -6,17 +6,28 @@ Runs simulated games between a fine-tuned ChessFM checkpoint and Stockfish /
 a random bot to measure legal move rate, format adherence, win rate, and an
 estimated Elo rating.
 
+The evaluator is the project's primary measurement harness. Games are recorded
+as PGNs under ``results/pgns/``, and every run writes a JSON report (with
+reproducibility metadata) under ``results/``.
+
 USAGE:
     python rl/evaluate.py --model checkpoints/stage0_final --games 50
     python rl/evaluate.py --model Qwen/Qwen2.5-3B-Instruct --games 20 --stockfish-level 1
+    python rl/evaluate.py --model checkpoints/final --openings data_generation/openings.txt --games 100
 """
 
 import argparse
-import sys
+import json
 import math
+import random
+import subprocess
+import sys
+from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 
 import chess
+import chess.pgn
 
 # Ensure project root is in sys.path so `config`, `rl.*` are importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -39,12 +50,27 @@ def _get_torch():
 
 # Approximate Elo for Stockfish skill levels (0-20), used for a rough estimate.
 # Source: common community calibration tables (e.g. Lichess/CCRL-ish mapping).
+# NOTE: This is an informal approximation for ballpark comparisons, not a
+# validated rating. The authoritative reported metric is win rate vs the
+# configured opponent.
 STOCKFISH_LEVEL_ELO = {
     0: 800, 1: 900, 2: 1000, 3: 1100, 4: 1200,
     5: 1300, 6: 1400, 7: 1500, 8: 1600, 9: 1700,
     10: 1800, 11: 1900, 12: 2000, 13: 2100, 14: 2200,
     15: 2300, 16: 2400, 17: 2500, 18: 2600, 19: 2700, 20: 2800,
 }
+
+
+def git_revision() -> str:
+    """Return the current git revision for reproducibility metadata."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, check=False,
+        )
+        return out.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
 
 
 def load_model(model_path: str):
@@ -84,6 +110,28 @@ def estimated_elo(wins: int, losses: int, draws: int, opponent_elo: int) -> floa
     return opponent_elo + 400 * math.log10(score / (1 - score))
 
 
+def load_openings(path: Optional[Path]) -> List[str]:
+    """Load opening FENs (one per line). Returns [] if no file given."""
+    if path is None or not path.exists():
+        return []
+    with open(path, "r") as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def generate_completion(model, tokenizer, torch, prompt: str, max_new_tokens: int = 150) -> str:
+    """
+    Generate a completion for ``prompt`` and return ONLY the newly generated
+    text (prompt prefix stripped), decoded with special tokens removed.
+    """
+    inputs = tokenizer(prompt, return_tensors="pt")
+    if torch is not None:
+        inputs = inputs.to(getattr(model, "device", torch.device("cpu")))
+    outputs = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+    input_len = inputs.input_ids.shape[1]
+    generated = outputs[0][input_len:]
+    return tokenizer.decode(generated, skip_special_tokens=True)
+
+
 def evaluate_model(
     model_path: str,
     num_games: int = 50,
@@ -91,12 +139,17 @@ def evaluate_model(
     model_color: str = "white",
     time_per_move: float = 0.05,
     use_random_opponent: bool = False,
+    seed: int = 42,
+    openings: Optional[Path] = None,
 ):
     print("=" * 60)
     opponent = "Random bot" if use_random_opponent else f"Stockfish Level {stockfish_level}"
     print(f"ChessFM Evaluation: {model_path} vs {opponent}")
     print(f"Model color: {model_color}")
+    print(f"Seed: {seed}")
     print("=" * 60)
+
+    random.seed(seed)
 
     env = ChessEnv()
     if env.engine is None:
@@ -111,6 +164,10 @@ def evaluate_model(
     model, tokenizer = load_model(model_path)
     torch = _get_torch()
 
+    opening_fens = load_openings(openings)
+    if opening_fens:
+        print(f"📚 Using {len(opening_fens)} opening positions from {openings}")
+
     total_moves = 0
     legal_moves = 0
     formatted_outputs = 0
@@ -118,13 +175,28 @@ def evaluate_model(
     losses = 0
     draws = 0
     illegal_by_model = 0
+    games_list = []
 
     for g in range(num_games):
-        fen = env.reset()
+        if opening_fens:
+            start_fen = opening_fens[g % len(opening_fens)]
+            env.reset(start_fen)
+        else:
+            env.reset()
+        fen = env.get_fen()
         done = False
+        game = chess.pgn.Game()
+        game.headers["Event"] = f"ChessFM Eval game {g + 1}"
+        game.headers["Model"] = model_path
+        game.headers["Opponent"] = opponent
+        game.headers["Seed"] = str(seed)
+        node = game
         print(f"\n🎮 Game {g + 1}/{num_games}")
 
         while not done:
+            # IMPORTANT: refresh the FEN every ply so the model is always
+            # prompted with the actual current board, never a stale one.
+            fen = env.get_fen()
             turn = env.get_turn()
             if turn == model_color:
                 # Model's turn
@@ -132,15 +204,7 @@ def evaluate_model(
                     f"<|im_start|>user\n{make_prompt(fen)}<|im_end|>\n"
                     f"<|im_start|>assistant\n"
                 )
-                inputs = tokenizer(prompt, return_tensors="pt").to(
-                    getattr(model, "device", torch.device("cpu"))
-                )
-                outputs = model.generate(**inputs, max_new_tokens=150, do_sample=False)
-                resp = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-                # Strip the prompt before parsing the model's completion
-                completion = resp.split("<|im_start|>assistant\n")[-1]
-
+                completion = generate_completion(model, tokenizer, torch, prompt)
                 move_uci = parse_move_from_output(completion) or "xxxx"
                 total_moves += 1
 
@@ -150,6 +214,7 @@ def evaluate_model(
                 step_res = env.step(move_uci)
                 if step_res.legal:
                     legal_moves += 1
+                    node = node.add_variation(chess.Move.from_uci(move_uci))
                 else:
                     illegal_by_model += 1
                     losses += 1
@@ -171,10 +236,11 @@ def evaluate_model(
                     result = env.engine.play(env.board, chess.engine.Limit(time=time_per_move))
                     move_uci = result.move.uci()
                 else:
-                    import random
                     move_uci = random.choice(env.get_legal_moves())
 
                 step_res = env.step(move_uci)
+                if step_res.legal:
+                    node = node.add_variation(chess.Move.from_uci(move_uci))
                 if step_res.done:
                     done = True
                     res = step_res.info.get("result", "")
@@ -185,7 +251,19 @@ def evaluate_model(
                     else:
                         draws += 1
 
+        game.headers["Result"] = env.board.result() if env.board.is_game_over() else "*"
+        games_list.append(game)
+
     env.close()
+
+    # Write PGNs
+    pgn_dir = Path(__file__).parent.parent / "results" / "pgns"
+    pgn_dir.mkdir(parents=True, exist_ok=True)
+    pgn_path = pgn_dir / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pgn"
+    with open(pgn_path, "w") as f:
+        for game in games_list:
+            f.write(str(game) + "\n\n")
+    print(f"\n📜 Games saved to {pgn_path}")
 
     legal_rate = 100 * legal_moves / max(1, total_moves)
     format_rate = 100 * formatted_outputs / max(1, total_moves)
@@ -204,9 +282,7 @@ def evaluate_model(
     if not use_random_opponent:
         print(f"Estimated Elo:        {elo:.0f} (vs SF level {stockfish_level}, ~{opponent_elo} Elo)")
 
-    # Save results to a JSON file for easy tracking
-    import json
-    from datetime import datetime
+    # Save results to a JSON file for easy tracking (with reproducibility metadata)
     results = {
         "model": model_path,
         "num_games": num_games,
@@ -217,6 +293,12 @@ def evaluate_model(
         "draws": draws,
         "estimated_elo": round(elo, 1),
         "opponent": opponent,
+        "stockfish_level": stockfish_level,
+        "model_color": model_color,
+        "seed": seed,
+        "openings": str(openings) if openings else None,
+        "pgn_file": str(pgn_path),
+        "git_revision": git_revision(),
         "timestamp": datetime.now().isoformat(),
     }
     out_dir = Path(__file__).parent.parent / "results"
@@ -241,6 +323,10 @@ if __name__ == "__main__":
                         help="Seconds per move for the opponent")
     parser.add_argument("--random-opponent", action="store_true",
                         help="Play against a random mover instead of Stockfish")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed for opponent + color assignment")
+    parser.add_argument("--openings", type=Path, default=None,
+                        help="Path to opening FENs (one per line) to vary game starts")
     args = parser.parse_args()
 
     evaluate_model(
@@ -250,4 +336,6 @@ if __name__ == "__main__":
         model_color=args.color,
         time_per_move=args.time_per_move,
         use_random_opponent=args.random_opponent,
+        seed=args.seed,
+        openings=args.openings,
     )

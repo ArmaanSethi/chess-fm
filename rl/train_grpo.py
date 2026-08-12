@@ -80,27 +80,33 @@ def make_reward_func(stage: int, engine=None):
 # ---------------------------------------------------------------------------
 
 def load_positions(filepath: Path, max_positions: int = 1000) -> List[dict]:
-    """Load positions into a ChatML-formatted prompt dataset."""
-    positions = []
-    if filepath.exists():
-        with open(filepath, 'r') as f:
-            for line in f:
-                fen = line.strip()
-                if fen:
-                    prompt = (
-                        f"<|im_start|>user\n{make_prompt(fen)}<|im_end|>\n"
-                        f"<|im_start|>assistant\n"
-                    )
-                    positions.append({"prompt": prompt})
-                if len(positions) >= max_positions:
-                    break
-    if not positions:
-        default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-        prompt = (
-            f"<|im_start|>user\n{make_prompt(default_fen)}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
+    """Load positions into a ChatML-formatted prompt dataset.
+
+    Raises:
+        SystemExit: if the positions file is missing or contains no positions.
+    """
+    if not filepath.exists():
+        raise SystemExit(
+            f"❌ Positions file not found: {filepath}\n"
+            "   Generate it first: python data_generation/fetch_elite_data.py "
+            "(or pass --positions)."
         )
-        positions.append({"prompt": prompt})
+    positions = []
+    with open(filepath, 'r') as f:
+        for line in f:
+            fen = line.strip()
+            if fen:
+                prompt = (
+                    f"<|im_start|>user\n{make_prompt(fen)}<|im_end|>\n"
+                    f"<|im_start|>assistant\n"
+                )
+                positions.append({"prompt": prompt})
+            if len(positions) >= max_positions:
+                break
+    if not positions:
+        raise SystemExit(
+            f"❌ Positions file contains no positions: {filepath}"
+        )
     return positions
 
 
@@ -110,6 +116,7 @@ def load_positions(filepath: Path, max_positions: int = 1000) -> List[dict]:
 
 def load_model(model_name: str):
     """Load the base model with unsloth (4-bit + LoRA) or a PEFT fallback."""
+    torch = _get_torch()
     try:
         from unsloth import FastLanguageModel
         model, tokenizer = FastLanguageModel.from_pretrained(
@@ -149,7 +156,12 @@ def load_model(model_name: str):
 
 
 def get_stockfish_engine():
-    """Return a Stockfish engine instance, or None if unavailable."""
+    """
+    Return a Stockfish engine instance.
+
+    Stages 1 and 2 depend on Stockfish for their reward signal, so a missing
+    engine is a hard error rather than a silent downgrade to Stage 0.
+    """
     import chess.engine
     from config import STOCKFISH_PATHS
     for path in STOCKFISH_PATHS:
@@ -159,8 +171,12 @@ def get_stockfish_engine():
             return engine
         except Exception:
             continue
-    print("⚠️ Stockfish not found; Stage 1/2 rewards will be skipped.")
-    return None
+    raise SystemExit(
+        "❌ Stockfish engine not found (checked: {}).\n"
+        "   Stages 1 and 2 require Stockfish for the move-quality reward. "
+        "Install it (e.g. `brew install stockfish` / `apt install stockfish`) "
+        "or run with --stage 0.".format(", ".join(STOCKFISH_PATHS))
+    )
 
 
 # ---------------------------------------------------------------------------
