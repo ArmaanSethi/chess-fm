@@ -11,6 +11,7 @@ Generate high-quality reasoning traces for chess move selection using large lang
 | Metric | Current |
 |--------|---------|
 | **Total Samples** | 185 unique (deduplicated) |
+| **Reasonable Samples** | 168 (centipawn loss < 200) |
 | **Position Source** | 25,000 elite FENs (Magnus, Stockfish, Leela games) |
 | **Quality Filter** | Stockfish-validated legal moves only |
 
@@ -75,7 +76,11 @@ python fetch_elite_data.py --count 25000
 
 ### 2. Convert to Training Format
 ```bash
-python convert_to_training.py --input all_sft_data.jsonl --output sft_train.jsonl
+# From the project root
+python data_generation/convert_to_training.py --input data_generation/all_sft_data.jsonl --output data_generation/sft_train.jsonl
+
+# Only include reasonable moves (centipawn loss < 200)
+python data_generation/convert_to_training.py --only-reasonable
 ```
 
 ---

@@ -16,23 +16,21 @@ Scripts for training the ChessFM model.
 ```bash
 # On RunPod or GPU machine:
 pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
-pip install transformers datasets trl accelerate
+pip install -e ".[dev]"
 ```
 
 ### Usage
 
 ```bash
 # First, convert data to training format
-cd ../data_generation
-python convert_to_training.py
+python data_generation/convert_to_training.py
 
-# Then train
-cd ../training
-python train_sft.py --data ../data_generation/sft_train.jsonl
+# Then train (from the project root)
+python training/train_sft.py --data data_generation/sft_train.jsonl
 
 # With custom settings
-python train_sft.py \
-    --data ../data_generation/sft_train.jsonl \
+python training/train_sft.py \
+    --data data_generation/sft_train.jsonl \
     --model Qwen/Qwen2.5-3B-Instruct \
     --epochs 3 \
     --batch-size 4 \
@@ -42,7 +40,8 @@ python train_sft.py \
 ### Dry Run (Validate Data)
 
 ```bash
-python train_sft.py --data ../data_generation/sft_train.jsonl --dry-run
+# Works on any machine, no GPU needed
+python training/train_sft.py --data data_generation/sft_train.jsonl --dry-run
 ```
 
 ## Expected Output
@@ -64,4 +63,4 @@ checkpoints/
 | Epochs | 3 | Usually sufficient for SFT |
 | Batch size | 4 | Increase if you have more VRAM |
 | Learning rate | 2e-5 | Standard for LoRA |
-| LoRA rank | 32 | Balance between capacity and efficiency |
+| LoRA rank | 16 | Balance between capacity and efficiency |

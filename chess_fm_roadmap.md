@@ -361,12 +361,16 @@ output = model.generate(
 ### Component Rewards
 
 | Component | Formula | When Applied |
-|:----------|:--------|:-------------|
+|:----------|:--------|:------------|
 | **Legality** | `+1` legal, `-1` illegal | Always |
-| **Outcome** | `+1` win, `+0.3` draw, `-0.5` loss | Game end (Stage 1+) |
-| **Eval Delta** | `tanh(Δcp / 100)` | Per-move (Stage 2+) |
 | **Format** | `+0.1` if `<think>` present | Always |
-| **Budget** | `-0.1` if < 20 or > 200 tokens | Always |
+| **Budget** | `-0.1` if < 5 or > 250 words | Always |
+| **Move Quality** | `1 - (cp_loss / 200)`, clipped to [0, 1] | Stage 1+ |
+| **Eval Delta** | `tanh(Δcp / 100)` | Stage 2+ |
+
+> **Note**: Full-game outcome rewards (win/lose/draw) are used during
+> **evaluation** (`rl/evaluate.py`), not during GRPO training, because GRPO
+> trains on single positions. `reward_outcome()` is kept for that purpose.
 
 ### Staged Application
 
@@ -412,7 +416,7 @@ def get_reward(stage: int, move: str, output: str, ...) -> float:
 - [x] Benchmark candidate models
 - [x] Select base model (Qwen-3B)
 - [x] Generate initial positions (25k FENs)
-- [x] Generate initial SFT data (71 samples — NEED MORE)
+- [x] Generate SFT data (185 deduplicated samples, 168 reasonable)
 
 ### Phase 1: Bootstrap Decision
 - [ ] Run Stage 0 GRPO (legality only, 2k steps)

@@ -4,6 +4,7 @@ import chess
 import time
 import json
 import argparse
+from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
 
@@ -84,10 +85,9 @@ def benchmark_model(model_path, fens, output_file):
     print(f"  Legal Moves: {results['legal_moves']}/{len(fens)} ({results['legal_rate']:.1f}%)")
     print(f"  Format OK:   {results['format_adherence']}/{len(fens)} ({results['format_rate']:.1f}%)")
     print(f"  Speed:       {results['speed_pos_sec']:.1f} pos/sec")
-    
-    output_dir = Path("results")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"benchmark_{model_path.replace('/', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
     print(f"💾 Results saved to {output_path}")

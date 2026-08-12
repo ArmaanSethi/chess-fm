@@ -2,7 +2,37 @@
 """Unit tests for reward functions."""
 
 import unittest
-from rl.rewards import reward_legality, reward_outcome, reward_format, reward_budget, combined_reward
+from rl.rewards import (
+    reward_legality, reward_outcome, reward_format, reward_budget,
+    combined_reward, reward_move_quality,
+)
+
+
+class _FakeScore:
+    """Minimal stand-in for a Stockfish score object."""
+    def __init__(self, cp):
+        self._cp = cp
+
+    def is_mate(self):
+        return False
+
+    def score(self):
+        return self._cp
+
+
+class _MockEngine:
+    """Minimal fake Stockfish engine. Returns the same score for every position."""
+    def __init__(self, score_cp=50):
+        self.score_cp = score_cp
+
+    def analyse(self, board, limit):
+        cp = self.score_cp
+
+        class _Score:
+            def white(self):
+                return _FakeScore(cp)
+
+        return {"score": _Score()}
 
 
 class TestRewardLegality(unittest.TestCase):
@@ -75,6 +105,34 @@ class TestCombinedReward(unittest.TestCase):
         result = combined_reward(fen, "e2e5", "e2e5", stage=0)
         self.assertFalse(result["legal"])
         self.assertEqual(result["total"], -1.0)
+
+
+class TestRewardMoveQuality(unittest.TestCase):
+    """Tests for the Stockfish move-quality reward."""
+
+    STARTING = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+    def test_illegal_move_returns_negative(self):
+        self.assertEqual(
+            reward_move_quality(self.STARTING, "e2e5", _MockEngine(), depth=1),
+            -1.0,
+        )
+
+    def test_best_move_scores_high(self):
+        # Mock returns identical eval before/after, so loss=0 -> reward 1.0
+        self.assertEqual(
+            reward_move_quality(self.STARTING, "e2e4", _MockEngine(), depth=1),
+            1.0,
+        )
+
+    def test_stage1_includes_move_quality(self):
+        engine = _MockEngine()
+        output = "<think>e4 controls the center and frees the bishop.</think>\ne2e4"
+        result = combined_reward(self.STARTING, "e2e4", output,
+                                 stage=1, engine=engine)
+        self.assertTrue(result["legal"])
+        self.assertIn("move_quality", result["components"])
+        self.assertEqual(result["total"], 1.0 + 0.1 + 1.0)
 
 
 if __name__ == "__main__":

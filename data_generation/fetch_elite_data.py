@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
-import requests
 import io
 import time
-import chess.pgn
 import argparse
 from pathlib import Path
+
+import chess
+
+
+def _get_requests():
+    import requests
+    return requests
+
+
+def _get_chess_pgn():
+    import chess.pgn
+    return chess.pgn
+
 
 def fetch_lila_fens(limit=25000):
     """
     Fetch FENs from real high-quality games on Lichess.
     """
+    requests = _get_requests()
+    chess_pgn = _get_chess_pgn()
     print(f"🌐 Sourcing {limit} elite FEN positions...")
     fens = set()
     
@@ -26,7 +39,7 @@ def fetch_lila_fens(limit=25000):
                 if response.status_code == 200:
                     pgn = io.StringIO(response.text)
                     while len(fens) < limit:
-                        game = chess.pgn.read_game(pgn)
+                        game = chess_pgn.read_game(pgn)
                         if not game:
                             break
                         board = game.board()

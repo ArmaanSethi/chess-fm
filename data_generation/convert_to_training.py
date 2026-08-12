@@ -25,14 +25,21 @@ USAGE:
 
 import json
 import argparse
+import sys
 from pathlib import Path
+
+# Ensure project root is in sys.path so `config` is importable
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from config import make_prompt
 
 
 def convert_sample(sample: dict) -> dict:
     """Convert one sample to training format."""
-    
-    # Build instruction (matches what we prompted with)
-    instruction = f"Position (FEN): {sample['fen']}\nSide to move: {sample['color']}\n\nAnalyze this position and choose the best move."
+
+    # Build instruction from the shared prompt template so SFT and RL
+    # see the exact same instruction at train and inference time.
+    instruction = make_prompt(sample['fen'])
     
     # Build output (reasoning + move, matching roadmap format)
     output = f"{sample['reasoning']}\n{sample['move']}"

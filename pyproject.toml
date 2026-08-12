@@ -5,21 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chess-fm"
 version = "0.1.0"
-description = "A 1.5B/3B parameter model that plays chess by reasoning"
+description = "A 3B parameter model that plays chess by reasoning"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.1.0",
-    "transformers>=4.36.0",
-    "accelerate>=0.25.0",
-    "peft>=0.7.0",
-    "trl>=0.7.4",
+    "transformers>=4.44.0",
+    "accelerate>=0.33.0",
+    "peft>=0.11.0",
+    "trl>=0.12.0",
     "python-chess>=1.10.0",
     "bitsandbytes>=0.41.0",
     "datasets>=2.14.0",
     "tqdm>=4.66.0",
     "requests>=2.31.0",
-    "wandb>=0.16.0"
+    "wandb>=0.16.0",
+    "numpy>=1.24.0"
 ]
 
 [project.optional-dependencies]
@@ -35,3 +36,7 @@ mlx = [
 [tool.pytest.ini_options]
 pythonpath = [".", "rl"]
 testpaths = ["tests", "rl/tests"]
+addopts = "-q"
+
+[tool.setuptools]
+packages = ["rl"]

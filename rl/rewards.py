@@ -3,9 +3,16 @@
 Reward Functions for Chess RL Training
 
 Implements the staged reward system:
-- Stage 0: Legality only (+1 legal, -1 illegal)
-- Stage 1: Win/Lose/Draw vs opponent
-- Stage 2: Stockfish evaluation delta
+- Stage 0: Legality only (+1 legal, -1 illegal) + format/budget bonuses
+- Stage 1: + Move quality vs Stockfish (chosen move's centipawn loss)
+- Stage 2: + Stockfish evaluation delta (dense per-move signal)
+
+NOTE on Stage 1 vs "win/lose": GRPO in this repo trains on single positions
+(one completion per FEN), not full game rollouts, so outcome-based rewards
+(win/draw/loss) cannot be computed per-completion. Instead Stage 1 uses
+move quality (how close the chosen move is to Stockfish's best), which is a
+dense, verifiable signal. reward_outcome() is kept for full-game evaluation
+(see rl/evaluate.py).
 """
 
 import chess
@@ -94,6 +101,61 @@ def reward_stockfish_delta(
         return 0.0
 
 
+def reward_move_quality(
+    fen: str,
+    move_uci: str,
+    engine,
+    depth: int = 10,
+    max_loss: float = 200.0,
+) -> float:
+    """
+    Stage 1 reward: how close the chosen move is to Stockfish's best.
+
+    Computes the centipawn loss of the chosen move relative to Stockfish's
+    recommended move for the position. Reward is 1.0 for the best move and
+    decays to ~0.0 for moves that throw away more than ``max_loss`` centipawns.
+
+    Args:
+        fen: Board position in FEN format
+        move_uci: Move in UCI format (e.g., "e2e4")
+        engine: Stockfish engine instance (chess.engine.SimpleEngine)
+        depth: Search depth for Stockfish
+        max_loss: Centipawn threshold at which reward reaches ~0
+
+    Returns:
+        Float in [0, 1] (or -1.0 for illegal moves).
+    """
+    try:
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(move_uci)
+        if move not in board.legal_moves:
+            return -1.0
+
+        mover = board.turn
+        info = engine.analyse(board, chess.engine.Limit(depth=depth))
+        best_cp = _cp_from_white(info, board.turn)
+
+        board.push(move)
+        info_after = engine.analyse(board, chess.engine.Limit(depth=depth))
+        chosen_cp = _cp_from_white(info_after, mover)
+
+        # Loss is the eval (from the mover's perspective) that the chosen
+        # move gives up relative to the best move.
+        loss = max(0.0, best_cp - chosen_cp)
+        return max(0.0, 1.0 - (loss / max_loss))
+    except Exception:
+        return 0.0
+
+
+def _cp_from_white(info, for_color: chess.Color) -> float:
+    """Return Stockfish score in centipawns from ``for_color``'s perspective."""
+    score = info["score"].white()
+    cp = 10000.0 if score.is_mate() and score.mate() > 0 else -10000.0
+    if not score.is_mate():
+        cp = float(score.score())
+    return cp if for_color == chess.WHITE else -cp
+
+
 def reward_budget(output: str) -> float:
     """
     Reward penalty for too-short or too-long reasoning.
@@ -129,17 +191,26 @@ def combined_reward(
     stage: int = 0,
     engine = None,
     game_result: Optional[str] = None,
-    our_color: str = "white"
+    our_color: str = "white",
+    move_quality_depth: int = 10,
 ) -> dict:
     """
     Combined reward function for all stages.
+
+    Stages:
+        0 - Legality + format/budget
+        1 - Stage 0 + Stockfish move quality
+        2 - Stage 1 + Stockfish eval delta
+
+    ``game_result``/``our_color`` are optional and only used for full-game
+    evaluation (see rl/evaluate.py); they are not used during GRPO training.
     """
     components = {}
-    
+
     # Always check legality
     r_legal = reward_legality(fen, move_uci)
     components["legality"] = r_legal
-    
+
     if r_legal < 0:
         # Illegal move - no other rewards
         return {
@@ -147,9 +218,9 @@ def combined_reward(
             "components": components,
             "legal": False
         }
-    
+
     total = r_legal
-    
+
     # Stage 0: Just legality + format/budget
     r_format = reward_format(output)
     r_budget = reward_budget(output)
@@ -160,33 +231,32 @@ def combined_reward(
         components["budget"] = r_budget
         total += r_budget
 
-    if stage == 0:
-        return {
-            "total": total,
-            "components": components,
-            "legal": True
-        }
-    
-    # Stage 1+: Add outcome reward if game ended
+    # Stage 1+: Add Stockfish move quality (dense, per-position signal)
+    if stage >= 1 and engine:
+        r_quality = reward_move_quality(fen, move_uci, engine, depth=move_quality_depth)
+        components["move_quality"] = r_quality
+        total += r_quality
+
+    # Optional outcome reward (used by full-game evaluation, not GRPO)
     if game_result:
         r_outcome = reward_outcome(game_result, our_color)
         components["outcome"] = r_outcome
         total += r_outcome
-    
-    # Stage 2+: Add Stockfish delta
+
+    # Stage 2+: Add Stockfish eval delta
     if stage >= 2 and engine:
         try:
             board = chess.Board(fen)
             move = chess.Move.from_uci(move_uci)
             board.push(move)
             fen_after = board.fen()
-            
+
             r_delta = reward_stockfish_delta(fen, fen_after, engine)
             components["eval_delta"] = r_delta
             total += r_delta
         except Exception:
             pass
-    
+
     return {
         "total": total,
         "components": components,

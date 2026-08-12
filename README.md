@@ -47,11 +47,13 @@ The model explains *why* it's making a move — like a chess tutor, not a calcul
 ## 🔬 Approach
 
 ### Phase 1: SFT Bootstrap
-Train on reasoning traces to teach the model chess fundamentals and `<think>` format.
+Train on reasoning traces (185 curated samples) to teach the model chess fundamentals and the `<think>` format.
 
 ### Phase 2: Direct GRPO (Reinforcement Learning)
-Train directly on chess games using verifiable rewards (legal/illegal, win/lose).
-Stockfish provides the reward signal for curriculum learning.
+Train on chess positions using verifiable rewards. Stockfish provides the reward signal across stages:
+- **Stage 0** — Legality only (`+1` legal / `-1` illegal) + format/budget bonuses
+- **Stage 1** — Adds Stockfish **move quality** (how close the chosen move is to Stockfish's best)
+- **Stage 2** — Adds Stockfish **eval delta** (dense per-move signal)
 
 ### Phase 3: Curriculum Learning
 Progressive difficulty: Random → Stockfish L1 → Stockfish L3
@@ -77,12 +79,12 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 │                                                             │
 │   FEN Position                                              │
 │        ↓                                                    │
-│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
-│   │  SFT on     │ →   │   GRPO vs   │ →   │   Elo       │  │
-│   │  reasoning  │     │  Stockfish  │     │   Eval      │  │
-│   │  traces     │     │  curriculum │     │   (500      │  │
-│   │  (185 smpl) │     │             │     │   games)    │  │
-│   └─────────────┘     └─────────────┘     └─────────────┘  │
+│   ┌─────────────┐     ┌───────────────────┐   ┌──────────┐  │
+│   │  SFT on     │ →   │   GRPO (Stage 0-2)│ → │   Elo    │  │
+│   │  reasoning  │     │   Stockfish       │   │   Eval   │  │
+│   │  traces     │     │   reward signal   │   │ (N games)│  │
+│   │  (185 smpl) │     │                   │   │          │  │
+│   └─────────────┘     └───────────────────┘   └──────────┘  │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -130,7 +132,7 @@ See the full [ChessFM Roadmap](chess_fm_roadmap.md) for detailed implementation 
 ```
 chess-fm/
 ├── README.md                 # This file
-├── config.py                 # Central project configuration
+├── config.py                 # Central project configuration & prompt template
 ├── pyproject.toml            # Package configuration & pytest settings
 ├── chess_fm_roadmap.md       # Detailed implementation plan
 ├── requirements.txt          # All dependencies
@@ -141,8 +143,9 @@ chess-fm/
 │   ├── fetch_elite_data.py   # Fetch FENs from Lichess
 │   ├── download_positions.py # Curated FEN seed positions
 │   ├── convert_to_training.py
-│   ├── positions.txt         # Elite game FENs
-│   └── all_sft_data.jsonl    # 185 deduplicated samples
+│   ├── positions.txt         # 25k elite game FENs
+│   ├── all_sft_data.jsonl    # 185 deduplicated samples
+│   └── sft_train.jsonl       # Converted training format
 │
 ├── training/                 # SFT training
 │   ├── README.md
@@ -152,8 +155,9 @@ chess-fm/
 │   ├── README.md
 │   ├── chess_env.py          # Chess environment
 │   ├── rewards.py            # Staged reward functions
+│   ├── move_utils.py         # Pure-python move/FEN parsing
 │   ├── train_grpo.py         # GRPO training (TRL)
-│   ├── evaluate.py           # Evaluation runner
+│   ├── evaluate.py           # Evaluation runner (legal rate, format, Elo)
 │   └── tests/
 │
 ├── benchmarks/               # Evaluation & baselines
@@ -168,7 +172,8 @@ chess-fm/
 │   └── download_models.py
 │
 └── tests/                    # Unit tests
-    └── test_data_generation.py
+    ├── test_data_generation.py
+    └── test_scripts.py       # CLI smoke tests
 ```
 
 ---

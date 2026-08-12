@@ -22,11 +22,11 @@ We start with GRPO (Group Relative Policy Optimization) but the infrastructure s
 
 ### Success Criteria
 
-| Stage | Metric | Target | Pivot Point |
-|:------|:-------|:-------|:------------|
-| Stage 0 | Legal Move Rate | ≥50% | If <5% after 2k steps, add minimal SFT |
-| Stage 1 | Win Rate vs Random | ≥80% | - |
-| Stage 2 | Elo vs Stockfish 3 | ≥1000 | - |
+| Stage | Reward Signal | Target | Pivot Point |
+|:------|:--------------|:-------|:------------|
+| Stage 0 | Legality (+1/-1) + format | ≥50% legal rate | If <5% after 2k steps, add minimal SFT |
+| Stage 1 | + Stockfish move quality | ≥80% legal & quality | - |
+| Stage 2 | + Stockfish eval delta | Elo ≥1000 vs SF3 | - |
 
 ---
 
@@ -50,29 +50,28 @@ stockfish --version  # Should show version
 
 ### 2. Download Base Models
 
-Our primary model is **Qwen-2.5-Math-1.5B-Instruct**. Models are downloaded automatically on first run, but you can pre-download:
+Our primary model is **Qwen-2.5-3B-Instruct**. Models are downloaded automatically on first run, but you can pre-download:
 
 ```bash
 # Option A: Using Hugging Face CLI (recommended)
 pip install huggingface_hub
-huggingface-cli download Qwen/Qwen2.5-Math-1.5B-Instruct
+huggingface-cli download Qwen/Qwen2.5-3B-Instruct
 
 # Option B: Using Python
-python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-Math-1.5B-Instruct')"
+python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-3B-Instruct')"
 
 # Option C: Using unsloth (faster, 4-bit quantized)
-python -c "from unsloth import FastLanguageModel; FastLanguageModel.from_pretrained('Qwen/Qwen2.5-Math-1.5B-Instruct', load_in_4bit=True)"
+python -c "from unsloth import FastLanguageModel; FastLanguageModel.from_pretrained('Qwen/Qwen2.5-3B-Instruct', load_in_4bit=True)"
 ```
 
 #### Alternative Models to Try
 
 | Model | Size | HuggingFace ID | Notes |
 |:------|:-----|:---------------|:------|
-| **Qwen-2.5-Math-1.5B** | 1.5B | `Qwen/Qwen2.5-Math-1.5B-Instruct` | Our primary choice, math-focused |
-| DeepSeek-Coder-1.3B | 1.3B | `deepseek-ai/deepseek-coder-1.3b-base` | Code-focused, may help with notation |
-| Gemma-2-2B | 2B | `google/gemma-2-2b-it` | Google's efficient model |
-| Phi-3-mini | 3.8B | `microsoft/Phi-3-mini-4k-instruct` | Strong reasoning for size |
-| Llama-3.2-1B | 1B | `meta-llama/Llama-3.2-1B-Instruct` | Smallest Llama, fast iteration |
+| **Qwen-2.5-3B-Instruct** | 3B | `Qwen/Qwen2.5-3B-Instruct` | **Selected base model** (Phase 0 winner) |
+| Qwen-2.5-7B | 7B | `Qwen/Qwen2.5-7B-Instruct` | Scale-up candidate |
+| Llama-3.2-1B | 1B | `meta-llama/Llama-3.2-1B-Instruct` | Fast iteration on CPU/edge |
+| Llama-3.1-8B | 8B | `meta-llama/Llama-3.1-8B-Instruct` | ChessLLM-scale candidate |
 
 ```bash
 # Download any model:
@@ -89,31 +88,31 @@ huggingface-cli download google/gemma-2-2b-it
 ### 3. Run Verification Tests
 
 ```bash
-# Run all unit tests first
-python -m pytest tests/ -v
+# Run all unit tests from the project root
+python -m pytest -q
 
 # Verify reward function works
-python -c "from rewards import reward_legality; print('✅ Rewards OK')"
+python -c "from rl.rewards import reward_legality; print('✅ Rewards OK')"
 
 # Verify chess environment works
-python -c "from chess_env import ChessEnv; print('✅ Env OK')"
+python -c "from rl.chess_env import ChessEnv; print('✅ Env OK')"
 ```
 
 ### 4. Run Stage 0 (Legality Training)
 
 ```bash
 # Quick test (100 steps, ~5 min)
-python train_grpo.py --stage 0 --steps 100 --checkpoint-every 50
+python rl/train_grpo.py --stage 0 --steps 100 --checkpoint-every 50
 
 # Full Stage 0 (2000 steps, ~2 hours on RTX 4090)
-python train_grpo.py --stage 0 --steps 2000 --checkpoint-every 500
+python rl/train_grpo.py --stage 0 --steps 2000 --checkpoint-every 500
 ```
 
 ### 5. Evaluate Progress
 
 ```bash
 # Evaluate legal move rate and play test games
-python evaluate.py --model checkpoints/stage0_final --games 50
+python rl/evaluate.py --model checkpoints/stage0_final --games 50
 ```
 
 ---
@@ -126,10 +125,12 @@ rl/
 ├── train_grpo.py       # Main GRPO training script
 ├── chess_env.py        # Chess environment wrapper
 ├── rewards.py          # Staged reward functions
-├── evaluate.py         # Evaluation and game runner
+├── move_utils.py       # Move/FEN parsing helpers (no heavy deps)
+├── evaluate.py         # Evaluation and game runner (legal %, format %, Elo)
 ├── tests/
 │   ├── test_rewards.py      # Unit tests for rewards
-│   └── test_chess_env.py    # Unit tests for environment
+│   ├── test_chess_env.py    # Unit tests for environment
+│   └── test_move_utils.py   # Unit tests for parsing helpers
 └── checkpoints/        # Saved model checkpoints
 ```
 
@@ -192,9 +193,9 @@ Each stage uses a different reward signal:
 
 | Stage | Reward Function | Signal Density |
 |:------|:---------------|:--------------|
-| **0** | `+1` legal, `-1` illegal | Dense (every move) |
-| **1** | `+1` win, `-0.5` lose, `+0.3` draw | Sparse (end of game) |
-| **2** | `tanh(Δcp/100)` (Stockfish delta) | Dense (every move) |
+| **0** | `+1` legal, `-1` illegal + format/budget | Dense (every move) |
+| **1** | + `tanh` move quality vs Stockfish | Dense (every move) |
+| **2** | + `tanh(Δcp/100)` (Stockfish eval delta) | Dense (every move) |
 
 ### Why This Works (AlphaGo Did It Too)
 

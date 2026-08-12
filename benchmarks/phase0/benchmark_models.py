@@ -15,7 +15,7 @@ import os
 def load_fens(filename=None):
     if filename is None:
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        filename = os.path.join(base_dir, "../data/fens.txt")
+        filename = os.path.join(base_dir, "../../data_generation/positions.txt")
     with open(filename, "r") as f:
         return [line.strip() for line in f.readlines() if line.strip()]
 

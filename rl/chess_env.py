@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
 
+from config import STOCKFISH_PATHS
+
 
 @dataclass
 class StepResult:
@@ -49,22 +51,28 @@ class ChessEnv:
             self._init_stockfish(stockfish_path)
         else:
             # Try common paths
-            for path in ["/opt/homebrew/bin/stockfish", "/usr/bin/stockfish", 
-                        "/usr/local/bin/stockfish", "stockfish"]:
-                try:
-                    self._init_stockfish(path)
+            for path in STOCKFISH_PATHS:
+                if self._init_stockfish(path):
                     break
-                except:
-                    continue
-    
-    def _init_stockfish(self, path: str):
-        """Initialize Stockfish engine."""
+
+    def _init_stockfish(self, path: str) -> bool:
+        """Initialize Stockfish engine. Returns True on success."""
         try:
             self.engine = chess.engine.SimpleEngine.popen_uci(path)
             self.engine.configure({"Threads": 1, "Hash": 16})
+            return True
         except Exception as e:
             print(f"Warning: Could not init Stockfish at {path}: {e}")
             self.engine = None
+            return False
+
+    def set_skill_level(self, level: int = 1):
+        """Configure Stockfish skill level (0-20). Lower = weaker."""
+        if self.engine is not None:
+            try:
+                self.engine.configure({"Skill Level": int(level)})
+            except Exception:
+                pass
     
     def reset(self, fen: Optional[str] = None) -> str:
         """

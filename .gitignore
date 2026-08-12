@@ -44,6 +44,7 @@ datasets/
 models/
 checkpoints/
 outputs/
+results/
 wandb/
 runs/
 

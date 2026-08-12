@@ -6,26 +6,19 @@ Models are cached in ~/.cache/huggingface/hub/
 
 import os
 import sys
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 
 MODELS = [
     {
-        "name": "Qwen/Qwen2.5-Math-1.5B-Instruct",
-        "description": "Strong math/reasoning, likely best for logic"
-    },
-    {
-        "name": "deepseek-ai/deepseek-coder-1.3b-base",
-        "description": "Code model, good at structured notation"
-    },
-    {
-        "name": "google/gemma-2-2b-it",
-        "description": "Google Gemma 2, instruction-tuned"
+        "name": "Qwen/Qwen2.5-3B-Instruct",
+        "description": "Selected base model (from Phase 0 benchmarks)"
     },
 ]
 
 def download_model(model_info):
     """Download a single model and tokenizer."""
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
+
     name = model_info["name"]
     desc = model_info["description"]
     
@@ -64,13 +57,23 @@ def download_model(model_info):
         return False
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Download ChessFM base models to the HuggingFace cache")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Single model ID to download (defaults to the selected base model)")
+    args = parser.parse_args()
+
+    models = MODELS
+    if args.model:
+        models = [{"name": args.model, "description": "Requested model"}]
+
     print("ChessFM Model Downloader")
     print("========================")
-    print(f"Models will be cached in: ~/.cache/huggingface/hub/")
-    
+    print("Models will be cached in: ~/.cache/huggingface/hub/")
+
     results = []
-    
-    for model_info in MODELS:
+
+    for model_info in models:
         success = download_model(model_info)
         results.append((model_info["name"], success))
     

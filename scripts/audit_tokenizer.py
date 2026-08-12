@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DEFAULT_BASE_MODEL
-from transformers import AutoTokenizer
 
 MODELS = [
     DEFAULT_BASE_MODEL,
@@ -12,6 +11,7 @@ SAMPLE_UCI = "e2e4 e7e5 g1f3 b8c6 f1b5 a7a6"
 SAMPLE_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 def audit_model(model_name):
+    from transformers import AutoTokenizer
     print(f"Auditing {model_name}...")
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
@@ -37,5 +37,11 @@ def audit_model(model_name):
         print(f"  {m}: {tokenizer.tokenize(m)}")
 
 if __name__ == "__main__":
-    for model in MODELS:
+    import argparse
+    parser = argparse.ArgumentParser(description="Audit tokenizer behavior for UCI/FEN strings")
+    parser.add_argument("--model", type=str, default=DEFAULT_BASE_MODEL,
+                        help="Model tokenizer to audit")
+    args = parser.parse_args()
+
+    for model in [args.model]:
         audit_model(model)
