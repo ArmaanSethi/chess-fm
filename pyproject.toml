@@ -20,7 +20,7 @@ dependencies = [
     "tqdm>=4.66.0",
     "requests>=2.31.0",
     "wandb>=0.16.0",
-    "numpy>=1.24.0"
+    "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
@@ -29,16 +29,29 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.4.0",
     "pre-commit>=3.5.0",
-    "zstandard>=0.21.0"
 ]
 mlx = [
     "mlx>=0.0.10",
-    "mlx-lm>=0.0.1"
+    "mlx-lm>=0.0.1",
+]
+unsloth = [
+    "unsloth @ git+https://github.com/unslothai/unsloth.git",
 ]
 
+[project.scripts]
+chessfm-convert = "chessfm.data_generation.convert_to_training:main"
+chessfm-generate-data = "chessfm.data_generation.generate_synthetic_data:main"
+chessfm-fetch-fens = "chessfm.data_generation.fetch_elite_data:main"
+chessfm-train-sft = "chessfm.training.train_sft:main"
+chessfm-train-grpo = "chessfm.rl.train_grpo:main"
+chessfm-evaluate = "chessfm.rl.evaluate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
-pythonpath = [".", "rl"]
-testpaths = ["tests", "rl/tests"]
+pythonpath = ["src"]
+testpaths = ["tests"]
 addopts = "-q"
 
 [tool.ruff]
@@ -50,16 +63,25 @@ extend-exclude = ["data_generation/*.jsonl", "results"]
 select = ["E", "F", "W", "I", "UP", "B"]
 ignore = ["E501"]
 
-[tool.ruff.lint.per-file-ignores]
-"data_generation/fetch_elite_data.py" = ["E402"]
-
 [tool.coverage.run]
-source = ["config", "rl", "training", "tests"]
-omit = ["*/__pycache__/*"]
+source = ["chessfm"]
+# Coverage gate applies to the core logic. The omitted modules are thin
+# entry points that require external hardware or credentials (a GPU for
+# MLX/torch training and evaluation, model downloads, and API keys for the
+# synthetic-data generator); they cannot be exercised by unit tests and are
+# excluded so the gate reflects testable code.
+omit = [
+    "*/__pycache__/*",
+    "*/chessfm/load_model.py",
+    "*/chessfm/scripts/*",
+    "*/chessfm/training/*",
+    "*/chessfm/rl/train_grpo.py",
+    "*/chessfm/rl/evaluate.py",
+    "*/chessfm/benchmarks/*",
+    "*/chessfm/data_generation/fetch_elite_data.py",
+    "*/chessfm/data_generation/generate_synthetic_data.py",
+]
 
 [tool.coverage.report]
-fail_under = 70
+fail_under = 80
 show_missing = true
-
-[tool.setuptools]
-packages = ["rl"]

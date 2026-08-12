@@ -14,8 +14,8 @@ that produce them.
 | Metric | Value |
 |--------|-------|
 | **Raw samples** | 185 |
-| **Unique FENs (after dedup)** | 71 |
-| **Converted training samples** | 71 (one per position) |
+| **Unreasonable samples (filtered)** | 17 |
+| **Converted training samples** | 44 (deduped to one per position, reasonable only) |
 | **Position Source** | 25,000 elite FENs (Magnus, Stockfish, Leela games) |
 | **Quality Filter** | Stockfish-validated legal moves only (centipawn loss < 200 for "reasonable") |
 | **Provenance** | `data_manifest.json` written on every conversion |
@@ -27,14 +27,20 @@ that produce them.
 ```
 data_generation/
 ├── README.md                 # This file
-├── fetch_elite_data.py       # Fetch FENs from elite Lichess games
-├── download_positions.py     # Curated FEN seed positions
-├── convert_to_training.py    # Convert to HuggingFace format
 ├── positions.txt             # 25,000 elite game FENs (sample)
 ├── all_sft_data.jsonl        # Raw samples (sample)
 ├── sft_train.jsonl           # Converted training format (deduped by FEN)
 └── data_manifest.json        # Provenance manifest (counts, sources, timestamp)
 ```
+
+The generator/convert scripts live in the package under `src/chessfm/data_generation/`:
+
+| Script | Purpose |
+|--------|---------|
+| `fetch_elite_data.py` | Fetch FENs from elite Lichess games |
+| `download_positions.py` | Curated FEN seed positions |
+| `convert_to_training.py` | Convert to HuggingFace format |
+| `generate_synthetic_data.py` | Teacher-LLM reasoning traces, Stockfish-validated |
 
 ---
 
@@ -77,16 +83,19 @@ columns so SFT loss is computed on completion tokens only:
 
 ### 1. Generate Positions (if needed)
 ```bash
-python fetch_elite_data.py --count 25000
+python -m chessfm.data_generation.fetch_elite_data --count 25000
 ```
 
 ### 2. Convert to Training Format
 ```bash
 # From the project root
-python data_generation/convert_to_training.py
+python -m chessfm.data_generation.convert_to_training
 
-# Only include reasonable moves (centipawn loss < 200)
-python data_generation/convert_to_training.py --only-reasonable
+# Only include reasonable moves (centipawn loss < 200) -- this is the default
+python -m chessfm.data_generation.convert_to_training
+
+# Include samples beyond the centipawn-loss threshold
+python -m chessfm.data_generation.convert_to_training --include-unreasonable
 ```
 
 Conversion:
@@ -112,8 +121,8 @@ The converted SFT data works with:
 
 ```bash
 # Validate without training (no GPU needed)
-python training/train_sft.py --data data_generation/sft_train.jsonl --dry-run
+python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --dry-run
 
 # Train
-python training/train_sft.py --data data_generation/sft_train.jsonl
+python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl
 ```

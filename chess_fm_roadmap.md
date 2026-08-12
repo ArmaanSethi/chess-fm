@@ -1,4 +1,4 @@
-# ChessFM: 1.5B Chess Reasoning Roadmap
+# ChessFM: 3B Chess Reasoning Roadmap
 
 **Version**: 5.0 (Research-Backed Multi-Path Plan)  
 **Last Updated**: 2025-12-27
@@ -337,11 +337,11 @@ c2c4
 ```python
 def reward_budget(think_tokens: int) -> float:
     if think_tokens < 20:
-        return -0.1   # Too short, probably not reasoning
+        return -0.1  # Too short, probably not reasoning
     elif think_tokens > 200:
         return -0.05  # Rambling, penalize slightly
     else:
-        return 0.0    # Good length
+        return 0.0  # Good length
 ```
 
 **Inference-time**: Control via generation parameters
@@ -416,7 +416,7 @@ def get_reward(stage: int, move: str, output: str, ...) -> float:
 - [x] Benchmark candidate models
 - [x] Select base model (Qwen-3B)
 - [x] Generate initial positions (25k FENs)
-- [x] Generate SFT data (71 unique positions, engine-validated)
+- [x] Generate SFT data (44 unique positions, engine-validated)
 
 ### Phase 1: Bootstrap ✅
 - [x] Run Stage 0 GRPO (legality only, 2k steps)

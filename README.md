@@ -4,7 +4,8 @@
 
 [![Status](https://img.shields.io/badge/Status-Complete-green)]()
 [![Model](https://img.shields.io/badge/Base-Qwen--2.5--3B-blue)]()
-[![Tests](https://img.shields.io/badge/tests-46%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-112%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-93%25-green)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
 
 ---
@@ -38,7 +39,7 @@ included here.
 
 | Metric | Status |
 |--------|--------|
-| **Legal Move Rate** | ≥ 95% (measured by `rl/evaluate.py`) |
+| **Legal Move Rate** | ≥ 95% (measured by `chessfm.rl.evaluate`) |
 | **Reasoning Format** | > 95% valid `<think>` tags |
 | **Elo vs Stockfish L1** | Verified via the included evaluator |
 
@@ -109,24 +110,24 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3.
 ./setup_env.sh
 
 # 2. Verify the data pipeline (dedupes by FEN, writes a manifest)
-python data_generation/convert_to_training.py
+python -m chessfm.data_generation.convert_to_training
 
 # 3. Validate data without training (no GPU needed)
-python training/train_sft.py --data data_generation/sft_train.jsonl --dry-run
+python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --dry-run
 
 # 4. Train SFT (on a GPU machine)
-python training/train_sft.py --data data_generation/sft_train.jsonl
+python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl
 
 # 5. Train with GRPO stages
-python rl/train_grpo.py --stage 0 --steps 2000 --checkpoint-every 500
-python rl/train_grpo.py --stage 1 --steps 2000 --checkpoint-every 500
+python -m chessfm.rl.train_grpo --stage 0 --steps 2000 --checkpoint-every 500
+python -m chessfm.rl.train_grpo --stage 1 --steps 2000 --checkpoint-every 500
 
 # 6. Evaluate against Stockfish
-python rl/evaluate.py --model checkpoints/final --games 50
+python -m chessfm.rl.evaluate --model checkpoints/final --games 50
 ```
 
-See [`rl/README.md`](rl/README.md) and
-[`training/README.md`](training/README.md) for full usage.
+All modules also ship as console scripts (`chessfm-train-sft`, `chessfm-evaluate`,
+etc.) once installed with `pip install -e .`.
 
 ---
 
@@ -141,19 +142,21 @@ The repo ships a **small sample** of training data for reproducibility:
 | `data_generation/positions.txt` | 25,000 elite-game FENs |
 | `data_generation/data_manifest.json` | Provenance: counts, sources, timestamp |
 
-The committed samples are enough to verify the full pipeline; the full
-training set and final model checkpoints live on the training machine.
+The committed samples are enough to verify the full pipeline (44 converted
+samples, one per position); the full training set and final model checkpoints
+live on the training machine.
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-python -m pytest          # 46 unit + integration tests
-ruff check .              # lint
+python -m pytest                    # 112 unit + integration tests
+python -m pytest --cov=chessfm      # coverage gate (≥ 80% on core modules)
+ruff check .                        # lint
 ```
 
-CI runs both on every push: unit/smoke tests plus a real Stockfish reward
+CI runs these on every push: unit/smoke tests plus a real Stockfish reward
 integration test.
 
 ---
@@ -178,49 +181,63 @@ See the full [ChessFM Roadmap](chess_fm_roadmap.md) for implementation detail.
 ```
 chess-fm/
 ├── README.md                 # This file
-├── config.py                 # Central configuration & prompt template
 ├── pyproject.toml            # Package config, ruff, pytest, coverage
 ├── chess_fm_roadmap.md       # Implementation plan
 ├── requirements.txt          # Dependencies
 ├── setup_env.sh              # Environment setup
-├── .pre-commit-config.yaml   # Pre-commit hooks (ruff + formatting)
+├── .pre-commit-config.yaml   # Pre-commit hooks (ruff)
 │
-├── data_generation/          # SFT data generation
+├── src/chessfm/              # Package (install with `pip install -e .`)
+│   ├── config.py             # Central configuration & prompt template
+│   │
+│   ├── data_generation/      # SFT data generation
+│   │   ├── fetch_elite_data.py
+│   │   ├── download_positions.py
+│   │   ├── convert_to_training.py
+│   │   └── generate_synthetic_data.py
+│   │
+│   ├── rl/                   # Reinforcement learning
+│   │   ├── chess_env.py      # Chess environment
+│   │   ├── rewards.py        # Staged reward functions
+│   │   ├── engine.py         # Shared Stockfish helpers
+│   │   ├── move_utils.py     # Move/FEN parsing helpers
+│   │   ├── train_grpo.py     # GRPO training (TRL)
+│   │   └── evaluate.py       # Evaluation harness (legal %, format %, Elo)
+│   │
+│   ├── training/
+│   │   └── train_sft.py      # SFT training (unsloth/TRL)
+│   │
+│   ├── benchmarks/
+│   │   └── phase0/           # Phase 0 baselines (Qwen-3B selection)
+│   │       ├── BASELINE_REPORT.md
+│   │       ├── STRATEGY.md
+│   │       ├── benchmark_models.py
+│   │       └── run_benchmark_mlx.py
+│   │
+│   ├── scripts/              # Utilities
+│   │   ├── audit_tokenizer.py
+│   │   └── download_models.py
+│   │
+│   └── load_model.py         # Model loading
+│
+├── data_generation/          # Committed sample data
 │   ├── README.md
-│   ├── fetch_elite_data.py   # Fetch FENs from Lichess
-│   ├── download_positions.py # Curated FEN seed positions
-│   ├── convert_to_training.py
 │   ├── positions.txt         # 25k elite game FENs (sample)
 │   ├── all_sft_data.jsonl    # Raw samples (sample)
-│   ├── sft_train.jsonl       # Converted training format
+│   ├── sft_train.jsonl       # Converted training format (44 positions)
 │   └── data_manifest.json    # Provenance manifest
 │
-├── training/                 # SFT training
-│   ├── README.md
-│   └── train_sft.py
-│
-├── rl/                       # Reinforcement learning
-│   ├── README.md
-│   ├── chess_env.py          # Chess environment
-│   ├── rewards.py            # Staged reward functions
-│   ├── move_utils.py         # Move/FEN parsing helpers
-│   ├── train_grpo.py         # GRPO training (TRL)
-│   ├── evaluate.py           # Evaluation harness (legal %, format %, Elo)
-│   └── tests/
-│
-├── benchmarks/               # Phase 0 baselines
-│   └── phase0/
-│       ├── BASELINE_REPORT.md
-│       ├── STRATEGY.md
-│       ├── benchmark_models.py
-│       └── run_benchmark_mlx.py
-│
-├── scripts/                  # Utilities
-│   ├── audit_tokenizer.py
-│   └── download_models.py
-│
-└── tests/                    # Unit + CLI smoke tests
+└── tests/                    # Unit + integration tests (112 passing)
+    ├── test_chess_env.py
+    ├── test_rewards.py
+    ├── test_convert_utils.py
     ├── test_data_generation.py
+    ├── test_engine_helpers.py
+    ├── test_generate_utils.py
+    ├── test_data_pipeline_cli.py
+    ├── test_evaluate_integration.py
+    ├── test_move_utils.py
+    ├── test_config.py
     └── test_scripts.py
 ```
 
