@@ -3,9 +3,7 @@
 
 import unittest
 
-import chess
-
-from chessfm.rl.chess_env import ChessEnv, StepResult, game_result_reward
+from chessfm.rl.chess_env import ChessEnv, StepResult
 
 
 class TestChessEnv(unittest.TestCase):
@@ -29,21 +27,19 @@ class TestChessEnv(unittest.TestCase):
         self.env.reset()
         result = self.env.step("e2e4")
         assert result.legal is True
-        assert result.reward > 0
         assert result.done is False
 
     def test_illegal_move(self):
         self.env.reset()
         result = self.env.step("e2e5")  # Pawn can't move 3 squares
         assert result.legal is False
-        assert result.reward < 0
         assert result.done is True
 
     def test_invalid_uci(self):
         self.env.reset()
         result = self.env.step("xyz")
         assert result.legal is False
-        assert result.reward < 0
+        assert result.done is True
 
     def test_get_legal_moves(self):
         self.env.reset()
@@ -68,7 +64,6 @@ class TestChessEnv(unittest.TestCase):
         self.assertTrue(res.done)
         self.assertTrue(res.legal)
         self.assertEqual(res.info.get("result"), "0-1")
-        self.assertEqual(res.reward, 1.0)
 
     def test_context_manager_closes_engine(self):
         with ChessEnv() as env:
@@ -96,37 +91,26 @@ class TestChessEnv(unittest.TestCase):
         self.env.max_moves = 1
         result = self.env.step("e2e4")
         assert result.done is True
-        assert result.reward == 0.0
         assert result.info["result"] == "max_moves"
 
     def test_named_stockfish_path_not_found(self):
-        # Path doesn't exist, so open_engine() fails and _init_named() warns.
+        # Path doesn't exist, so _init_named() warns and returns None.
+        env = ChessEnv(stockfish_path="/nonexistent/stockfish")
+        assert env.engine is None
+        env.close()
+
+    def test_named_stockfish_path_takes_precedence(self):
+        # An explicit path must be attempted even when a default-path engine
+        # would have opened. A nonexistent path must never fall through to the
+        # default search.
         env = ChessEnv(stockfish_path="/nonexistent/stockfish")
         assert env.engine is None
         env.close()
 
 
-class TestGameResultReward(unittest.TestCase):
-    def test_white_wins_white_moved(self):
-        self.assertEqual(game_result_reward("1-0", chess.WHITE), 1.0)
-
-    def test_white_wins_black_moved(self):
-        self.assertEqual(game_result_reward("1-0", chess.BLACK), -0.5)
-
-    def test_black_wins_black_moved(self):
-        self.assertEqual(game_result_reward("0-1", chess.BLACK), 1.0)
-
-    def test_black_wins_white_moved(self):
-        self.assertEqual(game_result_reward("0-1", chess.WHITE), -0.5)
-
-    def test_draw(self):
-        self.assertEqual(game_result_reward("1/2-1/2", chess.WHITE), 0.3)
-
-
 class TestStepResult(unittest.TestCase):
     def test_step_result_creation(self):
-        result = StepResult(reward=1.0, done=False, legal=True, info={"test": "value"})
-        assert result.reward == 1.0
+        result = StepResult(done=False, legal=True, info={"test": "value"})
         assert result.done is False
         assert result.legal is True
         assert result.info["test"] == "value"

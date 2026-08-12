@@ -34,11 +34,9 @@ from pathlib import Path
 
 import chess
 
-from chessfm.config import PROJECT_ROOT
-from chessfm.rl.engine import best_cp, close_engine, eval_after_move, open_engine
-
-THINK_OPEN = "<think>"
-THINK_CLOSE = "</think>"
+from chessfm.config import PROJECT_ROOT, make_prompt
+from chessfm.rl.engine import best_cp, best_move, close_engine, eval_after_move, open_engine
+from chessfm.rl.move_utils import parse_move_from_output
 
 # A move is considered reasonable if it gives up less than this many centipawns.
 REASONABLE_CP_THRESHOLD = 200
@@ -128,46 +126,27 @@ SYSTEM_PROMPT = (
 )
 
 
-def maker_prompt(fen: str) -> str:
-    color = "White" if fen.split()[1] == "w" else "Black"
-    return (
-        f"Position (FEN): {fen}\nSide to move: {color}\n\n"
-        "Analyze and choose the best move. Reason inside <think>...</think> "
-        "tags, then output the move in UCI format on its own final line."
-    )
-
-
 def validate_with_stockfish(engine, fen: str, move_uci: str, depth: int = 12):
-    """Validate a proposed move; returns (is_legal, centipawn_loss, best_move)."""
-    board = chess.Board(fen)
-    move = chess.Move.from_uci(move_uci) if is_uci(move_uci) else None
-    if move is None or move not in board.legal_moves:
+    """Validate a proposed move; returns (is_legal, centipawn_loss, best_move).
+
+    ``centipawn_loss`` is clamped to >= 0 (a move cannot beat Stockfish's best).
+    ``best_move`` is Stockfish's top move in UCI, or None if the engine did not
+    report a principal variation.
+    """
+    try:
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(move_uci)
+        if move not in board.legal_moves:
+            return False, None, None
+
+        best = best_cp(engine, board, depth)
+        chosen = eval_after_move(engine, board, move_uci, depth)
+        if best is None or chosen is None:
+            return False, None, None
+        loss = max(0.0, best - chosen)
+        return True, round(loss, 1), best_move(engine, board, depth)
+    except ValueError:
         return False, None, None
-
-    best = best_cp(engine, board, depth)
-    chosen = eval_after_move(engine, board, move_uci, depth)
-    if best is None or chosen is None:
-        return False, None, None
-    loss = max(0.0, best - chosen)
-    return True, round(loss, 1), None
-
-
-def is_uci(s: str) -> bool:
-    if not isinstance(s, str) or not 4 <= len(s) <= 5:
-        return False
-    return s[0] in "abcdefgh" and s[1] in "12345678" and s[2] in "abcdefgh" and s[3] in "12345678"
-
-
-def extract_move(response: str) -> str | None:
-    """Extract the last UCI-looking token from a model response."""
-    text = response.strip()
-    if THINK_CLOSE in text:
-        text = text.split(THINK_CLOSE)[-1].strip()
-    for tok in reversed(text.split()):
-        tok = tok.strip().lower().rstrip(".,!?")
-        if is_uci(tok):
-            return tok
-    return None
 
 
 def load_positions(path: Path, limit: int | None) -> list:
@@ -201,16 +180,16 @@ def gen_batch(
             if fen in done:
                 continue
             try:
-                response = api.complete(maker_prompt(fen))
+                response = api.complete(make_prompt(fen))
             except Exception as e:
                 print(f"  API error on {i}: {e}")
                 time.sleep(delay * 3)
                 continue
-            move = extract_move(response)
+            move = parse_move_from_output(response)
             if not move:
                 skipped += 1
                 continue
-            is_legal, loss, _ = validate_with_stockfish(engine, fen, move, depth)
+            is_legal, loss, best = validate_with_stockfish(engine, fen, move, depth)
             if is_legal:
                 legal += 1
             row = {
@@ -221,7 +200,7 @@ def gen_batch(
                 "model": f"{api.provider}:{api.model}",
                 "is_reasonable": is_legal and loss is not None and loss <= REASONABLE_CP_THRESHOLD,
                 "centipawn_loss": loss,
-                "stockfish_best": None,
+                "stockfish_best": best,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
             out.write(json.dumps(row) + "\n")

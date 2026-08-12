@@ -10,13 +10,13 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.1.0",
-    "transformers>=4.44.0",
-    "accelerate>=0.33.0",
+    "transformers>=4.46.0,<5",
+    "accelerate>=0.34.0",
     "peft>=0.11.0",
-    "trl>=0.12.0",
+    "trl>=0.16.0,<0.17",
     "python-chess>=1.10.0",
     "bitsandbytes>=0.41.0",
-    "datasets>=2.14.0",
+    "datasets>=3.0.0,<4",
     "tqdm>=4.66.0",
     "requests>=2.31.0",
     "wandb>=0.16.0",
@@ -65,21 +65,19 @@ ignore = ["E501"]
 
 [tool.coverage.run]
 source = ["chessfm"]
-# Coverage gate applies to the core logic. The omitted modules are thin
-# entry points that require external hardware or credentials (a GPU for
-# MLX/torch training and evaluation, model downloads, and API keys for the
-# synthetic-data generator); they cannot be exercised by unit tests and are
-# excluded so the gate reflects testable code.
+# Coverage gate applies to all pure logic. Only modules that require external
+# hardware, model downloads, or credentials to even import at their entry point
+# are omitted: GPU/torch scripts (scripts, benchmarks, load_model, train_sft),
+# the GRPO entry point (needs a GPU + model download), and the Lichess fetcher
+# (needs the network).
 omit = [
     "*/__pycache__/*",
     "*/chessfm/load_model.py",
     "*/chessfm/scripts/*",
     "*/chessfm/training/*",
     "*/chessfm/rl/train_grpo.py",
-    "*/chessfm/rl/evaluate.py",
     "*/chessfm/benchmarks/*",
     "*/chessfm/data_generation/fetch_elite_data.py",
-    "*/chessfm/data_generation/generate_synthetic_data.py",
 ]
 
 [tool.coverage.report]

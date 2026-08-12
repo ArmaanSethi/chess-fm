@@ -4,47 +4,16 @@
 import json
 
 import chess
+import pytest
 
 from chessfm.data_generation.download_positions import generate_positions
 from chessfm.data_generation.generate_synthetic_data import (
-    extract_move,
-    is_uci,
+    ProviderAPI,
+    gen_batch,
     load_positions,
-    maker_prompt,
     resume_from,
     validate_with_stockfish,
 )
-
-
-class TestIsUci:
-    def test_valid(self):
-        for s in ["e2e4", "g1f3", "e7e8q", "a7a8n"]:
-            assert is_uci(s), s
-
-    def test_invalid(self):
-        for s in ["Nf3", "e4", "O-O", "exd5", "1.e4", "e2e4q6", None, 42]:
-            assert not is_uci(s), s
-
-
-class TestExtractMove:
-    def test_after_think(self):
-        assert extract_move("<think>Good center.</think>\ne2e4") == "e2e4"
-
-    def test_last_token_wins(self):
-        assert extract_move("e2e4 d2d4") == "d2d4"
-
-    def test_strips_punctuation(self):
-        assert extract_move("e2e4.") == "e2e4"
-        assert extract_move("1. e4 e5") is None  # "e4" is SAN, not UCI
-
-    def test_no_move(self):
-        assert extract_move("<think>Unknown.</think>") is None
-
-
-class TestPrompts:
-    def test_maker_prompt_color(self):
-        assert "Side to move: White" in maker_prompt("8/8/8/8/8/8/8/8 w - - 0 1")
-        assert "Side to move: Black" in maker_prompt("8/8/8/8/8/8/8/8 b - - 0 1")
 
 
 class TestLoadResume:
@@ -94,20 +63,48 @@ class _MockEngine:
         return {"score": _FakeScore(white_cp)}
 
 
+class _MockEngineWithPV(_MockEngine):
+    """Like ``_MockEngine`` but also reports a principal variation."""
+
+    def __init__(self, best=50, chosen=50, pv="e2e4"):
+        super().__init__(best, chosen)
+        self._pv = pv
+
+    def analyse(self, board, limit):
+        info = super().analyse(board, limit)
+        info["pv"] = [chess.Move.from_uci(self._pv)]
+        return info
+
+
 class TestValidateWithStockfish:
     FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
     def test_good_move(self):
         # e2e4 keeps White at +50 before and after -> zero centipawn loss.
-        is_legal, loss, _ = validate_with_stockfish(_MockEngine(), self.FEN, "e2e4")
+        is_legal, loss, best = validate_with_stockfish(_MockEngine(), self.FEN, "e2e4")
         assert is_legal is True
         assert loss == 0.0
+        assert best is None  # no PV reported by this mock
+
+    def test_best_move_reported_when_pv_present(self):
+        is_legal, loss, best = validate_with_stockfish(
+            _MockEngineWithPV(pv="e2e4"), self.FEN, "e2e4"
+        )
+        assert is_legal is True
+        assert loss == 0.0
+        assert best == "e2e4"
 
     def test_lossy_move(self):
         # A move that drops from +50 to -100 is clearly a blunder.
         is_legal, loss, _ = validate_with_stockfish(_MockEngine(chosen=-100), self.FEN, "e2e4")
         assert is_legal is True
         assert loss == 150.0
+
+    def test_loss_never_negative(self):
+        # A "better-than-best" move must still be clamped to 0, never negative.
+        is_legal, loss, _ = validate_with_stockfish(_MockEngine(chosen=200), self.FEN, "e2e4")
+        assert is_legal is True
+        assert loss == 0.0
 
     def test_illegal_move(self):
         is_legal, loss, _ = validate_with_stockfish(_MockEngine(), self.FEN, "e2e5")
@@ -137,3 +134,96 @@ class TestGeneratePositions:
         positions = generate_positions(1000)
         assert len(positions) == 1000
         assert len(set(positions)) < len(positions)
+
+
+class _FakeAPI:
+    """Returns canned teacher responses, one per call."""
+
+    def __init__(self, responses, provider="openai", model="gpt-test"):
+        self._responses = list(responses)
+        self.provider = provider
+        self.model = model
+
+    def complete(self, prompt):
+        return self._responses.pop(0)
+
+
+class TestGenBatch:
+    FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+    def test_writes_validated_rows(self, tmp_path):
+        out = tmp_path / "data.jsonl"
+        api = _FakeAPI(["<think>center control.</think>\ne2e4"])
+        engine = _MockEngineWithPV(pv="e2e4")
+        gen_batch(api, engine, [self.FEN], out, depth=1, delay=0)
+
+        rows = [json.loads(line) for line in out.open() if line.strip()]
+        assert len(rows) == 1
+        assert rows[0]["move"] == "e2e4"
+        assert rows[0]["stockfish_best"] == "e2e4"
+        assert rows[0]["is_reasonable"] is True
+        assert rows[0]["model"] == "openai:gpt-test"
+
+    def test_resume_skips_done_fens(self, tmp_path):
+        out = tmp_path / "data.jsonl"
+        out.write_text(json.dumps({"fen": self.FEN}) + "\n")
+        api = _FakeAPI(["<think>x</think>\ne2e4"])
+        engine = _MockEngineWithPV(pv="e2e4")
+        gen_batch(api, engine, [self.FEN], out, depth=1, delay=0)
+        # Nothing new appended: the FEN was already processed.
+        assert sum(1 for _ in out.open() if _.strip()) == 1
+
+    def test_unparseable_response_is_skipped(self, tmp_path):
+        out = tmp_path / "data.jsonl"
+        api = _FakeAPI(["no move here at all"])
+        engine = _MockEngineWithPV()
+        gen_batch(api, engine, [self.FEN], out, depth=1, delay=0)
+        assert sum(1 for _ in out.open() if _.strip()) == 0
+
+
+class TestProviderAPI:
+    def test_unknown_provider_raises(self):
+        with pytest.raises(ValueError):
+            ProviderAPI("bogus", "m", "k").complete("p")
+
+    def test_openai_path(self, monkeypatch):
+        class _Resp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"choices": [{"message": {"content": "hello"}}]}
+
+        import requests
+
+        monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp())
+        api = ProviderAPI("openai", "gpt-test", "key")
+        assert api.complete("p") == "hello"
+
+    def test_anthropic_path(self, monkeypatch):
+        class _Resp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"content": [{"text": "hi"}]}
+
+        import requests
+
+        monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp())
+        api = ProviderAPI("anthropic", "claude-test", "key")
+        assert api.complete("p") == "hi"
+
+    def test_gemini_path(self, monkeypatch):
+        class _Resp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": "yo"}]}}]}
+
+        import requests
+
+        monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp())
+        api = ProviderAPI("gemini", "gemini-test", "key")
+        assert api.complete("p") == "yo"

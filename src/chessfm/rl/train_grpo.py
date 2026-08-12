@@ -18,6 +18,10 @@ import argparse
 import logging
 from pathlib import Path
 
+import torch
+from datasets import Dataset
+from trl import GRPOConfig, GRPOTrainer
+
 from chessfm.config import DEFAULT_BASE_MODEL, build_chat_prompt
 from chessfm.load_model import load_model
 from chessfm.rl.engine import close_engine, open_engine
@@ -25,28 +29,6 @@ from chessfm.rl.move_utils import extract_fen_from_prompt, parse_move_from_outpu
 from chessfm.rl.rewards import combined_reward
 
 logger = logging.getLogger("chessfm.train_grpo")
-
-# torch/datasets are imported lazily so ``--help`` works without a GPU stack.
-_torch = None
-_dataset = None
-
-
-def _get_torch():
-    global _torch
-    if _torch is None:
-        import torch
-
-        _torch = torch
-    return _torch
-
-
-def _get_datasets():
-    global _dataset
-    if _dataset is None:
-        from datasets import Dataset
-
-        _dataset = Dataset
-    return _dataset
 
 
 def make_reward_func(stage: int, engine=None):
@@ -150,10 +132,8 @@ def main():
     print(f"Checkpoint every: {args.checkpoint_every}")
     print()
 
-    torch = _get_torch()
     torch.manual_seed(args.seed)
 
-    Dataset = _get_datasets()
     raw_positions = load_positions(args.positions, args.max_positions)
     dataset = Dataset.from_list(raw_positions)
     print(f"Loaded {len(dataset)} prompts/positions for training")
@@ -171,13 +151,6 @@ def main():
                 "the move-quality reward. Install it (brew install stockfish / "
                 "apt install stockfish) or run with --stage 0."
             )
-
-    try:
-        from trl import GRPOConfig, GRPOTrainer
-    except ImportError:
-        print("'trl' package is required for GRPO. Install via `pip install 'trl>=0.12'`.")
-        close_engine(engine)
-        return
 
     training_args = GRPOConfig(
         output_dir=str(args.output),
@@ -197,6 +170,7 @@ def main():
 
     trainer = GRPOTrainer(
         model=model,
+        processing_class=tokenizer,
         reward_funcs=[reward_fn],
         args=training_args,
         train_dataset=dataset,

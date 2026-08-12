@@ -7,14 +7,14 @@ heavy imports are guarded so ``--help`` works without MLX installed.
 
 import argparse
 import json
-import re
 import time
 from pathlib import Path
 
 import chess
 from tqdm import tqdm
 
-from chessfm.config import PROJECT_ROOT
+from chessfm.config import PROJECT_ROOT, build_chat_prompt
+from chessfm.rl.move_utils import parse_move_from_output
 
 
 def load_fens(filename=None, limit=None):
@@ -47,17 +47,12 @@ def benchmark_model(model_path, fens, output_file):
     start_time = time.time()
 
     for fen in tqdm(fens, desc="Benchmarking"):
-        prompt = (
-            f"<|im_start|>user\nYou are a chess expert. Given the FEN position, "
-            f"output ONLY the best move in UCI format (e.g., e2e4).\n\n"
-            f"Position: {fen}\nMove:<|im_end|>\n<|im_start|>assistant\n"
-        )
+        prompt = build_chat_prompt(fen)
 
         try:
             response = generate(model, tokenizer, prompt=prompt, max_tokens=1000, verbose=False)
             generated_text = response.strip()
-            clean_text = re.sub(r"<think>.*?</think>", "", generated_text, flags=re.DOTALL).strip()
-            move_candidate = clean_text.split()[0] if clean_text else ""
+            move_candidate = parse_move_from_output(generated_text) or ""
         except Exception as e:
             print(f"Error generating for {fen}: {e}")
             move_candidate = ""

@@ -4,6 +4,10 @@ Chess environment for RL training.
 
 Wraps python-chess to provide a simple interface for move generation,
 legality validation, and episode bookkeeping.
+
+Note: the environment is deliberately reward-free. GRPO rewards are computed
+by ``chessfm.rl.rewards`` from the FEN/move/output triple, and evaluation
+counts win/loss/draw itself, so ``step`` only reports legality and status.
 """
 
 from dataclasses import dataclass, field
@@ -17,7 +21,6 @@ from chessfm.rl.engine import best_cp, close_engine, open_engine
 class StepResult:
     """Result of taking an action in the environment."""
 
-    reward: float
     done: bool
     legal: bool
     info: dict = field(default_factory=dict)
@@ -41,9 +44,7 @@ class ChessEnv:
 
         self.engine = None
         if stockfish_path:
-            self.engine = open_engine()
-            if self.engine is None:
-                self.engine = self._init_named(stockfish_path)
+            self.engine = self._init_named(stockfish_path)
         else:
             self.engine = open_engine()
 
@@ -78,40 +79,34 @@ class ChessEnv:
             move = chess.Move.from_uci(move_uci)
         except ValueError:
             return StepResult(
-                reward=-1.0, done=True, legal=False, info={"error": "invalid_uci", "move": move_uci}
+                done=True, legal=False, info={"error": "invalid_uci", "move": move_uci}
             )
 
         if move not in self.board.legal_moves:
             return StepResult(
-                reward=-1.0,
                 done=True,
                 legal=False,
                 info={"error": "illegal_move", "move": move_uci},
             )
 
-        mover = self.board.turn
         self.board.push(move)
         self.move_count += 1
 
         if self.board.is_game_over():
-            result = self.board.result()
-            reward = game_result_reward(result, mover)
             return StepResult(
-                reward=reward,
                 done=True,
                 legal=True,
-                info={"result": result, "moves": self.move_count},
+                info={"result": self.board.result(), "moves": self.move_count},
             )
 
         if self.move_count >= self.max_moves:
             return StepResult(
-                reward=0.0,
                 done=True,
                 legal=True,
                 info={"result": "max_moves", "moves": self.move_count},
             )
 
-        return StepResult(reward=0.1, done=False, legal=True, info={"moves": self.move_count})
+        return StepResult(done=False, legal=True, info={"moves": self.move_count})
 
     def get_legal_moves(self) -> list:
         return [move.uci() for move in self.board.legal_moves]
@@ -137,20 +132,3 @@ class ChessEnv:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return False
-
-
-def game_result_reward(result: str, side_just_moved: chess.Color) -> float:
-    """Reward for a completed game from the side that just moved's perspective."""
-    if result == "1-0":
-        return 1.0 if side_just_moved == chess.WHITE else -0.5
-    if result == "0-1":
-        return 1.0 if side_just_moved == chess.BLACK else -0.5
-    return 0.3
-
-
-if __name__ == "__main__":
-    with ChessEnv() as env:
-        print(f"Starting position: {env.get_fen()}")
-        print(f"Legal moves: {env.get_legal_moves()[:5]}...")
-        result = env.step("e2e4")
-        print(f"e2e4: legal={result.legal}, reward={result.reward}")

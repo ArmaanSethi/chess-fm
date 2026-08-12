@@ -27,6 +27,7 @@ from pathlib import Path
 
 import chess
 import chess.pgn
+import torch
 
 from chessfm.config import DEFAULT_BASE_MODEL, PYGNS_DIR, RESULTS_DIR, build_chat_prompt
 from chessfm.load_model import load_model
@@ -34,19 +35,6 @@ from chessfm.rl.chess_env import ChessEnv
 from chessfm.rl.move_utils import parse_move_from_output
 
 logger = logging.getLogger("chessfm.evaluate")
-
-# torch is imported lazily so ``--help`` works without a GPU stack.
-_torch = None
-
-
-def _get_torch():
-    global _torch
-    if _torch is None:
-        import torch
-
-        _torch = torch
-    return _torch
-
 
 # Approximate Elo for Stockfish skill levels (0-20), used only for a rough,
 # ballpark comparison. These are informal community calibrations, NOT validated
@@ -113,15 +101,122 @@ def load_openings(path: Path | None) -> list[str]:
         return [line.strip() for line in f if line.strip()]
 
 
-def generate_completion(model, tokenizer, torch, prompt: str, max_new_tokens: int = 150) -> str:
+def generate_completion(model, tokenizer, prompt: str, max_new_tokens: int = 150) -> str:
     """Generate a completion for ``prompt`` and return ONLY the newly generated text."""
     inputs = tokenizer(prompt, return_tensors="pt")
-    if torch is not None:
-        inputs = inputs.to(getattr(model, "device", torch.device("cpu")))
+    inputs = inputs.to(getattr(model, "device", torch.device("cpu")))
     outputs = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
     input_len = inputs.input_ids.shape[1]
     generated = outputs[0][input_len:]
     return tokenizer.decode(generated, skip_special_tokens=True)
+
+
+def _count_result(stats: dict, result: str, model_color: str) -> None:
+    """Tally a finished game from the model's perspective, regardless of color."""
+    if result == "1-0":
+        if model_color == "white":
+            stats["wins"] += 1
+        else:
+            stats["losses"] += 1
+    elif result == "0-1":
+        if model_color == "black":
+            stats["wins"] += 1
+        else:
+            stats["losses"] += 1
+    else:
+        stats["draws"] += 1
+
+
+def play_game(
+    model,
+    tokenizer,
+    env: ChessEnv,
+    model_color: str,
+    use_random_opponent: bool = False,
+    time_per_move: float = 0.05,
+) -> tuple:
+    """Play one game between the model and the opponent in ``env``.
+
+    Returns ``(game, stats)`` where ``game`` is a ``chess.pgn.Game`` (move tree
+    populated, headers left for the caller) and ``stats`` is a dict of
+    per-game counters. Win/loss/draw are always from the model's perspective.
+
+    A model forfeit on an illegal move is recorded truthfully in ``stats``.
+    """
+    stats = {
+        "total_moves": 0,
+        "legal_moves": 0,
+        "formatted_outputs": 0,
+        "illegal_by_model": 0,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "result": "*",
+    }
+    game = chess.pgn.Game()
+    node = game
+    done = False
+
+    while not done:
+        # Refresh the FEN every ply so the model is always prompted with the
+        # actual current board, never a stale one.
+        fen = env.get_fen()
+        if env.get_turn() == model_color:
+            completion = generate_completion(model, tokenizer, build_chat_prompt(fen))
+            move_uci = parse_move_from_output(completion) or "xxxx"
+            stats["total_moves"] += 1
+
+            if "<think>" in completion and "</think>" in completion:
+                stats["formatted_outputs"] += 1
+
+            step_res = env.step(move_uci)
+            if step_res.legal:
+                stats["legal_moves"] += 1
+                node = node.add_variation(chess.Move.from_uci(move_uci))
+            else:
+                # Illegal move: the model loses by forfeit.
+                stats["illegal_by_model"] += 1
+                stats["losses"] += 1
+                stats["result"] = "0-1" if model_color == "white" else "1-0"
+                done = True
+                break
+
+            if step_res.done:
+                done = True
+                stats["result"] = step_res.info.get("result", "")
+                _count_result(stats, stats["result"], model_color)
+        else:
+            # Opponent (Stockfish or random).
+            if env.engine and not use_random_opponent:
+                result = env.engine.play(env.board, chess.engine.Limit(time=time_per_move))
+                move_uci = result.move.uci()
+            else:
+                move_uci = random.choice(env.get_legal_moves())
+
+            step_res = env.step(move_uci)
+            if step_res.legal:
+                node = node.add_variation(chess.Move.from_uci(move_uci))
+            if step_res.done:
+                done = True
+                stats["result"] = step_res.info.get("result", "")
+                _count_result(stats, stats["result"], model_color)
+
+    return game, stats
+
+
+def write_pgn(games: list, path: Path) -> None:
+    """Serialize a list of games to a PGN file."""
+    PYGNS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        for game in games:
+            f.write(str(game) + "\n\n")
+
+
+def write_report(results: dict, path: Path) -> None:
+    """Write the results report as JSON."""
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(results, f, indent=2)
 
 
 def evaluate_model(
@@ -153,7 +248,6 @@ def evaluate_model(
             pass
 
     model, tokenizer = load_model(model_path, for_inference=True)
-    torch = _get_torch()
 
     opening_fens = load_openings(openings)
     if opening_fens:
@@ -170,98 +264,46 @@ def evaluate_model(
 
     for g in range(num_games):
         if opening_fens:
-            start_fen = opening_fens[g % len(opening_fens)]
-            env.reset(start_fen)
+            env.reset(opening_fens[g % len(opening_fens)])
         else:
             env.reset()
-        done = False
-        game = chess.pgn.Game()
+        print(f"\nGame {g + 1}/{num_games}")
+
+        game, stats = play_game(
+            model,
+            tokenizer,
+            env,
+            model_color,
+            use_random_opponent=use_random_opponent,
+            time_per_move=time_per_move,
+        )
+
         game.headers["Event"] = f"ChessFM Eval game {g + 1}"
         game.headers["Model"] = model_path
         game.headers["Opponent"] = opponent
         game.headers["Seed"] = str(seed)
-        node = game
-        print(f"\nGame {g + 1}/{num_games}")
+        game.headers["Result"] = stats["result"]
 
-        # game_result is tracked explicitly so a model forfeit (illegal move)
-        # is recorded truthfully in both the PGN header and the tally.
-        game_result = "*"
-
-        while not done:
-            # Refresh the FEN every ply so the model is always prompted with
-            # the actual current board, never a stale one.
-            fen = env.get_fen()
-            if env.get_turn() == model_color:
-                prompt = build_chat_prompt(fen)
-                completion = generate_completion(model, tokenizer, torch, prompt)
-                move_uci = parse_move_from_output(completion) or "xxxx"
-                total_moves += 1
-
-                if "<think>" in completion and "</think>" in completion:
-                    formatted_outputs += 1
-
-                step_res = env.step(move_uci)
-                if step_res.legal:
-                    legal_moves += 1
-                    node = node.add_variation(chess.Move.from_uci(move_uci))
-                else:
-                    # Illegal move: the model loses by forfeit.
-                    illegal_by_model += 1
-                    losses += 1
-                    game_result = "0-1" if model_color == "white" else "1-0"
-                    done = True
-                    break
-
-                if step_res.done:
-                    done = True
-                    result = step_res.info.get("result", "")
-                    game_result = result
-                    if result == "1-0":
-                        wins += 1
-                    elif result == "0-1":
-                        losses += 1
-                    else:
-                        draws += 1
-            else:
-                # Opponent (Stockfish or random).
-                if env.engine and not use_random_opponent:
-                    result = env.engine.play(env.board, chess.engine.Limit(time=time_per_move))
-                    move_uci = result.move.uci()
-                else:
-                    move_uci = random.choice(env.get_legal_moves())
-
-                step_res = env.step(move_uci)
-                if step_res.legal:
-                    node = node.add_variation(chess.Move.from_uci(move_uci))
-                if step_res.done:
-                    done = True
-                    res = step_res.info.get("result", "")
-                    game_result = res
-                    if res == "1-0":
-                        wins += 1
-                    elif res == "0-1":
-                        losses += 1
-                    else:
-                        draws += 1
-
-        game.headers["Result"] = game_result
         games_list.append(game)
-        if illegal_by_model:
-            print(f"   (model forfeited via illegal move: {game_result})")
+        total_moves += stats["total_moves"]
+        legal_moves += stats["legal_moves"]
+        formatted_outputs += stats["formatted_outputs"]
+        wins += stats["wins"]
+        losses += stats["losses"]
+        draws += stats["draws"]
+        illegal_by_model += stats["illegal_by_model"]
+
+        if stats["illegal_by_model"]:
+            print(f"   (model forfeited via illegal move: {stats['result']})")
 
     env.close()
 
-    PYGNS_DIR.mkdir(parents=True, exist_ok=True)
     pgn_path = PYGNS_DIR / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pgn"
-    with open(pgn_path, "w") as f:
-        for game in games_list:
-            f.write(str(game) + "\n\n")
+    write_pgn(games_list, pgn_path)
     print(f"\nGames saved to {pgn_path}")
 
     legal_rate = 100 * legal_moves / max(1, total_moves)
     format_rate = 100 * formatted_outputs / max(1, total_moves)
-    opponent_elo = 0 if use_random_opponent else STOCKFISH_LEVEL_ELO.get(stockfish_level, 1000)
-    elo = estimated_elo(wins, losses, draws, opponent_elo)
 
     print("\n" + "=" * 60)
     print("Evaluation Results Summary")
@@ -273,6 +315,8 @@ def evaluate_model(
     print(f"Win rate:             {100 * wins / max(1, num_games):.1f}%")
     print(f"Illegal moves by AI:  {illegal_by_model}")
     if not use_random_opponent:
+        opponent_elo = STOCKFISH_LEVEL_ELO.get(stockfish_level, 1000)
+        elo = estimated_elo(wins, losses, draws, opponent_elo)
         print(
             f"Estimated Elo:        {elo:.0f} (approx; vs SF level {stockfish_level}, ~{opponent_elo} Elo)"
         )
@@ -285,7 +329,7 @@ def evaluate_model(
         "wins": wins,
         "losses": losses,
         "draws": draws,
-        "estimated_elo": round(elo, 1),
+        "estimated_elo": None if use_random_opponent else round(elo, 1),
         "opponent": opponent,
         "stockfish_level": stockfish_level,
         "model_color": model_color,
@@ -295,10 +339,8 @@ def evaluate_model(
         "git_revision": git_revision(),
         "timestamp": datetime.now().isoformat(),
     }
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2)
+    write_report(results, out_path)
     print(f"\nResults saved to {out_path}")
 
 

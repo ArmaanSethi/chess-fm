@@ -220,8 +220,3 @@ def combined_reward(
             pass
 
     return {"total": total, "components": components, "legal": True}
-
-
-if __name__ == "__main__":
-    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-    print("Legality:", reward_legality(fen, "e2e4"), reward_legality(fen, "e2e5"))

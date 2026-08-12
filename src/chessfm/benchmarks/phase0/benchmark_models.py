@@ -14,7 +14,7 @@ import time
 
 import chess
 
-from chessfm.config import DEFAULT_BASE_MODEL, PROJECT_ROOT, make_prompt
+from chessfm.config import DEFAULT_BASE_MODEL, PROJECT_ROOT, build_chat_prompt
 from chessfm.rl.move_utils import parse_move_from_output
 
 # Models to test
@@ -54,7 +54,7 @@ def benchmark(model_name, fens):
     total_tokens = 0
 
     for i, fen in enumerate(fens[:SAMPLE_LIMIT]):
-        prompt = make_prompt(fen)
+        prompt = build_chat_prompt(fen)
         inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
         with torch.no_grad():

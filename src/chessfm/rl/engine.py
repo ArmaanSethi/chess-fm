@@ -54,6 +54,18 @@ def best_cp(
         return None
 
 
+def best_move(engine, board: chess.Board, depth: int = 10) -> str | None:
+    """Best move in UCI for the side to move, or None if unavailable."""
+    if engine is None:
+        return None
+    try:
+        info = engine.analyse(board, chess.engine.Limit(depth=depth))
+        pv = info.get("pv")
+        return pv[0].uci() if pv else None
+    except Exception:
+        return None
+
+
 def eval_after_move(engine, board: chess.Board, move_uci: str, depth: int = 10) -> float | None:
     """Centipawn evaluation of ``board`` after ``move_uci``, from the mover's view.
 

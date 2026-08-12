@@ -14,20 +14,12 @@ import json
 import random
 from pathlib import Path
 
+import torch
+from datasets import Dataset
+from trl import SFTConfig, SFTTrainer
+
 from chessfm.config import DEFAULT_BASE_MODEL, LORA_R, MAX_SEQ_LENGTH
 from chessfm.load_model import load_model
-
-# torch is imported lazily so ``--dry-run`` works on machines without a GPU stack.
-_torch = None
-
-
-def _get_torch():
-    global _torch
-    if _torch is None:
-        import torch
-
-        _torch = torch
-    return _torch
 
 
 def load_dataset(filepath: Path) -> list:
@@ -44,7 +36,7 @@ def load_dataset(filepath: Path) -> list:
 def fen_level_split(rows: list, val_fraction: float = 0.15, seed: int = 42):
     """Split rows by unique FEN so no position appears in both train and val.
 
-    Returns ``(train_rows_metadata?)`` -- no, returns lists of row indices.
+    Returns ``(train_indices, val_indices, val_fens)``.
     """
     fens = sorted({r["fen"] for r in rows})
     rng = random.Random(seed)
@@ -126,8 +118,6 @@ def main():
         tokenizer.pad_token = tokenizer.eos_token
 
     print("\nPreparing dataset with prompt/completion columns...")
-    from datasets import Dataset
-
     dataset = Dataset.from_list(valid_data)
     # Loss is computed on completion tokens only (TRL's documented behavior for
     # prompt/completion columns), so the user prompt is never trained on.
@@ -142,65 +132,31 @@ def main():
 
     print("\nStarting training...")
     args.output.mkdir(parents=True, exist_ok=True)
-    torch = _get_torch()
 
-    try:
-        from trl import SFTConfig, SFTTrainer
+    training_args = SFTConfig(
+        output_dir=str(args.output),
+        num_train_epochs=args.epochs,
+        per_device_train_batch_size=args.batch_size,
+        gradient_accumulation_steps=2,
+        learning_rate=args.lr,
+        weight_decay=0.01,
+        warmup_ratio=0.1,
+        logging_steps=10,
+        save_steps=50,
+        eval_strategy="epoch",
+        fp16=torch.cuda.is_available(),
+        optim="adamw_8bit" if torch.cuda.is_available() else "adamw_torch",
+        seed=42,
+        max_length=MAX_SEQ_LENGTH,
+    )
 
-        training_args = SFTConfig(
-            output_dir=str(args.output),
-            num_train_epochs=args.epochs,
-            per_device_train_batch_size=args.batch_size,
-            gradient_accumulation_steps=2,
-            learning_rate=args.lr,
-            weight_decay=0.01,
-            warmup_ratio=0.1,
-            logging_steps=10,
-            save_steps=50,
-            eval_strategy="epoch",
-            fp16=torch.cuda.is_available(),
-            optim="adamw_8bit" if torch.cuda.is_available() else "adamw_torch",
-            seed=42,
-            max_seq_length=MAX_SEQ_LENGTH,
-        )
-
-        trainer = SFTTrainer(
-            model=model,
-            tokenizer=tokenizer,
-            train_dataset=train_ds,
-            eval_dataset=eval_ds,
-            args=training_args,
-        )
-    except ImportError:
-        print("'trl' too old for SFTConfig, falling back to legacy API...")
-        from transformers import TrainingArguments
-        from trl import SFTTrainer
-
-        training_args = TrainingArguments(
-            output_dir=str(args.output),
-            num_train_epochs=args.epochs,
-            per_device_train_batch_size=args.batch_size,
-            gradient_accumulation_steps=2,
-            learning_rate=args.lr,
-            weight_decay=0.01,
-            warmup_ratio=0.1,
-            logging_steps=10,
-            save_steps=50,
-            eval_strategy="epoch",
-            fp16=torch.cuda.is_available(),
-            optim="adamw_8bit" if torch.cuda.is_available() else "adamw_torch",
-            seed=42,
-        )
-
-        trainer = SFTTrainer(
-            model=model,
-            tokenizer=tokenizer,
-            train_dataset=train_ds,
-            eval_dataset=eval_ds,
-            dataset_text_field="completion",
-            max_seq_length=MAX_SEQ_LENGTH,
-            args=training_args,
-        )
+    trainer = SFTTrainer(
+        model=model,
+        processing_class=tokenizer,
+        train_dataset=train_ds,
+        eval_dataset=eval_ds,
+        args=training_args,
+    )
 
     trainer.train()
 
