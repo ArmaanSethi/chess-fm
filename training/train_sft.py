@@ -3,20 +3,16 @@
 ChessFM SFT Training Script
 
 Train the base model on chess reasoning data using unsloth for efficiency.
-
-USAGE:
-    python train_sft.py --data ../data_generation/data/sft_train.jsonl
-    python train_sft.py --data ../data_generation/data/sft_train.jsonl --epochs 3 --output ./checkpoints
-
-REQUIREMENTS:
-    pip install unsloth transformers datasets accelerate
-    # Or on RunPod:
-    pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
 """
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DEFAULT_BASE_MODEL, MAX_SEQ_LENGTH, LORA_R, LORA_ALPHA
 
 
 def load_dataset(filepath: Path) -> list[dict]:
@@ -24,24 +20,17 @@ def load_dataset(filepath: Path) -> list[dict]:
     data = []
     with open(filepath, 'r') as f:
         for line in f:
-            data.append(json.loads(line.strip()))
+            line_str = line.strip()
+            if line_str:
+                data.append(json.loads(line_str))
     return data
-
-
-def format_for_training(sample: dict) -> dict:
-    """Format sample for instruction-following fine-tuning."""
-    return {
-        "instruction": sample["instruction"],
-        "input": "",  # No additional input
-        "output": sample["output"]
-    }
 
 
 def main():
     parser = argparse.ArgumentParser(description="Train ChessFM with SFT")
-    parser.add_argument("--data", type=Path, required=True,
+    parser.add_argument("--data", type=Path, default=Path(__file__).parent.parent / "data_generation" / "sft_train.jsonl",
                         help="Path to sft_train.jsonl")
-    parser.add_argument("--model", type=str, default="Qwen/Qwen2.5-Math-1.5B-Instruct",
+    parser.add_argument("--model", type=str, default=DEFAULT_BASE_MODEL,
                         help="Base model to fine-tune")
     parser.add_argument("--output", type=Path, default=Path("./checkpoints"),
                         help="Output directory for checkpoints")
@@ -51,8 +40,6 @@ def main():
                         help="Per-device batch size")
     parser.add_argument("--lr", type=float, default=2e-5,
                         help="Learning rate")
-    parser.add_argument("--lora-r", type=int, default=32,
-                        help="LoRA rank")
     parser.add_argument("--dry-run", action="store_true",
                         help="Just validate data, don't train")
     args = parser.parse_args()
@@ -64,108 +51,83 @@ def main():
     print(f"Data:       {args.data}")
     print(f"Epochs:     {args.epochs}")
     print(f"Batch size: {args.batch_size}")
-    print(f"LoRA rank:  {args.lora_r}")
+    print(f"LoRA rank:  {LORA_R}")
     print()
     
-    # =========================================================================
-    # Step 1: Load and validate data
-    # =========================================================================
     print("📂 Loading training data...")
-    
     if not args.data.exists():
         print(f"❌ Data file not found: {args.data}")
-        print("   Run: python convert_to_training.py first")
+        print("   Run: python data_generation/convert_to_training.py first")
         return
     
     raw_data = load_dataset(args.data)
     print(f"   Loaded {len(raw_data)} samples")
     
-    # Validate format
-    valid = 0
-    for sample in raw_data:
-        if "instruction" in sample and "output" in sample:
-            if "<think>" in sample["output"] and "</think>" in sample["output"]:
-                valid += 1
-    
-    print(f"   Valid samples: {valid}/{len(raw_data)} ({100*valid/len(raw_data):.1f}%)")
+    # Filter valid samples
+    valid_data = [s for s in raw_data if "instruction" in s and "output" in s and s.get("is_reasonable", True)]
+    print(f"   Valid & reasonable samples: {len(valid_data)}/{len(raw_data)}")
     
     if args.dry_run:
         print("\n✅ Dry run complete. Data looks good!")
         return
     
-    # =========================================================================
-    # Step 2: Load model with unsloth
-    # =========================================================================
     print("\n🔌 Loading model with unsloth...")
-    
     try:
         from unsloth import FastLanguageModel
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=args.model,
+            max_seq_length=MAX_SEQ_LENGTH,
+            load_in_4bit=True,
+        )
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=LORA_R,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+            lora_alpha=LORA_ALPHA,
+            lora_dropout=0,
+            bias="none",
+            use_gradient_checkpointing="unsloth",
+            random_state=42,
+        )
     except ImportError:
-        print("❌ unsloth not installed!")
-        print("   Run: pip install unsloth")
-        return
-    
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=args.model,
-        max_seq_length=2048,
-        dtype=None,  # Auto-detect
-        load_in_4bit=True,  # Use 4-bit quantization
-    )
-    
-    print("   Model loaded!")
-    
-    # =========================================================================
-    # Step 3: Configure LoRA
-    # =========================================================================
-    print("\n⚙️ Configuring LoRA...")
-    
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=args.lora_r,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                       "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=args.lora_r * 2,
-        lora_dropout=0,
-        bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=42,
-    )
-    
-    print(f"   LoRA rank: {args.lora_r}")
-    
-    # =========================================================================
-    # Step 4: Prepare dataset
-    # =========================================================================
-    print("\n📊 Preparing dataset...")
-    
+        print("⚠️ unsloth not found, loading via transformers/peft...")
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from peft import LoraConfig, get_peft_model
+
+        tokenizer = AutoTokenizer.from_pretrained(args.model)
+        model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map="auto")
+        peft_config = LoraConfig(r=LORA_R, lora_alpha=LORA_ALPHA, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"], task_type="CAUSAL_LM")
+        model = get_peft_model(model, peft_config)
+
+    print("\n📊 Preparing dataset with ChatML template...")
     from datasets import Dataset
     
-    # Format for training
-    formatted_data = [format_for_training(s) for s in raw_data]
-    dataset = Dataset.from_list(formatted_data)
-    
-    # Create prompt template
-    prompt_template = """### Instruction:
-{instruction}
-
-### Response:
-{output}"""
+    dataset = Dataset.from_list(valid_data)
     
     def formatting_func(examples):
         texts = []
         for inst, out in zip(examples["instruction"], examples["output"]):
-            text = prompt_template.format(instruction=inst, output=out)
+            messages = [
+                {"role": "user", "content": inst},
+                {"role": "assistant", "content": out}
+            ]
+            if hasattr(tokenizer, "apply_chat_template"):
+                text = tokenizer.apply_chat_template(messages, tokenize=False)
+            else:
+                text = f"<|im_start|>user\n{inst}<|im_end|>\n<|im_start|>assistant\n{out}<|im_end|>"
             texts.append(text)
         return {"text": texts}
     
     dataset = dataset.map(formatting_func, batched=True)
-    print(f"   Dataset size: {len(dataset)}")
     
-    # =========================================================================
-    # Step 5: Train
-    # =========================================================================
+    # Train/Val Split
+    split_dataset = dataset.train_test_split(test_size=0.15, seed=42)
+    train_ds = split_dataset["train"]
+    eval_ds = split_dataset["test"]
+    print(f"   Train samples: {len(train_ds)}, Val samples: {len(eval_ds)}")
+    
     print("\n🚀 Starting training...")
-    
     from trl import SFTTrainer
     from transformers import TrainingArguments
     
@@ -175,13 +137,13 @@ def main():
         output_dir=str(args.output),
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=2,
         learning_rate=args.lr,
         weight_decay=0.01,
         warmup_ratio=0.1,
         logging_steps=10,
-        save_steps=100,
-        save_total_limit=3,
+        save_steps=50,
+        eval_strategy="epoch",
         fp16=True,
         optim="adamw_8bit",
         seed=42,
@@ -190,25 +152,19 @@ def main():
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        train_dataset=dataset,
+        train_dataset=train_ds,
+        eval_dataset=eval_ds,
         dataset_text_field="text",
-        max_seq_length=2048,
+        max_seq_length=MAX_SEQ_LENGTH,
         args=training_args,
     )
     
-    # Train!
     trainer.train()
     
-    # =========================================================================
-    # Step 6: Save
-    # =========================================================================
     print("\n💾 Saving model...")
-    
     model.save_pretrained(args.output / "final")
     tokenizer.save_pretrained(args.output / "final")
-    
-    print(f"✅ Training complete!")
-    print(f"   Model saved to: {args.output / 'final'}")
+    print(f"✅ Training complete! Model saved to: {args.output / 'final'}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # ChessFM 🧠♟️
 
-> *A 1.5B parameter model that plays chess by reasoning, not memorizing.*
+> *A 3B parameter model that plays chess by reasoning, not memorizing.*
 
 [![Status](https://img.shields.io/badge/Status-Research-orange)]()
 [![Model](https://img.shields.io/badge/Base-Qwen--2.5--3B-blue)]()
@@ -63,7 +63,7 @@ Progressive difficulty: Random → Stockfish L1 → Stockfish L3
 | Component | Tool | Purpose |
 |-----------|------|---------|
 | **Base Model** | [Qwen-2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct) | Best format adherence in benchmarks |
-| **Training** | [unsloth](https://github.com/unslothai/unsloth) | 2x faster, 60% less VRAM |
+| **Training** | [unsloth](https://github.com/unslothai/unsloth) / [trl](https://github.com/huggingface/trl) | Efficient SFT and GRPO training |
 | **Inference** | [vLLM](https://github.com/vllm-project/vllm) | Fast game rollouts |
 | **Chess Engine** | [Stockfish 16](https://stockfishchess.org/) | Reward signal + validation |
 | **Hardware** | RTX 4090 (RunPod) | 24GB VRAM |
@@ -130,6 +130,8 @@ See the full [ChessFM Roadmap](chess_fm_roadmap.md) for detailed implementation 
 ```
 chess-fm/
 ├── README.md                 # This file
+├── config.py                 # Central project configuration
+├── pyproject.toml            # Package configuration & pytest settings
 ├── chess_fm_roadmap.md       # Detailed implementation plan
 ├── requirements.txt          # All dependencies
 ├── setup_env.sh              # Environment setup script
@@ -137,9 +139,9 @@ chess-fm/
 ├── data_generation/          # SFT data generation
 │   ├── README.md
 │   ├── fetch_elite_data.py   # Fetch FENs from Lichess
-│   ├── download_positions.py # Generate diverse positions
+│   ├── download_positions.py # Curated FEN seed positions
 │   ├── convert_to_training.py
-│   ├── positions.txt         # 25k elite FENs
+│   ├── positions.txt         # Elite game FENs
 │   └── all_sft_data.jsonl    # 185 deduplicated samples
 │
 ├── training/                 # SFT training
@@ -149,8 +151,9 @@ chess-fm/
 ├── rl/                       # Reinforcement learning
 │   ├── README.md
 │   ├── chess_env.py          # Chess environment
-│   ├── rewards.py            # Reward functions
-│   ├── train_grpo.py         # GRPO training
+│   ├── rewards.py            # Staged reward functions
+│   ├── train_grpo.py         # GRPO training (TRL)
+│   ├── evaluate.py           # Evaluation runner
 │   └── tests/
 │
 ├── benchmarks/               # Evaluation & baselines

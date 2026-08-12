@@ -7,7 +7,7 @@ Scripts for training the ChessFM model.
 | Script | Purpose |
 |--------|---------|
 | `train_sft.py` | Supervised fine-tuning on reasoning data |
-| (coming) `train_grpo.py` | Reinforcement learning with GRPO |
+| `../rl/train_grpo.py` | Reinforcement learning with GRPO |
 
 ## SFT Training
 
@@ -22,29 +22,27 @@ pip install transformers datasets trl accelerate
 ### Usage
 
 ```bash
-# First, generate and convert data
+# First, convert data to training format
 cd ../data_generation
-python generate_sft_data_proxy.py --samples 1000
 python convert_to_training.py
 
 # Then train
 cd ../training
-python train_sft.py --data ../data_generation/data/sft_train.jsonl
+python train_sft.py --data ../data_generation/sft_train.jsonl
 
 # With custom settings
 python train_sft.py \
-    --data ../data_generation/data/sft_train.jsonl \
-    --model Qwen/Qwen2.5-Math-1.5B-Instruct \
+    --data ../data_generation/sft_train.jsonl \
+    --model Qwen/Qwen2.5-3B-Instruct \
     --epochs 3 \
     --batch-size 4 \
-    --lora-r 32 \
     --output ./checkpoints
 ```
 
 ### Dry Run (Validate Data)
 
 ```bash
-python train_sft.py --data ../data_generation/data/sft_train.jsonl --dry-run
+python train_sft.py --data ../data_generation/sft_train.jsonl --dry-run
 ```
 
 ## Expected Output

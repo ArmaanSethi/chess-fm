@@ -32,7 +32,7 @@ def benchmark_model(model_path, fens, output_file):
     start_time = time.time()
     
     for i, fen in enumerate(tqdm(fens, desc="Benchmarking")):
-        prompt = f"<|im_start|>user\\nYou are a chess expert. Output ONLY the best legal move in UCI format (e.g. e2e4) for this position.\\nFEN: {fen}<|im_end|>\\n<|im_start|>assistant\\n"
+        prompt = f"<|im_start|>user\nYou are a chess expert. Given the FEN position, output ONLY the best move in UCI format (e.g., e2e4).\n\nPosition: {fen}\nMove:<|im_end|>\n<|im_start|>assistant\n"
         
         try:
             response = generate(model, tokenizer, prompt=prompt, max_tokens=1000, verbose=False) # Increased token limit for thinking
@@ -85,10 +85,12 @@ def benchmark_model(model_path, fens, output_file):
     print(f"  Format OK:   {results['format_adherence']}/{len(fens)} ({results['format_rate']:.1f}%)")
     print(f"  Speed:       {results['speed_pos_sec']:.1f} pos/sec")
     
-    # Save to file
-    with open(output_file, "w") as f:
+    output_dir = Path("results")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"benchmark_{model_path.replace('/', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
-    print(f"💾 Results saved to {output_file}")
+    print(f"💾 Results saved to {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -112,8 +112,8 @@ python train_grpo.py --stage 0 --steps 2000 --checkpoint-every 500
 ### 5. Evaluate Progress
 
 ```bash
-# Check legal move rate
-python evaluate.py --checkpoint checkpoints/stage0_step_2000 --samples 100
+# Evaluate legal move rate and play test games
+python evaluate.py --model checkpoints/stage0_final --games 50
 ```
 
 ---
@@ -121,17 +121,15 @@ python evaluate.py --checkpoint checkpoints/stage0_step_2000 --samples 100
 ## File Structure
 
 ```
-grpo/
+rl/
 ├── README.md           # This file
-├── requirements.txt    # Dependencies
-├── train_grpo.py       # Main training script
+├── train_grpo.py       # Main GRPO training script
 ├── chess_env.py        # Chess environment wrapper
-├── rewards.py          # Reward functions
-├── evaluate.py         # Evaluation script
+├── rewards.py          # Staged reward functions
+├── evaluate.py         # Evaluation and game runner
 ├── tests/
 │   ├── test_rewards.py      # Unit tests for rewards
-│   ├── test_chess_env.py    # Unit tests for environment
-│   └── test_integration.py  # Integration tests
+│   └── test_chess_env.py    # Unit tests for environment
 └── checkpoints/        # Saved model checkpoints
 ```
 
@@ -166,10 +164,12 @@ sudo apt install stockfish
 ```
 
 ### "0% legal moves after 2000 steps"
-This confirms our hypothesis. Pivot to minimal SFT:
+This confirms our hypothesis. Pivot to SFT bootstrap:
 ```bash
 cd ../data_generation
-python generate_sft_data_proxy.py --samples 2000 --model gemini-3-pro
+python convert_to_training.py
+cd ../training
+python train_sft.py
 ```
 
 ---

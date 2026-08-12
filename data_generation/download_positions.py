@@ -1,12 +1,9 @@
-#!/usr/bin/env python3
 """
-Download FEN positions from Lichess for SFT data generation.
-
-This downloads positions from Lichess Elite Database (high-rated games).
+Generate seed/curated FEN positions for initial testing and small training runs.
 
 USAGE:
     python download_positions.py
-    python download_positions.py --count 5000
+    python download_positions.py --count 1000
 """
 
 import argparse
@@ -93,7 +90,7 @@ OPENING_POSITIONS = [
     "rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
     
     # King's Indian: 3.Nc3 Bg7
-    "rnbqk2r/ppppppbp/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4",
+    "rnbqk2r/ppppppbg/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4",
     
     # Nimzo-Indian: 1.d4 Nf6 2.c4 e6 3.Nc3 Bb4
     "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4",
@@ -197,8 +194,9 @@ def main():
     print(f"   Opening positions:   {len(OPENING_POSITIONS)}")
     print(f"   Middlegame positions: {len(MIDDLEGAME_POSITIONS)}")
     print(f"   Endgame positions:   {len(ENDGAME_POSITIONS)}")
-    print(f"\n💡 Run: python generate_sft_data_proxy.py to generate training data")
+    print(f"\n💡 For large-scale data generation, use fetch_elite_data.py")
 
 
 if __name__ == "__main__":
+    main()
     main()

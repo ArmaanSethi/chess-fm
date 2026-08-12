@@ -1,16 +1,18 @@
 #!/bin/bash
+set -e
 
 echo "Setting up ChessFM Environment..."
 
-# Check for Homebrew
-if ! command -v brew &> /dev/null; then
-    echo "Homebrew not found. Please install Homebrew."
-    exit 1
+# Install Stockfish based on OS
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v brew &> /dev/null; then
+        echo "Installing Stockfish via Homebrew..."
+        brew install stockfish || true
+    fi
+elif command -v apt-get &> /dev/null; then
+    echo "Installing Stockfish via apt..."
+    sudo apt-get update && sudo apt-get install -y stockfish || true
 fi
-
-# Install Stockfish
-echo "Installing Stockfish..."
-brew install stockfish
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
@@ -21,16 +23,14 @@ fi
 # Activate virtual environment
 source venv/bin/activate
 
-# Install dependencies
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
+# Install editable package and dependencies
+echo "Installing Python dependencies and editable package..."
+pip install --upgrade pip
+pip install -e .[dev]
 
 # Verify installation
 echo "Verifying installation..."
-echo "Stockfish version:"
-stockfish --version || echo "Stockfish not found"
-
-echo "Python version:"
-python --version
+stockfish --version || echo "Stockfish binary not in standard path"
+python -c "import chess; import trl; print('✅ Python dependencies verified')"
 
 echo "Setup complete."

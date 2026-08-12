@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """Unit tests for chess environment."""
 
-import sys
-sys.path.insert(0, '..')
+import unittest
+from rl.chess_env import ChessEnv, StepResult
 
-import pytest
-from chess_env import ChessEnv, StepResult
-
-
-class TestChessEnv:
+class TestChessEnv(unittest.TestCase):
     """Tests for the ChessEnv class."""
     
     def test_reset_default(self):
@@ -76,12 +72,18 @@ class TestChessEnv:
         env.close()
     
     def test_game_ends_on_checkmate(self):
-        """Game should end on checkmate."""
+        """Fool's Mate position should report game over and correct white loss."""
         env = ChessEnv()
-        # Fool's mate position - black to deliver checkmate
-        env.reset("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 3")
-        # Actually this is a position where the game is already over
-        # Let's use a pre-checkmate position instead
+        env.reset()
+        env.step("f2f3")
+        env.step("e7e5")
+        env.step("g2g4")
+        res = env.step("d8h4")  # Checkmate by Black
+
+        self.assertTrue(res.done)
+        self.assertTrue(res.legal)
+        self.assertEqual(res.info.get("result"), "0-1")
+        self.assertEqual(res.reward, 1.0)
         env.close()
 
 

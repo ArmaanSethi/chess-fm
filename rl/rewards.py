@@ -78,13 +78,15 @@ def reward_stockfish_delta(
         info_before = engine.analyse(board_before, chess.engine.Limit(depth=depth))
         info_after = engine.analyse(board_after, chess.engine.Limit(depth=depth))
         
-        def get_cp(info):
-            score = info["score"].relative
+        def get_cp_from_white(info):
+            score = info["score"].white()  # Absolute evaluation from White's perspective
             if score.is_mate():
                 return 10000 if score.mate() > 0 else -10000
             return score.score()
         
-        delta = get_cp(info_after) - get_cp(info_before)
+        delta = get_cp_from_white(info_after) - get_cp_from_white(info_before)
+        if board_before.turn == chess.BLACK:
+            delta = -delta  # Black wants to decrease White's advantage
         
         # Normalize with tanh
         return math.tanh(delta / 100.0)
@@ -92,18 +94,31 @@ def reward_stockfish_delta(
         return 0.0
 
 
+def reward_budget(output: str) -> float:
+    """
+    Reward penalty for too-short or too-long reasoning.
+    """
+    if "<think>" in output and "</think>" in output:
+        think_text = output.split("<think>")[1].split("</think>")[0].strip()
+        num_tokens = len(think_text.split())
+        if num_tokens < 5:
+            return -0.1  # Too short/trivial
+        elif num_tokens > 250:
+            return -0.05  # Excessive rambling
+    return 0.0
+
+
 def reward_format(output: str) -> float:
     """
     Bonus reward for proper output format.
-    
-    Args:
-        output: Model's generated text
-        
-    Returns:
-        +0.1 if contains <think> tags, 0.0 otherwise
     """
     if "<think>" in output and "</think>" in output:
-        return 0.1
+        start_idx = output.find("<think>")
+        end_idx = output.find("</think>")
+        if start_idx < end_idx:
+            think_content = output[start_idx + 7:end_idx].strip()
+            if len(think_content) > 0:
+                return 0.1
     return 0.0
 
 
@@ -118,18 +133,6 @@ def combined_reward(
 ) -> dict:
     """
     Combined reward function for all stages.
-    
-    Args:
-        fen: Current board position
-        move_uci: Generated move in UCI format
-        output: Full model output text
-        stage: Training stage (0, 1, or 2)
-        engine: Stockfish engine (required for stage 2)
-        game_result: Game result if game ended
-        our_color: Which color model is playing
-        
-    Returns:
-        Dict with total reward and component breakdown
     """
     components = {}
     
@@ -147,7 +150,16 @@ def combined_reward(
     
     total = r_legal
     
-    # Stage 0: Just legality
+    # Stage 0: Just legality + format/budget
+    r_format = reward_format(output)
+    r_budget = reward_budget(output)
+    if r_format > 0:
+        components["format"] = r_format
+        total += r_format
+    if r_budget != 0:
+        components["budget"] = r_budget
+        total += r_budget
+
     if stage == 0:
         return {
             "total": total,
@@ -174,12 +186,6 @@ def combined_reward(
             total += r_delta
         except Exception:
             pass
-    
-    # Format bonus (all stages)
-    r_format = reward_format(output)
-    if r_format > 0:
-        components["format"] = r_format
-        total += r_format
     
     return {
         "total": total,

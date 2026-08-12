@@ -50,9 +50,9 @@ def convert_sample(sample: dict) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Convert SFT data to training format")
-    parser.add_argument("--input", type=Path, default=Path(__file__).parent / "data" / "sft_data.jsonl",
+    parser.add_argument("--input", type=Path, default=Path(__file__).parent / "all_sft_data.jsonl",
                         help="Input JSONL file")
-    parser.add_argument("--output", type=Path, default=Path(__file__).parent / "data" / "sft_train.jsonl",
+    parser.add_argument("--output", type=Path, default=Path(__file__).parent / "sft_train.jsonl",
                         help="Output training file")
     parser.add_argument("--only-reasonable", action="store_true",
                         help="Only include samples where is_reasonable=True")
@@ -60,7 +60,7 @@ def main():
     
     if not args.input.exists():
         print(f"❌ Input file not found: {args.input}")
-        print("   Run generate_sft_data_proxy.py first!")
+        print("   Generate or place all_sft_data.jsonl first!")
         return
     
     print(f"📂 Reading: {args.input}")

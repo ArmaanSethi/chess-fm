@@ -60,8 +60,9 @@ def benchmark(model_name, fens):
         try:
             # Clean up response (take first token/word)
             move_str = response.split()[0] if response else ""
-            move = board.parse_san(move_str)
-            legal_moves += 1
+            move = chess.Move.from_uci(move_str)
+            if move in board.legal_moves:
+                legal_moves += 1
         except:
             pass
             

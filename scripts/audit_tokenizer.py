@@ -1,13 +1,14 @@
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import DEFAULT_BASE_MODEL
 from transformers import AutoTokenizer
 
 MODELS = [
-    "Qwen/Qwen2.5-Math-1.5B-Instruct",
-    # "meta-llama/Llama-3.2-1B", # Access usually restricted or requires login
-    # "deepseek-ai/deepseek-coder-1.3b-base" 
+    DEFAULT_BASE_MODEL,
 ]
 
-SAMPLE_PGN = "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7"
+SAMPLE_UCI = "e2e4 e7e5 g1f3 b8c6 f1b5 a7a6"
 SAMPLE_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 def audit_model(model_name):
@@ -20,20 +21,20 @@ def audit_model(model_name):
 
     print(f"Vocab size: {tokenizer.vocab_size}")
     
-    # Check simple PGN tokenization
-    tokens = tokenizer.tokenize(SAMPLE_PGN)
-    print(f"PGN Tokens: {tokens}")
-    print(f"PGN Token IDs: {tokenizer.encode(SAMPLE_PGN)}")
+    # Check UCI tokenization
+    tokens_uci = tokenizer.tokenize(SAMPLE_UCI)
+    print(f"UCI Tokens: {tokens_uci}")
+    print(f"UCI Token IDs: {tokenizer.encode(SAMPLE_UCI)}")
     
     # Check FEN tokenization
     tokens_fen = tokenizer.tokenize(SAMPLE_FEN)
     print(f"FEN Tokens: {tokens_fen}")
     
-    # specific check for pieces
-    pieces = ["Nf3", "Bxc6", "O-O", "e4", "Qxd5"]
-    print("Piece tokenization consistency:")
-    for p in pieces:
-        print(f"  {p}: {tokenizer.tokenize(p)}")
+    # Check specific move tokenization consistency
+    moves = ["e2e4", "g1f3", "e1g1", "a7a8q", "c7c5"]
+    print("UCI Move Tokenization:")
+    for m in moves:
+        print(f"  {m}: {tokenizer.tokenize(m)}")
 
 if __name__ == "__main__":
     for model in MODELS:
