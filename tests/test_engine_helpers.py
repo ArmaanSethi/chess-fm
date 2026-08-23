@@ -2,6 +2,7 @@
 """Unit tests for the shared Stockfish analysis helpers."""
 
 import chess
+import pytest
 
 from chessfm.rl.engine import best_cp, close_engine, eval_after_move, open_engine
 
@@ -86,11 +87,23 @@ def test_best_cp_negative_mate_from_black_perspective():
 
 class _FailingEngine:
     def analyse(self, board, limit):
-        raise RuntimeError("engine crashed")
+        # A genuine engine error (not a code bug) must map to None.
+        raise chess.engine.EngineError("engine crashed")
 
 
 def test_best_cp_returns_none_on_engine_error():
     assert best_cp(_FailingEngine(), chess.Board()) is None
+
+
+def test_best_cp_does_not_mask_code_bugs():
+    """A non-engine exception (a bug) must propagate, not become None."""
+
+    class _BuggyEngine:
+        def analyse(self, board, limit):
+            raise RuntimeError("this is a bug, not an engine error")
+
+    with pytest.raises(RuntimeError):
+        best_cp(_BuggyEngine(), chess.Board())
 
 
 def test_eval_after_move_returns_none_on_engine_error():
@@ -99,7 +112,7 @@ def test_eval_after_move_returns_none_on_engine_error():
 
 class _NeverQuits:
     def quit(self):
-        raise RuntimeError("refusing to quit")
+        raise chess.engine.EngineError("refusing to quit")
 
 
 def test_close_engine_handles_failure():

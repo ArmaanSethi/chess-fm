@@ -7,14 +7,20 @@ the same prompt template and move parser as the production pipeline, so the
 baseline is directly comparable to evaluation results.
 
 USAGE:
-    python benchmarks/phase0/benchmark_models.py
+    python -m chessfm.benchmarks.phase0.benchmark_models
 """
 
 import time
 
 import chess
 
-from chessfm.config import DEFAULT_BASE_MODEL, PROJECT_ROOT, build_chat_prompt
+from chessfm.config import (
+    DEFAULT_BASE_MODEL,
+    DEFAULT_MAX_NEW_TOKENS,
+    PROJECT_ROOT,
+    build_chat_prompt,
+)
+from chessfm.fens import read_fens
 from chessfm.rl.move_utils import parse_move_from_output
 
 # Models to test
@@ -28,8 +34,7 @@ SAMPLE_LIMIT = 50
 def load_fens(filename=None):
     if filename is None:
         filename = PROJECT_ROOT / "data_generation" / "positions.txt"
-    with open(filename) as f:
-        return [line.strip() for line in f if line.strip()]
+    return read_fens(filename)
 
 
 def benchmark(model_name, fens):
@@ -60,7 +65,7 @@ def benchmark(model_name, fens):
         with torch.no_grad():
             output = model.generate(
                 **inputs,
-                max_new_tokens=32,
+                max_new_tokens=DEFAULT_MAX_NEW_TOKENS,
                 pad_token_id=tokenizer.eos_token_id,
             )
 
@@ -86,11 +91,15 @@ def benchmark(model_name, fens):
             print(f"Processed {i}/{SAMPLE_LIMIT}...")
 
     duration = time.time() - start_time
+    # Denominators use the number of FENs actually processed, not SAMPLE_LIMIT:
+    # a short positions file must not silently understate the rates.
+    n = min(SAMPLE_LIMIT, len(fens))
+    if n == 0 or duration <= 0:
+        print(f"No results for {model_name} (processed 0 positions).")
+        return
     print(f"\nResults for {model_name}:")
-    print(f"  Legal Move Rate:   {legal_moves}/{SAMPLE_LIMIT} ({legal_moves / SAMPLE_LIMIT:.2%})")
-    print(
-        f"  Format Adherence:  {format_adherence}/{SAMPLE_LIMIT} ({format_adherence / SAMPLE_LIMIT:.2%})"
-    )
+    print(f"  Legal Move Rate:   {legal_moves}/{n} ({legal_moves / n:.2%})")
+    print(f"  Format Adherence:  {format_adherence}/{n} ({format_adherence / n:.2%})")
     print(f"  Inference Speed:   {total_tokens / duration:.2f} tokens/sec")
 
 

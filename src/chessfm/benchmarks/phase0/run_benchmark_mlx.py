@@ -13,15 +13,19 @@ from pathlib import Path
 import chess
 from tqdm import tqdm
 
-from chessfm.config import PROJECT_ROOT, build_chat_prompt
+from chessfm.config import (
+    DEFAULT_MAX_NEW_TOKENS,
+    PROJECT_ROOT,
+    build_chat_prompt,
+)
+from chessfm.fens import read_fens
 from chessfm.rl.move_utils import parse_move_from_output
 
 
 def load_fens(filename=None, limit=None):
     if filename is None:
         filename = PROJECT_ROOT / "data_generation" / "positions.txt"
-    with open(filename) as f:
-        fens = [line.strip() for line in f if line.strip()]
+    fens = read_fens(filename)
     if limit:
         fens = fens[:limit]
     return fens
@@ -50,7 +54,15 @@ def benchmark_model(model_path, fens, output_file):
         prompt = build_chat_prompt(fen)
 
         try:
-            response = generate(model, tokenizer, prompt=prompt, max_tokens=1000, verbose=False)
+            # Same inference budget as training and the other eval harnesses;
+            # never measure a model under a budget it was not trained on.
+            response = generate(
+                model,
+                tokenizer,
+                prompt=prompt,
+                max_tokens=DEFAULT_MAX_NEW_TOKENS,
+                verbose=False,
+            )
             generated_text = response.strip()
             move_candidate = parse_move_from_output(generated_text) or ""
         except Exception as e:
@@ -60,13 +72,13 @@ def benchmark_model(model_path, fens, output_file):
 
         board = chess.Board(fen)
         is_legal = False
-        is_format_ok = False
+        # Format adherence is defined identically in every harness: the
+        # completion contains a non-degenerate <think>...</think> block.
+        is_format_ok = "<think>" in generated_text and "</think>" in generated_text
 
-        if len(move_candidate) >= 4:
-            is_format_ok = True
+        if move_candidate:
             try:
-                move = chess.Move.from_uci(move_candidate[:5])
-                if move in board.legal_moves:
+                if chess.Move.from_uci(move_candidate) in board.legal_moves:
                     is_legal = True
             except ValueError:
                 pass
@@ -87,9 +99,10 @@ def benchmark_model(model_path, fens, output_file):
 
     end_time = time.time()
     results["time_elapsed"] = end_time - start_time
-    results["speed_pos_sec"] = len(fens) / results["time_elapsed"]
-    results["legal_rate"] = (results["legal_moves"] / len(fens)) * 100
-    results["format_rate"] = (results["format_adherence"] / len(fens)) * 100
+    n = max(1, len(fens))
+    results["speed_pos_sec"] = n / results["time_elapsed"] if results["time_elapsed"] > 0 else 0.0
+    results["legal_rate"] = (results["legal_moves"] / n) * 100
+    results["format_rate"] = (results["format_adherence"] / n) * 100
 
     print(f"\nResults for {model_path}:")
     print(f"  Legal Moves: {results['legal_moves']}/{len(fens)} ({results['legal_rate']:.1f}%)")

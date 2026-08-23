@@ -274,5 +274,77 @@ def test_write_report(tmp_path):
     assert json.loads(path.read_text()) == {"wins": 3}
 
 
+def test_evaluate_model_end_to_end_with_fakes(tmp_path, monkeypatch):
+    """The full evaluation loop (games -> PGN -> JSON report) runs with fakes."""
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    model = _FakeModel()
+    tokenizer = _MoveTokenizer()
+
+    evaluate.evaluate_model(
+        model,
+        tokenizer,
+        "fake-checkpoint",
+        num_games=2,
+        use_random_opponent=True,
+        seed=1,
+    )
+
+    reports = list(tmp_path.glob("eval_*.json"))
+    assert len(reports) == 1
+    report = json.loads(reports[0].read_text())
+    assert report["model"] == "fake-checkpoint"
+    assert report["num_games"] == 2
+    assert report["opponent"] == "Random bot"
+    assert report["git_revision"]
+    assert report["alternate_colors"] is True
+    pgns = list((tmp_path / "pgns").glob("*.pgn"))
+    assert len(pgns) == 1
+    # Two games were alternated white/black; both headers recorded.
+    import chess.pgn
+
+    game_headers = []
+    with open(pgns[0]) as f:
+        while True:
+            game = chess.pgn.read_game(f)
+            if game is None:
+                break
+            game_headers.append(game.headers.get("ModelColor"))
+    assert sorted(game_headers) == ["black", "white"]
+
+
+def test_alternate_colors_disabled_keeps_one_color(tmp_path, monkeypatch):
+    import chess.pgn
+
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    evaluate.evaluate_model(
+        _FakeModel(),
+        _MoveTokenizer(),
+        "fake-checkpoint",
+        num_games=2,
+        use_random_opponent=True,
+        alternate_colors=False,
+        model_color="white",
+        seed=3,
+    )
+
+    pgn = list((tmp_path / "pgns").glob("*.pgn"))[0]
+    colors = []
+    with open(pgn) as f:
+        while True:
+            game = chess.pgn.read_game(f)
+            if game is None:
+                break
+            colors.append(game.headers.get("ModelColor"))
+    assert colors == ["white", "white"]
+
+
 if __name__ == "__main__":
     unittest.main()

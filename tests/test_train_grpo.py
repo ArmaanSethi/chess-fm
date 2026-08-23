@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """Unit tests for GRPO wiring helpers that don't require a GPU or a model."""
 
+import unittest
+
+import chess
+
 from chessfm.rl.train_grpo import load_positions, make_reward_func
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+
+class _BrokenEngine:
+    def analyse(self, board, limit):
+        raise chess.engine.EngineError("engine died")
 
 
 def test_reads_fens_into_chat_prompts(tmp_path):
@@ -55,4 +64,34 @@ def test_stage0_returns_floats():
 def test_bad_prompt_warns_not_crashes():
     fn = make_reward_func(stage=0)
     rewards = fn(prompts=["no fen here"], completions=["e2e4"])
-    assert rewards == [-1.0]
+    # A reward computation failure is loud (logged) and neutral, not punished
+    # as if it were an illegal move.
+    assert rewards == [0.0]
+
+
+class TestEngineFailureGuard(unittest.TestCase):
+    """Engine failures are neutral per-completion but abort the run at scale."""
+
+    PROMPT = f"Position (FEN): {START_FEN}\nSide to move: White"
+    COMPLETION = "<think>center control and development.</think>\ne2e4"
+
+    def test_engine_failure_is_neutral_not_negative(self):
+        fn = make_reward_func(stage=1, engine=_BrokenEngine())
+        with self.assertLogs("chessfm.train_grpo", level="ERROR"):
+            rewards = fn(prompts=[self.PROMPT], completions=[self.COMPLETION])
+        self.assertEqual(rewards, [0.0])
+
+    def test_few_early_failures_do_not_abort(self):
+        fn = make_reward_func(stage=1, engine=_BrokenEngine())
+        for _ in range(5):
+            fn(prompts=[self.PROMPT], completions=[self.COMPLETION])
+
+    def test_sustained_engine_failure_aborts_run(self):
+        fn = make_reward_func(stage=1, engine=_BrokenEngine())
+        with self.assertRaises(SystemExit):
+            for _ in range(30):
+                fn(prompts=[self.PROMPT] * 4, completions=[self.COMPLETION] * 4)
+
+
+if __name__ == "__main__":
+    unittest.main()

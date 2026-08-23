@@ -27,7 +27,8 @@ def parse_move_from_output(output: str) -> str | None:
         if 4 <= len(part) <= 5:
             if part[0] in "abcdefgh" and part[1] in "12345678":
                 if part[2] in "abcdefgh" and part[3] in "12345678":
-                    return part
+                    if len(part) == 4 or part[4] in "qrbn":
+                        return part
 
     return None
 

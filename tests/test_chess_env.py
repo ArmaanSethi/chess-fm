@@ -79,13 +79,16 @@ class TestChessEnv(unittest.TestCase):
     def test_evaluate_position_without_engine(self):
         # No Stockfish in the test environment, so the engine stays None and
         # evaluation returns None rather than raising.
-        self.env.engine = None
+        self.env.close()
         assert self.env.evaluate_position() is None
 
-    def test_set_skill_level_without_engine_is_noop(self):
-        # Must not raise when no engine is present.
-        self.env.engine = None
-        self.env.set_skill_level(5)
+    def test_set_skill_level_without_engine_raises(self):
+        # A skill level applied to a missing engine would be silently ignored;
+        # the environment must raise so callers cannot evaluate against an
+        # unintended opponent strength.
+        self.env.close()
+        with self.assertRaises(AttributeError):
+            self.env.set_skill_level(5)
 
     def test_max_moves_terminates_game(self):
         self.env.max_moves = 1

@@ -26,43 +26,24 @@ from datetime import datetime
 from pathlib import Path
 
 import chess
+import chess.engine
 import chess.pgn
-import torch
 
-from chessfm.config import DEFAULT_BASE_MODEL, PYGNS_DIR, RESULTS_DIR, build_chat_prompt
+from chessfm.config import (
+    DEFAULT_BASE_MODEL,
+    DEFAULT_MAX_NEW_TOKENS,
+    DEFAULT_OPPONENT_DEPTH,
+    PGNS_DIR,
+    RESULTS_DIR,
+    STOCKFISH_LEVEL_ELO,
+    build_chat_prompt,
+)
+from chessfm.fens import read_fens
 from chessfm.load_model import load_model
 from chessfm.rl.chess_env import ChessEnv
 from chessfm.rl.move_utils import parse_move_from_output
 
 logger = logging.getLogger("chessfm.evaluate")
-
-# Approximate Elo for Stockfish skill levels (0-20), used only for a rough,
-# ballpark comparison. These are informal community calibrations, NOT validated
-# ratings. The authoritative reported metric is win rate vs the configured
-# opponent.
-STOCKFISH_LEVEL_ELO = {
-    0: 800,
-    1: 900,
-    2: 1000,
-    3: 1100,
-    4: 1200,
-    5: 1300,
-    6: 1400,
-    7: 1500,
-    8: 1600,
-    9: 1700,
-    10: 1800,
-    11: 1900,
-    12: 2000,
-    13: 2100,
-    14: 2200,
-    15: 2300,
-    16: 2400,
-    17: 2500,
-    18: 2600,
-    19: 2700,
-    20: 2800,
-}
 
 
 def git_revision() -> str:
@@ -97,14 +78,25 @@ def load_openings(path: Path | None) -> list[str]:
     """Load opening FENs (one per line). Returns [] if no file given."""
     if path is None or not path.exists():
         return []
-    with open(path) as f:
-        return [line.strip() for line in f if line.strip()]
+    try:
+        return read_fens(path)
+    except FileNotFoundError:
+        return []
 
 
-def generate_completion(model, tokenizer, prompt: str, max_new_tokens: int = 150) -> str:
-    """Generate a completion for ``prompt`` and return ONLY the newly generated text."""
+def generate_completion(
+    model, tokenizer, prompt: str, max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS
+) -> str:
+    """Generate a completion for ``prompt`` and return ONLY the newly generated text.
+
+    ``max_new_tokens`` defaults to the training-time completion budget
+    (``config.DEFAULT_MAX_NEW_TOKENS``) so the model is never truncated to a
+    tighter budget at inference than it was trained on.
+    """
     inputs = tokenizer(prompt, return_tensors="pt")
-    inputs = inputs.to(getattr(model, "device", torch.device("cpu")))
+    device = getattr(model, "device", None)
+    if device is not None:
+        inputs = inputs.to(device)
     outputs = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
     input_len = inputs.input_ids.shape[1]
     generated = outputs[0][input_len:]
@@ -133,13 +125,16 @@ def play_game(
     env: ChessEnv,
     model_color: str,
     use_random_opponent: bool = False,
-    time_per_move: float = 0.05,
+    opponent_depth: int = DEFAULT_OPPONENT_DEPTH,
 ) -> tuple:
     """Play one game between the model and the opponent in ``env``.
 
     Returns ``(game, stats)`` where ``game`` is a ``chess.pgn.Game`` (move tree
     populated, headers left for the caller) and ``stats`` is a dict of
     per-game counters. Win/loss/draw are always from the model's perspective.
+
+    The Stockfish opponent searches to a fixed depth (not wall-clock time) so
+    its strength is reproducible across runs and machines.
 
     A model forfeit on an illegal move is recorded truthfully in ``stats``.
     """
@@ -188,7 +183,7 @@ def play_game(
         else:
             # Opponent (Stockfish or random).
             if env.engine and not use_random_opponent:
-                result = env.engine.play(env.board, chess.engine.Limit(time=time_per_move))
+                result = env.engine.play(env.board, chess.engine.Limit(depth=opponent_depth))
                 move_uci = result.move.uci()
             else:
                 move_uci = random.choice(env.get_legal_moves())
@@ -206,7 +201,7 @@ def play_game(
 
 def write_pgn(games: list, path: Path) -> None:
     """Serialize a list of games to a PGN file."""
-    PYGNS_DIR.mkdir(parents=True, exist_ok=True)
+    PGNS_DIR.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         for game in games:
             f.write(str(game) + "\n\n")
@@ -220,34 +215,59 @@ def write_report(results: dict, path: Path) -> None:
 
 
 def evaluate_model(
-    model_path: str,
+    model,
+    tokenizer,
+    model_name: str,
     num_games: int = 50,
     stockfish_level: int = 1,
     model_color: str = "white",
-    time_per_move: float = 0.05,
+    alternate_colors: bool = True,
+    opponent_depth: int = DEFAULT_OPPONENT_DEPTH,
     use_random_opponent: bool = False,
     seed: int = 42,
     openings: Path | None = None,
 ):
+    """Run ``num_games`` games of ``model`` (with ``tokenizer``) and write reports.
+
+    The model is expected to already be loaded (see ``main``); keeping the
+    model I/O out of this function makes the whole evaluation loop testable
+    with lightweight fakes. ``model_name`` is only used for metadata/headers.
+
+    Colors alternate between games by default so the win/loss/Elo estimates do
+    not over-weight a single color. Pass ``alternate_colors=False`` to pin the
+    model to ``model_color`` for every game.
+
+    The Stockfish skill level MUST be applied successfully: a silently
+    unapplied skill level would make every reported number meaningless, so a
+    configuration failure aborts the run.
+    """
     print("=" * 60)
-    opponent = "Random bot" if use_random_opponent else f"Stockfish Level {stockfish_level}"
-    print(f"ChessFM Evaluation: {model_path} vs {opponent}")
-    print(f"Model color: {model_color}")
+    opponent = (
+        "Random bot"
+        if use_random_opponent
+        else (f"Stockfish L{stockfish_level} (depth {opponent_depth})")
+    )
+    print(f"ChessFM Evaluation: {model_name} vs {opponent}")
+    color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
+    print(f"Model color: {color_desc}")
     print(f"Seed: {seed}")
     print("=" * 60)
 
     random.seed(seed)
 
     env = ChessEnv()
-    if env.engine is None:
-        print("Warning: Stockfish engine not loaded.")
-    else:
+    if not use_random_opponent:
+        if env.engine is None:
+            env.close()
+            raise SystemExit(
+                "Stockfish engine not found; it is required for evaluation "
+                "unless --random-opponent is passed."
+            )
         try:
             env.engine.configure({"Skill Level": stockfish_level})
-        except Exception:
-            pass
-
-    model, tokenizer = load_model(model_path, for_inference=True)
+        except chess.engine.EngineError as e:
+            env.close()
+            raise SystemExit(f"Stockfish rejected Skill Level {stockfish_level}: {e}") from e
 
     opening_fens = load_openings(openings)
     if opening_fens:
@@ -263,24 +283,29 @@ def evaluate_model(
     games_list = []
 
     for g in range(num_games):
+        if alternate_colors:
+            game_color = "white" if g % 2 == 0 else "black"
+        else:
+            game_color = model_color
         if opening_fens:
             env.reset(opening_fens[g % len(opening_fens)])
         else:
             env.reset()
-        print(f"\nGame {g + 1}/{num_games}")
+        print(f"\nGame {g + 1}/{num_games} ({game_color})")
 
         game, stats = play_game(
             model,
             tokenizer,
             env,
-            model_color,
+            game_color,
             use_random_opponent=use_random_opponent,
-            time_per_move=time_per_move,
+            opponent_depth=opponent_depth,
         )
 
         game.headers["Event"] = f"ChessFM Eval game {g + 1}"
-        game.headers["Model"] = model_path
+        game.headers["Model"] = model_name
         game.headers["Opponent"] = opponent
+        game.headers["ModelColor"] = game_color
         game.headers["Seed"] = str(seed)
         game.headers["Result"] = stats["result"]
 
@@ -298,7 +323,7 @@ def evaluate_model(
 
     env.close()
 
-    pgn_path = PYGNS_DIR / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pgn"
+    pgn_path = PGNS_DIR / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pgn"
     write_pgn(games_list, pgn_path)
     print(f"\nGames saved to {pgn_path}")
 
@@ -312,27 +337,32 @@ def evaluate_model(
     print(f"Legal Move Rate:      {legal_moves}/{total_moves} ({legal_rate:.1f}%)")
     print(f"Format Adherence:     {formatted_outputs}/{total_moves} ({format_rate:.1f}%)")
     print(f"Record (W-L-D):       {wins}-{losses}-{draws}")
-    print(f"Win rate:             {100 * wins / max(1, num_games):.1f}%")
     print(f"Illegal moves by AI:  {illegal_by_model}")
+    elo = None
     if not use_random_opponent:
         opponent_elo = STOCKFISH_LEVEL_ELO.get(stockfish_level, 1000)
         elo = estimated_elo(wins, losses, draws, opponent_elo)
         print(
-            f"Estimated Elo:        {elo:.0f} (approx; vs SF level {stockfish_level}, ~{opponent_elo} Elo)"
+            f"Elo (rough indicator): ~{elo:.0f} — NOT a rating. Derived from a "
+            f"{num_games}-game sample vs Stockfish L{stockfish_level} searching to a fixed "
+            "depth; the skill-level Elo table is an informal community calibration. "
+            "Treat W-D-L and legal-move rate as the primary metrics."
         )
 
     results = {
-        "model": model_path,
+        "model": model_name,
         "num_games": num_games,
         "legal_rate": round(legal_rate, 2),
         "format_rate": round(format_rate, 2),
         "wins": wins,
         "losses": losses,
         "draws": draws,
-        "estimated_elo": None if use_random_opponent else round(elo, 1),
+        "estimated_elo": None if elo is None else round(elo, 1),
         "opponent": opponent,
         "stockfish_level": stockfish_level,
+        "opponent_depth": opponent_depth,
         "model_color": model_color,
+        "alternate_colors": alternate_colors,
         "seed": seed,
         "openings": str(openings) if openings else None,
         "pgn_file": str(pgn_path),
@@ -358,10 +388,19 @@ def main():
         type=str,
         default="white",
         choices=["white", "black"],
-        help="Color the model plays",
+        help="Color the model plays (games alternate colors by default)",
     )
     parser.add_argument(
-        "--time-per-move", type=float, default=0.05, help="Seconds per move for the opponent"
+        "--alternate-colors",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Alternate model color every game for balanced win/loss stats",
+    )
+    parser.add_argument(
+        "--opponent-depth",
+        type=int,
+        default=DEFAULT_OPPONENT_DEPTH,
+        help="Fixed search depth for the Stockfish opponent (reproducible strength)",
     )
     parser.add_argument(
         "--random-opponent",
@@ -381,12 +420,17 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
+    model, tokenizer = load_model(args.model, for_inference=True)
+
     evaluate_model(
+        model,
+        tokenizer,
         args.model,
         num_games=args.games,
         stockfish_level=args.stockfish_level,
         model_color=args.color,
-        time_per_move=args.time_per_move,
+        alternate_colors=args.alternate_colors,
+        opponent_depth=args.opponent_depth,
         use_random_opponent=args.random_opponent,
         seed=args.seed,
         openings=args.openings,

@@ -36,7 +36,7 @@ class TestConvertCLI:
         rows = [json.loads(line) for line in out.open()]
         assert len(rows) == 1  # unreasonable sample filtered by default
         assert rows[0]["prompt"].startswith("<|im_start|>user\nPosition (FEN):")
-        assert rows[0]["completion"].endswith("\ne7e5")
+        assert rows[0]["completion"].endswith("\ne7e5<|im_end|>")
         manifest = json.loads(out.with_name("data_manifest.json").read_text())
         assert manifest["raw_samples"] == 2
         assert manifest["output_samples"] == 1

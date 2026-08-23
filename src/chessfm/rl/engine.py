@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-"""Shared analysis helpers and Stockfish engine management."""
+"""Shared analysis helpers and Stockfish engine management.
+
+Error-handling contract: engine/infrastructure failures are converted to
+``None`` (callers decide policy) but *only* for genuine engine errors
+(``chess.engine.EngineError``, ``OSError``). Any other exception propagates,
+so a bug in calling code is never silently masked as "engine unavailable".
+"""
 
 import chess
 import chess.engine
 
 from chessfm.config import STOCKFISH_PATHS
+
+_ENGINE_ERRORS = (chess.engine.EngineError, OSError)
 
 
 def open_engine(threads: int = 1, hash_mb: int = 16) -> chess.engine.SimpleEngine | None:
@@ -14,17 +22,29 @@ def open_engine(threads: int = 1, hash_mb: int = 16) -> chess.engine.SimpleEngin
             engine = chess.engine.SimpleEngine.popen_uci(path)
             engine.configure({"Threads": threads, "Hash": hash_mb})
             return engine
-        except Exception:
+        except _ENGINE_ERRORS:
             continue
     return None
 
 
 def close_engine(engine) -> None:
-    """Quit an engine if it is open."""
-    if engine is not None:
+    """Quit and close an engine if it is open.
+
+    Used in ``finally``/cleanup paths, so it never raises: genuine engine
+    errors are swallowed here deliberately (the process is going away anyway),
+    and duck-typed stand-ins without ``quit``/``close`` are skipped.
+    """
+    if engine is None:
+        return
+    if hasattr(engine, "quit"):
         try:
             engine.quit()
-        except Exception:
+        except _ENGINE_ERRORS:
+            pass
+    if hasattr(engine, "close"):
+        try:
+            engine.close()
+        except _ENGINE_ERRORS:
             pass
 
 
@@ -50,7 +70,7 @@ def best_cp(
     try:
         info = engine.analyse(board, chess.engine.Limit(depth=depth))
         return _cp_from_white(info, for_color if for_color is not None else board.turn)
-    except Exception:
+    except _ENGINE_ERRORS:
         return None
 
 
@@ -62,7 +82,7 @@ def best_move(engine, board: chess.Board, depth: int = 10) -> str | None:
         info = engine.analyse(board, chess.engine.Limit(depth=depth))
         pv = info.get("pv")
         return pv[0].uci() if pv else None
-    except Exception:
+    except _ENGINE_ERRORS:
         return None
 
 
@@ -81,5 +101,5 @@ def eval_after_move(engine, board: chess.Board, move_uci: str, depth: int = 10) 
         board = board.copy()
         board.push(move)
         return best_cp(engine, board, depth, for_color=mover)
-    except Exception:
+    except (ValueError, TypeError):
         return None

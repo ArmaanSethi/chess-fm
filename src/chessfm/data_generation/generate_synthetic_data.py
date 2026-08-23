@@ -34,12 +34,10 @@ from pathlib import Path
 
 import chess
 
-from chessfm.config import PROJECT_ROOT, make_prompt
+from chessfm.config import MAX_CENTIPAWN_LOSS, PROJECT_ROOT, make_prompt
+from chessfm.fens import read_fens
 from chessfm.rl.engine import best_cp, best_move, close_engine, eval_after_move, open_engine
 from chessfm.rl.move_utils import parse_move_from_output
-
-# A move is considered reasonable if it gives up less than this many centipawns.
-REASONABLE_CP_THRESHOLD = 200
 
 
 class ProviderAPI:
@@ -150,8 +148,7 @@ def validate_with_stockfish(engine, fen: str, move_uci: str, depth: int = 12):
 
 
 def load_positions(path: Path, limit: int | None) -> list:
-    fens = [line.strip() for line in path.open() if line.strip()]
-    return fens[:limit] if limit else fens
+    return read_fens(path, limit)
 
 
 def resume_from(output_path: Path):
@@ -190,15 +187,20 @@ def gen_batch(
                 skipped += 1
                 continue
             is_legal, loss, best = validate_with_stockfish(engine, fen, move, depth)
-            if is_legal:
-                legal += 1
+            if not is_legal or loss is None:
+                # Unvalidated or illegal moves are never written: a row without
+                # a Stockfish evaluation is unusable for SFT and only pollutes
+                # the corpus (see the data-quality note in the README).
+                skipped += 1
+                continue
+            legal += 1
             row = {
                 "fen": fen,
                 "color": "White" if fen.split()[1] == "w" else "Black",
                 "reasoning": response,
                 "move": move,
                 "model": f"{api.provider}:{api.model}",
-                "is_reasonable": is_legal and loss is not None and loss <= REASONABLE_CP_THRESHOLD,
+                "is_reasonable": loss <= MAX_CENTIPAWN_LOSS,
                 "centipawn_loss": loss,
                 "stockfish_best": best,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -207,11 +209,11 @@ def gen_batch(
             out.flush()
             kept += 1
             if (i + 1) % 10 == 0:
-                print(f"  {i + 1}/{total} processed, {kept} kept, {legal} legal, {skipped} no-move")
+                print(f"  {i + 1}/{total} processed, {kept} kept, {legal} legal, {skipped} skipped")
             time.sleep(delay)
     finally:
         out.close()
-    print(f"Done: {kept} samples kept ({legal} legal, {skipped} had no parseable move).")
+    print(f"Done: {kept} samples kept ({legal} legal, {skipped} skipped).")
 
 
 def main():

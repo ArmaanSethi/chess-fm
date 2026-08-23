@@ -1,88 +1,102 @@
 #!/usr/bin/env python3
+"""Fetch FENs from real high-quality games on Lichess."""
+
 import argparse
 import io
+import logging
 import time
 from pathlib import Path
 
 import chess
+import chess.pgn
+import requests
 
 from chessfm.config import PROJECT_ROOT
 
+logger = logging.getLogger("chessfm.fetch_elite_data")
 
-def _get_requests():
-    import requests
+# Elite *human* GM accounts on Lichess. Bot accounts (Stockfish, Leela, Berserk
+# etc.) are deliberately excluded: bot-vs-bot games contain engine-typical
+# openings and structures that make poor grounding for human-style reasoning
+# traces. Extend this list with more verified usernames as needed.
+ACCOUNTS = [
+    "DrNykterstein",  # Magnus Carlsen
+    "GMHikaru",  # Hikaru Nakamura
+    "DanielNaroditsky",  # Daniel Naroditsky
+    "GMWSO",  # Wesley So
+]
 
-    return requests
+# Games fetched per account per run. Lichess allows larger exports with an
+# authenticated token; raise this (and add auth) when scaling the pool.
+GAMES_PER_ACCOUNT = 300
 
 
-def _get_chess_pgn():
-    import chess.pgn
+def fetch_lila_fens(limit: int = 25000) -> list[str]:
+    """Fetch up to ``limit`` unique FENs from elite Lichess games.
 
-    return chess.pgn
-
-
-def fetch_lila_fens(limit=25000):
+    Returns a deterministically sorted list so repeated runs are stable.
+    Raises ``SystemExit`` if no positions could be fetched at all (network
+    down, API changed, all accounts unavailable) — writing an empty positions
+    file would silently break every downstream pipeline stage.
     """
-    Fetch FENs from real high-quality games on Lichess.
-    """
-    requests = _get_requests()
-    chess_pgn = _get_chess_pgn()
-    print(f"🌐 Sourcing {limit} elite FEN positions...")
-    fens = set()
+    logger.info("Sourcing %d elite FEN positions...", limit)
+    fens: set[str] = set()
 
-    try:
-        # Top engine + Top GM accounts on Lichess for diverse elite data
-        accounts = [
-            "leela-chess-zero",
-            "Stockfish",
-            "Maverick",
-            "Berserk",
-            "DrNykterstein",
-            "nihalsarin",
-            "RebeccaHarris",
-        ]
+    for account in ACCOUNTS:
+        logger.info("Fetching games from %s...", account)
+        try:
+            response = requests.get(
+                f"https://lichess.org/api/games/user/{account}?max={GAMES_PER_ACCOUNT}",
+                headers={
+                    "Accept": "application/x-chess-pgn",
+                    # Lichess asks automated clients to identify themselves.
+                    "User-Agent": "chess-fm data pipeline (github.com/ArmaanSethi/chess-fm)",
+                },
+                timeout=30,
+            )
+            if response.status_code != 200:
+                logger.warning("Non-200 response for %s: %s", account, response.status_code)
+                continue
 
-        for account in accounts:
-            print(f"📥 Fetching games from {account}...")
-            try:
-                response = requests.get(
-                    f"https://lichess.org/api/games/user/{account}?max=200",
-                    headers={"Accept": "application/x-chess-pgn"},
-                    timeout=30,
-                )
-                if response.status_code == 200:
-                    pgn = io.StringIO(response.text)
-                    while len(fens) < limit:
-                        game = chess_pgn.read_game(pgn)
-                        if not game:
+            pgn = io.StringIO(response.text)
+            while len(fens) < limit:
+                game = chess.pgn.read_game(pgn)
+                if not game:
+                    break
+                board = game.board()
+                moves = list(game.mainline_moves())
+                if len(moves) < 20:
+                    continue
+
+                for move in moves:
+                    board.push(move)
+                    # Midgame focus: skip the first 10 full moves and stop
+                    # before move 45 (i.e. keep fullmoves 11..44).
+                    if 10 < board.fullmove_number < 45 and not board.is_game_over():
+                        fens.add(board.fen())
+                        if len(fens) >= limit:
                             break
-                        board = game.board()
-                        if len(list(game.mainline_moves())) < 20:
-                            continue
+            logger.info("Now at %d positions...", len(fens))
+        except Exception as exc:
+            logger.warning("Failed fetching for account %s: %s", account, exc)
 
-                        for move in game.mainline_moves():
-                            board.push(move)
-                            if 10 < board.fullmove_number < 45 and not board.is_game_over():
-                                try:
-                                    # Validate FEN
-                                    b_check = chess.Board(board.fen())
-                                    fens.add(b_check.fen())
-                                except Exception:
-                                    pass
-                                if len(fens) >= limit:
-                                    break
-                    print(f"   Now at {len(fens)} positions...")
-            except Exception as req_err:
-                print(f"⚠️ Failed fetching for account {account}: {req_err}")
+        time.sleep(1)  # Gentle rate limiting for Lichess API
+        if len(fens) >= limit:
+            break
 
-            time.sleep(1)  # Gentle rate limiting for Lichess API
-            if len(fens) >= limit:
-                break
-
-    except Exception as e:
-        print(f"⚠️ Error during fetch: {e}")
-
-    return list(fens)
+    if not fens:
+        raise SystemExit(
+            "Fetched 0 positions from Lichess. Check network access / API availability; "
+            "refusing to overwrite the positions file with nothing."
+        )
+    if len(fens) < limit:
+        logger.warning(
+            "Only fetched %d/%d requested positions. The pool is smaller than requested; "
+            "downstream sampling will see duplicates less often but coverage is reduced.",
+            len(fens),
+            limit,
+        )
+    return sorted(fens)
 
 
 def main():
@@ -103,8 +117,9 @@ def main():
         for fen in fens:
             f.write(fen + "\n")
 
-    print(f"✅ Success! Saved {len(fens)} high-quality positions to {args.output}")
+    print(f"Success! Saved {len(fens)} high-quality positions to {args.output}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()

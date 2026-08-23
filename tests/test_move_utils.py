@@ -25,6 +25,14 @@ class TestParseMove(unittest.TestCase):
     def test_promotion_move(self):
         self.assertEqual(parse_move_from_output("a7a8n"), "a7a8n")
 
+    def test_invalid_five_char_token_rejected(self):
+        # "e2e4x" is 5 chars but the 5th is not a promotion piece -> rejected.
+        self.assertIsNone(parse_move_from_output("<think>x</think> e2e4x"))
+        self.assertEqual(
+            parse_move_from_output("<think>x</think> a7a8q"),
+            "a7a8q",
+        )
+
     def test_no_move_returns_none(self):
         self.assertIsNone(parse_move_from_output("just some text"))
         self.assertIsNone(parse_move_from_output(""))

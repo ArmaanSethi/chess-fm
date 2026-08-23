@@ -1,10 +1,12 @@
 # ChessFM: 3B Chess Reasoning Roadmap
 
 **Version**: 5.0 (Research-Backed Multi-Path Plan)  
-**Last Updated**: 2025-12-27
+**Last Updated**: 2026-08-11
 
 > [!NOTE]
 > This roadmap presents **multiple viable approaches** with research-backed justifications. Decision points are clearly marked with criteria for choosing between paths.
+>
+> **Status:** The *pipelines* (data, SFT, GRPO, eval) are implemented and tested in this repo. The *training runs* in the checklist below require a GPU machine; unchecked items are planned or not-yet-run, not completed.
 
 ---
 
@@ -239,7 +241,7 @@ This separates concerns:
    - Full games, win/lose reward
    
 4. Stage 2: vs Stockfish (10k steps)
-   - Add Stockfish eval delta reward
+   - Add opponent-reply delta reward (eval after Stockfish's best counterplay)
 ```
 
 **Research Support**: [DeepSeek-R1](https://arxiv.org/abs/2501.12948) showed GRPO can bootstrap reasoning without SFT in math domains.
@@ -418,29 +420,29 @@ def get_reward(stage: int, move: str, output: str, ...) -> float:
 - [x] Generate initial positions (25k FENs)
 - [x] Generate SFT data (44 unique positions, engine-validated)
 
-### Phase 1: Bootstrap ✅
-- [x] Run Stage 0 GRPO (legality only, 2k steps)
-- [x] **Decision Point**: Check legal rate
-  - [x] If < 10%: Generate 2-5k SFT samples, train, then resume
-  - [x] If 10-30%: Continue to 5k steps, reassess
-  - [x] If > 30%: Proceed to Stage 1
+### Phase 1: Bootstrap (not yet run on GPU)
+- [ ] Run Stage 0 GRPO (legality only, 2k steps)
+- [ ] **Decision Point**: Check legal rate
+  - [ ] If < 10%: Generate 2-5k SFT samples, train, then resume
+  - [ ] If 10-30%: Continue to 5k steps, reassess
+  - [ ] If > 30%: Proceed to Stage 1
 
-### Phase 2: SFT ✅
-- [x] Choose reasoning source: Hybrid (LLM-generated + Stockfish PV-based)
-- [x] Generate samples
-- [x] Train for 3 epochs
-- [x] Verify legal rate > 50%
+### Phase 2: SFT (not yet run on GPU)
+- [ ] Choose reasoning source: Hybrid (LLM-generated + Stockfish PV-based)
+- [ ] Generate full corpus (committed sample covers pipeline verification only)
+- [ ] Train for 3 epochs
+- [ ] Verify legal rate > 50%
 
-### Phase 3: RL Curriculum ✅
-- [x] Stage 1: vs Random Mover (5k steps)
-- [x] Stage 2: vs Stockfish Level 1 (10k steps)
-- [x] Stage 3: vs Stockfish Level 3 (10k steps)
-- [x] Add format + budget rewards throughout
+### Phase 3: RL Curriculum (not yet run on GPU)
+- [ ] Stage 1: vs Random Mover (5k steps)
+- [ ] Stage 2: vs Stockfish Level 1 (10k steps)
+- [ ] Stage 3: vs Stockfish Level 3 (10k steps)
+- [ ] Add format + budget rewards throughout
 
-### Phase 4: Evaluation ✅
-- [x] Play games vs Stockfish
-- [x] Calculate Elo
-- [x] Evaluate reasoning quality (manual inspection)
+### Phase 4: Evaluation (harness done, runs pending)
+- [ ] Play games vs Stockfish
+- [ ] Calculate Elo
+- [ ] Evaluate reasoning quality (manual inspection)
 - [x] Reproducible harness: PGNs + JSON reports with git revision/seeds
 
 ### Phase 5: Scaling (Optional)

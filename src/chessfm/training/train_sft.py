@@ -2,50 +2,60 @@
 """
 ChessFM SFT Training Script.
 
-Train the base model on chess reasoning data using unsloth for efficiency.
+Train the base model on chess reasoning data with TRL's SFTTrainer. Model
+loading is handled by ``chessfm.load_model`` (unsloth-accelerated when the
+``unsloth`` extra is installed, with a plain PEFT fallback otherwise).
 
 USAGE:
     python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl
     python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --dry-run
 """
 
-import argparse
-import json
-import random
-from pathlib import Path
+from __future__ import annotations
 
-import torch
-from datasets import Dataset
-from trl import SFTConfig, SFTTrainer
+import argparse
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from trl import SFTConfig
 
 from chessfm.config import DEFAULT_BASE_MODEL, LORA_R, MAX_SEQ_LENGTH
-from chessfm.load_model import load_model
+from chessfm.fens import read_jsonl
+from chessfm.training.split import fen_level_split
 
 
-def load_dataset(filepath: Path) -> list:
-    """Load JSONL training data."""
-    data = []
-    with open(filepath) as f:
-        for line in f:
-            line_str = line.strip()
-            if line_str:
-                data.append(json.loads(line_str))
-    return data
+def build_sft_config(args) -> SFTConfig:
+    """Construct the TRL SFTConfig from parsed CLI args.
 
-
-def fen_level_split(rows: list, val_fraction: float = 0.15, seed: int = 42):
-    """Split rows by unique FEN so no position appears in both train and val.
-
-    Returns ``(train_indices, val_indices, val_fens)``.
+    Imported lazily so ``read_jsonl`` stays usable without the full torch/trl
+    stack. Kept separate from ``main`` so the exact kwargs the training script
+    passes are exercised by tests (guards against TRL API drift).
     """
-    fens = sorted({r["fen"] for r in rows})
-    rng = random.Random(seed)
-    rng.shuffle(fens)
-    val_fens = set(fens[: max(1, round(val_fraction * len(fens)))])
-    val_indices = [i for i, r in enumerate(rows) if r["fen"] in val_fens]
-    val_set = set(val_indices)
-    train_indices = [i for i in range(len(rows)) if i not in val_set]
-    return train_indices, val_indices, val_fens
+    import torch
+    from trl import SFTConfig
+
+    use_gpu = torch.cuda.is_available()
+    return SFTConfig(
+        output_dir=str(args.output),
+        num_train_epochs=args.epochs,
+        per_device_train_batch_size=args.batch_size,
+        gradient_accumulation_steps=2,
+        learning_rate=args.lr,
+        weight_decay=0.01,
+        warmup_ratio=0.1,
+        logging_steps=10,
+        save_steps=50,
+        save_total_limit=3,
+        eval_strategy="epoch",
+        # bf16 is preferred on modern GPUs (matches Qwen2.5's native dtype);
+        # fp16 is only a fallback for pre-Ampere hardware.
+        bf16=use_gpu and torch.cuda.is_bf16_supported(),
+        fp16=use_gpu and not torch.cuda.is_bf16_supported(),
+        optim="adamw_8bit" if use_gpu else "adamw_torch",
+        seed=args.seed,
+        max_length=MAX_SEQ_LENGTH,
+    )
 
 
 def main():
@@ -69,6 +79,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4, help="Per-device batch size")
     parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
     parser.add_argument("--dry-run", action="store_true", help="Just validate data, don't train")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -78,6 +89,7 @@ def main():
     print(f"Data:       {args.data}")
     print(f"Epochs:     {args.epochs}")
     print(f"Batch size: {args.batch_size}")
+    print(f"Seed:       {args.seed}")
     print(f"LoRA rank:  {LORA_R}")
     print()
 
@@ -87,7 +99,7 @@ def main():
         print("Run: python -m chessfm.data_generation.convert_to_training first")
         return
 
-    raw_data = load_dataset(args.data)
+    raw_data = read_jsonl(args.data)
     print(f"   Loaded {len(raw_data)} samples")
 
     # Filter to valid, reasonable samples.
@@ -106,11 +118,19 @@ def main():
             for s in valid_data
             if s["completion"].count("<think>") != s["completion"].count("</think>")
         )
-        print(f"   Samples with unbalanced <think> tags: {bad_tags}")
         if bad_tags:
-            print("   Run: python -m chessfm.data_generation.convert_to_training to fix these.")
+            print(f"   ERROR: {bad_tags} sample(s) with unbalanced <think> tags.")
+            print("   Fix the data before training: re-run")
+            print("   python -m chessfm.data_generation.convert_to_training")
+            raise SystemExit(1)
+        print("   All completions have balanced <think> tags.")
         print("\nDry run complete. Data looks good!")
         return
+
+    from datasets import Dataset
+    from trl import SFTTrainer
+
+    from chessfm.load_model import load_model
 
     print("\nLoading model...")
     model, tokenizer = load_model(args.model)
@@ -133,22 +153,7 @@ def main():
     print("\nStarting training...")
     args.output.mkdir(parents=True, exist_ok=True)
 
-    training_args = SFTConfig(
-        output_dir=str(args.output),
-        num_train_epochs=args.epochs,
-        per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=2,
-        learning_rate=args.lr,
-        weight_decay=0.01,
-        warmup_ratio=0.1,
-        logging_steps=10,
-        save_steps=50,
-        eval_strategy="epoch",
-        fp16=torch.cuda.is_available(),
-        optim="adamw_8bit" if torch.cuda.is_available() else "adamw_torch",
-        seed=42,
-        max_length=MAX_SEQ_LENGTH,
-    )
+    training_args = build_sft_config(args)
 
     trainer = SFTTrainer(
         model=model,

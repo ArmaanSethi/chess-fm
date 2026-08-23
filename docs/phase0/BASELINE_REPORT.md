@@ -1,4 +1,13 @@
 # ChessFM Baseline Benchmark Report
+
+> **Status: Historical (Phase 0).** This report documents the December 2025
+> model-selection benchmark that chose Qwen-2.5-3B-Instruct. It is kept for
+> provenance. The current benchmark entry point is
+> `chessfm.benchmarks.phase0.benchmark_models`, which evaluates the selected
+> base model with the same prompt template and move parser used by training and
+> evaluation. Note the sample sizes here are small (20-1000 positions per model)
+> and were measured on Apple Silicon via MLX, not on the training GPU.
+
 **Date:** 2025-12-27
 **Hardware:** MacBook Pro (Apple Silicon MPS)
 

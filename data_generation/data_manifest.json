@@ -1,14 +1,15 @@
 {
   "input_file": "data_generation/all_sft_data.jsonl",
   "output_file": "data_generation/sft_train.jsonl",
-  "raw_samples": 185,
+  "raw_samples": 85,
   "raw_unreasonable": 17,
-  "unique_fens": 71,
+  "malformed_rows_dropped": 0,
+  "unique_fens": 60,
   "output_samples": 44,
   "output_reasonable": 44,
   "filtered_reasonable_only": true,
   "max_centipawn_loss": 200,
   "sample": true,
-  "generated_at": "2026-08-12T03:24:28.475290+00:00",
+  "generated_at": "2026-08-21T18:09:54.904033+00:00",
   "prompt_template": "build_chat_prompt() in chessfm.config"
 }

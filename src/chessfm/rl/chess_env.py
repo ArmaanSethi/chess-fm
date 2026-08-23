@@ -14,7 +14,8 @@ from dataclasses import dataclass, field
 
 import chess
 
-from chessfm.rl.engine import best_cp, close_engine, open_engine
+from chessfm.config import MAX_GAME_MOVES
+from chessfm.rl.engine import _ENGINE_ERRORS, best_cp, close_engine, open_engine
 
 
 @dataclass
@@ -40,7 +41,7 @@ class ChessEnv:
     def __init__(self, stockfish_path: str | None = None):
         self.board = chess.Board()
         self.move_count = 0
-        self.max_moves = 200
+        self.max_moves = MAX_GAME_MOVES
 
         self.engine = None
         if stockfish_path:
@@ -55,17 +56,17 @@ class ChessEnv:
             engine = chess.engine.SimpleEngine.popen_uci(path)
             engine.configure({"Threads": 1, "Hash": 16})
             return engine
-        except Exception as e:
+        except _ENGINE_ERRORS as e:
             print(f"Warning: could not init Stockfish at {path}: {e}")
             return None
 
     def set_skill_level(self, level: int = 1):
-        """Configure Stockfish skill level (0-20). Lower = weaker."""
-        if self.engine is not None:
-            try:
-                self.engine.configure({"Skill Level": int(level)})
-            except Exception:
-                pass
+        """Configure Stockfish skill level (0-20). Lower = weaker.
+
+        Raises if the engine rejects the option: a silently-unapplied skill
+        level would make evaluation results meaningless.
+        """
+        self.engine.configure({"Skill Level": int(level)})
 
     def reset(self, fen: str | None = None) -> str:
         """Reset to ``fen`` (or the starting position) and return the FEN."""

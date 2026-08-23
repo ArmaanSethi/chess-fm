@@ -31,12 +31,12 @@ def download_model(model_info):
 
     try:
         # Download tokenizer
-        print("  → Downloading tokenizer...")
+        print("  - Downloading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained(name, trust_remote_code=True)
-        print(f"    ✓ Tokenizer downloaded (vocab size: {tokenizer.vocab_size})")
+        print(f"    OK tokenizer downloaded (vocab size: {tokenizer.vocab_size})")
 
         # Download model weights
-        print("  → Downloading model weights...")
+        print("  - Downloading model weights...")
         model = AutoModelForCausalLM.from_pretrained(
             name,
             torch_dtype=torch.float16,
@@ -46,7 +46,7 @@ def download_model(model_info):
 
         # Get model size
         param_count = sum(p.numel() for p in model.parameters())
-        print(f"    ✓ Model downloaded ({param_count / 1e9:.2f}B parameters)")
+        print(f"    OK model downloaded ({param_count / 1e9:.2f}B parameters)")
 
         # Free memory
         del model
@@ -55,7 +55,7 @@ def download_model(model_info):
         return True
 
     except Exception as e:
-        print(f"    ✗ FAILED: {e}")
+        print(f"    FAILED: {e}")
         return False
 
 
@@ -93,18 +93,16 @@ def main():
     print(f"{'=' * 60}")
 
     for name, success in results:
-        status = "✓ OK" if success else "✗ FAILED"
+        status = "OK" if success else "FAILED"
         print(f"  {status}: {name}")
 
     # Check if any failed
     failed = [name for name, success in results if not success]
     if failed:
-        print(f"\n⚠️  {len(failed)} model(s) failed to download.")
-        print("Note: Llama models may require HF_TOKEN authentication.")
-        print("Set: export HF_TOKEN=your_token_here")
+        print(f"\n{len(failed)}/{len(models)} model(s) failed to download.")
         return 1
     else:
-        print(f"\n✓ All {len(MODELS)} models downloaded successfully!")
+        print(f"\nAll {len(models)} model(s) downloaded successfully!")
         return 0
 
 

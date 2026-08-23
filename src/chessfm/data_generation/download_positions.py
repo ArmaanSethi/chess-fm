@@ -2,8 +2,8 @@
 Generate seed/curated FEN positions for initial testing and small training runs.
 
 USAGE:
-    python download_positions.py
-    python download_positions.py --count 1000
+    python -m chessfm.data_generation.download_positions
+    python -m chessfm.data_generation.download_positions --count 1000
 """
 
 import argparse
@@ -120,7 +120,7 @@ ENDGAME_POSITIONS = [
 ]
 
 
-def generate_positions(count: int) -> list[str]:
+def generate_positions(count: int, seed: int = 42) -> list[str]:
     """Generate a list of FEN positions.
 
     The curated lists are small (a few dozen). If ``count`` exceeds them, we
@@ -134,15 +134,16 @@ def generate_positions(count: int) -> list[str]:
 
     if count > len(all_positions):
         print(
-            f"⚠️ Requested {count} positions but only {len(all_positions)} unique curated "
-            f"positions exist. Cycling with shuffling will DUPLICATE FENs."
+            f"Requested {count} positions but only {len(all_positions)} unique curated "
+            "positions exist. Cycling with shuffling will DUPLICATE FENs."
         )
-        print("   For large-scale data, use `python -m chessfm.data_generation.fetch_elite_data`.")
+        print("For large-scale data, use `python -m chessfm.data_generation.fetch_elite_data`.")
 
+    rng = random.Random(seed)
     result = []
     while len(result) < count:
         batch = all_positions.copy()
-        random.shuffle(batch)
+        rng.shuffle(batch)
         result.extend(batch)
 
     return result[:count]
@@ -156,12 +157,15 @@ def main():
     parser.add_argument(
         "--output",
         type=Path,
-        default=PROJECT_ROOT / "data_generation" / "positions.txt",
+        # Deliberately NOT positions.txt: that file is the elite-FEN pool
+        # produced by fetch_elite_data, and this toy curated generator must
+        # never overwrite it by default.
+        default=PROJECT_ROOT / "data_generation" / "curated_positions.txt",
         help="Output file",
     )
     args = parser.parse_args()
 
-    print(f"📂 Generating {args.count} FEN positions...")
+    print(f"Generating {args.count} FEN positions...")
 
     positions = generate_positions(args.count)
 
@@ -171,14 +175,14 @@ def main():
 
     unique = len(set(positions))
     if unique < len(positions):
-        print(f"✅ Saved {len(positions)} positions to {args.output} ({unique} unique)")
+        print(f"Saved {len(positions)} positions to {args.output} ({unique} unique)")
     else:
-        print(f"✅ Saved {len(positions)} unique positions to {args.output}")
-    print("\n📋 Breakdown:")
+        print(f"Saved {len(positions)} unique positions to {args.output}")
+    print("\nBreakdown:")
     print(f"   Opening positions:   {len(OPENING_POSITIONS)}")
     print(f"   Middlegame positions: {len(MIDDLEGAME_POSITIONS)}")
     print(f"   Endgame positions:   {len(ENDGAME_POSITIONS)}")
-    print("\n💡 For large-scale data generation, use fetch_elite_data.py")
+    print("\nFor large-scale data generation, use fetch_elite_data.py")
 
 
 if __name__ == "__main__":

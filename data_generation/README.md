@@ -3,50 +3,38 @@
 Engine-validated reasoning traces for chess move selection, and the scripts
 that produce them.
 
-> The committed JSONL files are a **small reproducibility sample**. The full
-> training set was generated with the same pipeline on the training machine;
-> the committed files are enough to verify every step of the pipeline works.
+> The committed JSONL files are a **small committed sample** for pipeline
+> verification. The full training corpus is regenerated with the same pipeline
+> (`generate_synthetic_data`) and intentionally not committed — it is large and
+> its provenance is tracked by the scripts, not by git.
 
 ---
 
-## 📊 Data Status
+## Committed Sample
 
-| Metric | Value |
-|--------|-------|
-| **Raw samples** | 185 |
-| **Unreasonable samples (filtered)** | 17 |
-| **Converted training samples** | 44 (deduped to one per position, reasonable only) |
-| **Position Source** | 25,000 elite FENs (Magnus, Stockfish, Leela games) |
-| **Quality Filter** | Stockfish-validated legal moves only (centipawn loss < 200 for "reasonable") |
-| **Provenance** | `data_manifest.json` written on every conversion |
+| File | Contents |
+|------|----------|
+| `positions.txt` | 25,000 elite-game FENs (the position pool) |
+| `all_sft_data.jsonl` | 85 raw samples (teacher-LLM traces, Stockfish-validated) |
+| `sft_train.jsonl` | 44 converted training rows (one per FEN, reasonable only) |
+| `data_manifest.json` | Provenance: counts, sources, timestamp |
 
----
+The sample is enough to verify every step of the pipeline. To produce a
+training-sized corpus:
 
-## 📂 File Structure
-
-```
-data_generation/
-├── README.md                 # This file
-├── positions.txt             # 25,000 elite game FENs (sample)
-├── all_sft_data.jsonl        # Raw samples (sample)
-├── sft_train.jsonl           # Converted training format (deduped by FEN)
-└── data_manifest.json        # Provenance manifest (counts, sources, timestamp)
+```bash
+python -m chessfm.data_generation.generate_synthetic_data \
+    --provider openai --model <teacher> \
+    --positions data_generation/positions.txt --limit 5000 \
+    --output data_generation/full/all_sft_data.jsonl
 ```
 
-The generator/convert scripts live in the package under `src/chessfm/data_generation/`:
-
-| Script | Purpose |
-|--------|---------|
-| `fetch_elite_data.py` | Fetch FENs from elite Lichess games |
-| `download_positions.py` | Curated FEN seed positions |
-| `convert_to_training.py` | Convert to HuggingFace format |
-| `generate_synthetic_data.py` | Teacher-LLM reasoning traces, Stockfish-validated |
+(`data_generation/full/` is gitignored; keys come from environment variables —
+never commit API keys.)
 
 ---
 
-## 📋 Output Format
-
-Each raw sample follows the ChessFM reasoning format:
+## Raw Sample Format
 
 ```json
 {
@@ -62,8 +50,10 @@ Each raw sample follows the ChessFM reasoning format:
 }
 ```
 
-Converted format (`sft_train.jsonl`) — uses TRL `prompt`/`completion`
-columns so SFT loss is computed on completion tokens only:
+## Converted Format (`sft_train.jsonl`)
+
+Uses TRL `prompt`/`completion` columns so SFT loss is computed on completion
+tokens only:
 
 ```json
 {
@@ -79,48 +69,60 @@ columns so SFT loss is computed on completion tokens only:
 
 ---
 
-## 🔄 Workflow
+## Workflow
 
-### 1. Generate Positions (if needed)
+### 1. Source positions (if needed)
+
 ```bash
+# Elite games from Lichess (25,000 positions by default)
 python -m chessfm.data_generation.fetch_elite_data --count 25000
+
+# Curated seed positions (small, deterministic)
+python -m chessfm.data_generation.download_positions --count 1000
 ```
 
-### 2. Convert to Training Format
+### 2. Generate teacher traces (full corpus)
+
 ```bash
-# From the project root
-python -m chessfm.data_generation.convert_to_training
+python -m chessfm.data_generation.generate_synthetic_data \
+    --provider openai --model gpt-4o --positions data_generation/positions.txt
+```
 
-# Only include reasonable moves (centipawn loss < 200) -- this is the default
-python -m chessfm.data_generation.convert_to_training
+Each proposed move is validated against Stockfish and recorded with a
+`centipawn_loss`. Runs are resumable and deterministic given a seed.
 
-# Include samples beyond the centipawn-loss threshold
-python -m chessfm.data_generation.convert_to_training --include-unreasonable
+### 3. Convert to training format
+
+```bash
+python -m chessfm.data_generation.convert_to_training
 ```
 
 Conversion:
 - **Deduplicates by FEN**, keeping the highest-quality sample per position
   (reasonable first, then lowest centipawn loss).
 - **Balances `<think>` tags** on every trace.
-- **Preserves metadata** (`centipawn_loss`, `stockfish_best`, `is_reasonable`).
+- **Filters to reasonable moves** (centipawn loss < 200) by default;
+  pass `--include-unreasonable` to keep everything.
 - **Writes `data_manifest.json`** with raw/unique/output counts + timestamp.
 
 ---
 
-## 🎯 Quality Metrics
+## Quality
 
-- **Legal moves only** (validated by python-chess + Stockfish)
-- **Reasonable moves** (centipawn loss < 200)
-- **Diverse positions** (mid-game focus, moves 10-45)
+- **Legal moves only** — every trace is validated with python-chess + Stockfish.
+- **No unvalidated rows** — traces whose move could not be analyzed by the
+  engine (or that were illegal) are skipped at write time, never recorded.
+- **Reasonable moves** — `is_reasonable` means centipawn loss < 200.
+- **Diverse positions** — midgame focus (fullmoves 11–44).
+- **Negative losses are clamped to 0** at conversion (a move cannot beat
+  Stockfish's best, and legacy traces predate the clamp).
 
 ---
 
-## 🔄 Integration with Training
-
-The converted SFT data works with:
+## Integration with Training
 
 ```bash
-# Validate without training (no GPU needed)
+# Validate the committed sample without training (no GPU needed)
 python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --dry-run
 
 # Train

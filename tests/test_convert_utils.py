@@ -41,7 +41,7 @@ def test_convert_sample_chatml_and_completion():
     row = convert_sample(sample)
     assert row["prompt"].startswith("<|im_start|>user\nPosition (FEN):")
     assert row["prompt"].endswith("<|im_start|>assistant\n")
-    assert row["completion"] == "<think>keep the king active</think>\ne2e3"
+    assert row["completion"] == "<think>keep the king active</think>\ne2e3<|im_end|>"
     assert row["centipawn_loss"] == 0  # clamped
 
 

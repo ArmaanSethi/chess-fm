@@ -12,14 +12,13 @@ INPUT FORMAT (all_sft_data.jsonl):
     "is_reasonable": true,
     "centipawn_loss": 12.0,
     "stockfish_best": "e2e4",
-    "raw_response": "...",
     "generated_at": "..."
 }
 
 OUTPUT FORMAT (sft_train.jsonl - TRL SFTTrainer compatible):
 {
     "prompt": "<|im_start|>user\\nPosition (FEN): ...<|im_end|>\\n<|im_start|>assistant\\n",
-    "completion": "<think>...</think>\\ne2e4",
+    "completion": "<think>...</think>\\ne2e4<|im_end|>",
     "fen": "...",
     "move": "e2e4",
     "is_reasonable": true,
@@ -44,18 +43,29 @@ USAGE:
 
 import argparse
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from chessfm.config import build_chat_prompt
+from chessfm.config import (
+    CHATML_ASSISTANT_CLOSE,
+    MAX_CENTIPAWN_LOSS,
+    build_chat_prompt,
+)
+from chessfm.fens import read_jsonl
 
-# Samples whose centipawn loss exceeds this threshold are excluded by default.
-MAX_CENTIPAWN_LOSS = 200
+# Corpora at or below this size are flagged as reproducibility samples in the
+# manifest; anything larger is treated as a full training run.
+SAMPLE_THRESHOLD = 1000
 
 
 def fix_think_tags(reasoning: str) -> str:
     """Ensure balanced <think>...</think> tags in a reasoning trace."""
     text = reasoning.strip()
+    # Some teacher traces emit a duplicated closing tag
+    # (``</think>\n</think>``). Collapse consecutive duplicates before
+    # balancing, otherwise the balancer would prepend a spurious opener.
+    text = re.sub(r"(</think>)\s+(?=</think>)", r"\1", text)
     opens = text.count("<think>")
     closes = text.count("</think>")
     if opens > closes:
@@ -79,7 +89,9 @@ def convert_sample(sample: dict) -> dict:
     """Convert one sample to training format."""
     instruction = build_chat_prompt(sample["fen"])
     reasoning = fix_think_tags(sample.get("reasoning", ""))
-    output = f"{reasoning}\n{sample['move']}"
+    # The ChatML turn-end token terminates the completion so the model learns
+    # *when to stop*; without it every generation runs to the token budget.
+    output = f"{reasoning}\n{sample['move']}{CHATML_ASSISTANT_CLOSE}"
 
     return {
         "prompt": instruction,
@@ -98,16 +110,6 @@ def clamp_cp(cp):
     if cp is None:
         return None
     return max(0, int(cp))
-
-
-def read_jsonl(path: Path) -> list:
-    out = []
-    with open(path) as f:
-        for line in f:
-            line_str = line.strip()
-            if line_str:
-                out.append(json.loads(line_str))
-    return out
 
 
 def main():
@@ -144,6 +146,12 @@ def main():
     total_in = len(samples)
     raw_unreasonable = sum(1 for s in samples if not s.get("is_reasonable", True))
 
+    # Rows that cannot be converted (missing FEN or move) are dropped loudly.
+    malformed = [s for s in samples if not s.get("fen") or not s.get("move")]
+    if malformed:
+        print(f"Warning: dropping {len(malformed)} malformed row(s) (missing fen/move).")
+    samples = [s for s in samples if s.get("fen") and s.get("move")]
+
     # Deduplicate by FEN, keeping the highest-quality sample per position.
     best_by_fen = {}
     for s in samples:
@@ -178,12 +186,13 @@ def main():
         "output_file": str(args.output),
         "raw_samples": total_in,
         "raw_unreasonable": raw_unreasonable,
+        "malformed_rows_dropped": len(malformed),
         "unique_fens": len(best_by_fen),
         "output_samples": len(converted),
         "output_reasonable": n_reasonable,
         "filtered_reasonable_only": not args.include_unreasonable,
         "max_centipawn_loss": MAX_CENTIPAWN_LOSS,
-        "sample": True,
+        "sample": len(converted) <= SAMPLE_THRESHOLD,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "prompt_template": "build_chat_prompt() in chessfm.config",
     }
@@ -201,8 +210,8 @@ def main():
         print("\nExample output:")
         print(json.dumps(converted[0], indent=2)[:500] + "...")
 
-    print("\nNote: `sample: true` in the manifest marks the committed file as a")
-    print("small reproducibility slice. Generate the full corpus with")
+    print("\nNote: `sample: true` in the manifest marks the output as a small")
+    print(f"reproducibility slice (<= {SAMPLE_THRESHOLD} rows). Generate the full corpus with")
     print("python -m chessfm.data_generation.generate_synthetic_data.")
 
 

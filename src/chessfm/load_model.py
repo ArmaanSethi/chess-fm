@@ -7,8 +7,13 @@ and inference mode never diverge between phases.
 
 from chessfm.config import LORA_ALPHA, LORA_R, MAX_SEQ_LENGTH
 
-_NON_UNSLOTH_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj"]
-_UNSLOTH_TARGET_MODULES = _NON_UNSLOTH_TARGET_MODULES + [
+# Same target modules on both the unsloth and PEFT fallback paths so a LoRA
+# trained on one backend is structurally identical to one trained on the other.
+_TARGET_MODULES = [
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
     "gate_proj",
     "up_proj",
     "down_proj",
@@ -21,7 +26,6 @@ def load_model(model_name: str, for_inference: bool = False) -> tuple:
     Returns a ``(model, tokenizer)`` tuple. ``for_inference`` switches 4-bit
     mode off and enables fast inference mode when using unsloth.
     """
-    torch = _get_torch()
     try:
         from unsloth import FastLanguageModel
 
@@ -36,7 +40,7 @@ def load_model(model_name: str, for_inference: bool = False) -> tuple:
         model = FastLanguageModel.get_peft_model(
             model,
             r=LORA_R,
-            target_modules=_UNSLOTH_TARGET_MODULES,
+            target_modules=_TARGET_MODULES,
             lora_alpha=LORA_ALPHA,
             lora_dropout=0,
             bias="none",
@@ -45,12 +49,16 @@ def load_model(model_name: str, for_inference: bool = False) -> tuple:
         )
         return model, tokenizer
     except ImportError:
+        import torch
         from peft import LoraConfig, get_peft_model
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
+        # bf16 matches Qwen2.5's native training dtype on modern GPUs; fp16 is
+        # the fallback for pre-Ampere hardware.
+        dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=torch.float16, device_map="auto"
+            model_name, torch_dtype=dtype, device_map="auto"
         )
         if for_inference:
             model = model.eval()
@@ -58,14 +66,8 @@ def load_model(model_name: str, for_inference: bool = False) -> tuple:
         peft_config = LoraConfig(
             r=LORA_R,
             lora_alpha=LORA_ALPHA,
-            target_modules=_NON_UNSLOTH_TARGET_MODULES,
+            target_modules=_TARGET_MODULES,
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, peft_config)
         return model, tokenizer
-
-
-def _get_torch():
-    import torch
-
-    return torch

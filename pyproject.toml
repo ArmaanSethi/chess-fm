@@ -10,24 +10,23 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.1.0",
-    "transformers>=4.46.0,<5",
+    # transformers 4.52+ breaks TRL 0.16's GRPOTrainer (_get_train_sampler
+    # signature drift); verified against 4.51.3.
+    "transformers>=4.51.0,<4.52",
     "accelerate>=0.34.0",
     "peft>=0.11.0",
     "trl>=0.16.0,<0.17",
     "python-chess>=1.10.0",
-    "bitsandbytes>=0.41.0",
-    "datasets>=3.0.0,<4",
+    "datasets>=3.0.0,<6",
     "tqdm>=4.66.0",
     "requests>=2.31.0",
-    "wandb>=0.16.0",
-    "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.4.0",
+    "ruff==0.16.2",
     "pre-commit>=3.5.0",
 ]
 mlx = [
@@ -65,19 +64,18 @@ ignore = ["E501"]
 
 [tool.coverage.run]
 source = ["chessfm"]
-# Coverage gate applies to all pure logic. Only modules that require external
-# hardware, model downloads, or credentials to even import at their entry point
-# are omitted: GPU/torch scripts (scripts, benchmarks, load_model, train_sft),
-# the GRPO entry point (needs a GPU + model download), and the Lichess fetcher
-# (needs the network).
+# Coverage is measured across the whole package. Only modules whose behavior
+# requires GPU hardware, model downloads, or a network endpoint to *exercise*
+# (rather than import) are omitted; their entry points are smoke-tested via
+# `--help` and their pure helpers are unit-tested directly.
 omit = [
     "*/__pycache__/*",
-    "*/chessfm/load_model.py",
-    "*/chessfm/scripts/*",
-    "*/chessfm/training/*",
-    "*/chessfm/rl/train_grpo.py",
-    "*/chessfm/benchmarks/*",
-    "*/chessfm/data_generation/fetch_elite_data.py",
+    "*/chessfm/load_model.py",               # model download + 4-bit/PEFT wiring
+    "*/chessfm/scripts/*",                   # tokenizer/model download utilities
+    "*/chessfm/training/*",                  # GPU/torch training scripts
+    "*/chessfm/rl/train_grpo.py",            # GPU/torch GRPO training script
+    "*/chessfm/benchmarks/*",                # GPU inference baselines
+    "*/chessfm/data_generation/fetch_elite_data.py",  # live Lichess network fetch
 ]
 
 [tool.coverage.report]
