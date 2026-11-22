@@ -262,6 +262,56 @@ class TestDefensivePaths(unittest.TestCase):
         self.assertIn("budget", result["components"])
         self.assertAlmostEqual(result["total"], 1.0 + 0.1 - 0.1)
 
+    def test_stage2_post_reply_eval_failure_raises_not_zeroed(self):
+        # Succeed on calls 1 (best_before), 2 (eval_after), 3 (best_move), then fail on call 4
+        # (best_cp after reply). Must raise EngineAnalysisError instead of returning delta=0.0.
+        class _FailOnNthAnalyse:
+            def __init__(self, fail_on: int):
+                self.calls = 0
+                self.fail_on = fail_on
+
+            def analyse(self, board, limit):
+                self.calls += 1
+                if self.calls == self.fail_on:
+                    raise chess.engine.EngineError("engine crashed on reply eval")
+                pv = [next(iter(board.legal_moves))] if any(board.legal_moves) else []
+                return {"score": _FakeScore(50), "pv": pv}
+
+        with self.assertRaises(EngineAnalysisError):
+            combined_reward(
+                self.FEN,
+                "e2e4",
+                "<think>strong center for white now.</think>\ne2e4",
+                stage=2,
+                engine=_FailOnNthAnalyse(fail_on=4),
+            )
+
+    def test_stage2_game_over_eval_failure_raises_not_zeroed(self):
+        # Scholar's mate position before h5f7; after h5f7 the game is over, so _best_reply_eval
+        # calls best_cp on call 3. Failing on call 3 must raise EngineAnalysisError.
+        board = chess.Board()
+        for uci in ["e2e4", "e7e5", "d1h5", "b8c6", "f1c4", "g8f6"]:
+            board.push_uci(uci)
+
+        class _FailOnThirdAnalyse:
+            def __init__(self):
+                self.calls = 0
+
+            def analyse(self, b, limit):
+                self.calls += 1
+                if self.calls == 3:
+                    raise chess.engine.EngineError("engine crashed on game-over eval")
+                return {"score": _FakeScore(50), "pv": []}
+
+        with self.assertRaises(EngineAnalysisError):
+            combined_reward(
+                board.fen(),
+                "h5f7",
+                "<think>delivering checkmate on f7 immediately.</think>\nh5f7",
+                stage=2,
+                engine=_FailOnThirdAnalyse(),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

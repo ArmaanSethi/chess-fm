@@ -68,3 +68,6 @@ data_generation/full/
 *.log
 bin/
 .tools/
+
+# Teamwork scratch artifacts
+.agents/teamwork/

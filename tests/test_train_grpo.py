@@ -4,8 +4,13 @@
 import unittest
 
 import chess
+import pytest
 
-from chessfm.rl.train_grpo import load_positions, make_reward_func
+from chessfm.rl.train_grpo import (
+    load_positions,
+    make_reward_func,
+    validate_grpo_batch_divisibility,
+)
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -15,6 +20,23 @@ class _BrokenEngine:
         raise chess.engine.EngineError("engine died")
 
 
+def test_validate_grpo_batch_divisibility_valid():
+    validate_grpo_batch_divisibility(8, 8, world_size=1)
+    validate_grpo_batch_divisibility(4, 8, world_size=2)
+    validate_grpo_batch_divisibility(16, 8, world_size=1)
+
+
+def test_validate_grpo_batch_divisibility_invalid():
+    with pytest.raises(ValueError, match="divisible by num_generations"):
+        validate_grpo_batch_divisibility(4, 8, world_size=1)
+    with pytest.raises(ValueError, match="positive"):
+        validate_grpo_batch_divisibility(0, 8, world_size=1)
+    with pytest.raises(ValueError, match="positive"):
+        validate_grpo_batch_divisibility(8, 0, world_size=1)
+    with pytest.raises(ValueError, match="positive"):
+        validate_grpo_batch_divisibility(8, 8, world_size=0)
+
+
 def test_reads_fens_into_chat_prompts(tmp_path):
     p = tmp_path / "positions.txt"
     p.write_text(START_FEN + "\n\n" + "8/8/8/4k3/8/8/4K3/8 w - - 0 1\n")
@@ -22,6 +44,13 @@ def test_reads_fens_into_chat_prompts(tmp_path):
     assert len(positions) == 2
     assert positions[0]["prompt"].startswith("<|im_start|>user\nPosition (FEN):")
     assert positions[0]["prompt"].endswith("<|im_start|>assistant\n")
+
+
+def test_load_positions_supports_include_ascii(tmp_path):
+    p = tmp_path / "positions.txt"
+    p.write_text(START_FEN + "\n")
+    positions = load_positions(p, include_ascii=True)
+    assert "Board:\n8 r n b q k b n r" in positions[0]["prompt"]
 
 
 def test_respects_max_positions(tmp_path):

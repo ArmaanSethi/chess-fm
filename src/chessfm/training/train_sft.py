@@ -20,9 +20,36 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from trl import SFTConfig
 
-from chessfm.config import DEFAULT_BASE_MODEL, LORA_R, MAX_SEQ_LENGTH
+from chessfm.config import (
+    CHATML_ASSISTANT_OPEN,
+    DEFAULT_BASE_MODEL,
+    LORA_R,
+    MAX_SEQ_LENGTH,
+    build_chat_prompt,
+    get_assistant_role,
+)
 from chessfm.fens import read_jsonl
 from chessfm.training.split import fen_level_split
+
+GEMMA_ASSISTANT_OPEN = "<|turn>model\n"
+
+
+def get_response_template(model_name: str = DEFAULT_BASE_MODEL) -> str:
+    """Return the assistant turn-open marker for completion-only loss masking."""
+    if get_assistant_role(model_name) == "model":
+        return GEMMA_ASSISTANT_OPEN
+    return CHATML_ASSISTANT_OPEN
+
+
+def build_completion_collator(tokenizer, model_name: str = DEFAULT_BASE_MODEL):
+    """Build a TRL collator that masks prompt tokens to -100 during SFT."""
+    from trl import DataCollatorForCompletionOnlyLM
+
+    response_template = get_response_template(model_name)
+    return DataCollatorForCompletionOnlyLM(
+        response_template=response_template,
+        tokenizer=tokenizer,
+    )
 
 
 def build_sft_config(args) -> SFTConfig:
@@ -79,6 +106,17 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4, help="Per-device batch size")
     parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
     parser.add_argument("--dry-run", action="store_true", help="Just validate data, don't train")
+    parser.add_argument(
+        "--merge-and-save",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Merge LoRA weights and save full checkpoint to <output>/final_merged",
+    )
+    parser.add_argument(
+        "--include-ascii",
+        action="store_true",
+        help="Include an ASCII board rendering in prompts when FEN is available",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
@@ -137,11 +175,19 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    print("\nPreparing dataset with prompt/completion columns...")
-    dataset = Dataset.from_list(valid_data)
-    # Loss is computed on completion tokens only (TRL's documented behavior for
-    # prompt/completion columns), so the user prompt is never trained on.
-    dataset = dataset.select_columns(["prompt", "completion"])
+    print("\nPreparing formatted dataset with completion-only loss masking...")
+    formatted_rows = []
+    for sample in valid_data:
+        if args.include_ascii and "fen" in sample:
+            prompt = build_chat_prompt(
+                sample["fen"],
+                tokenizer=tokenizer,
+                include_ascii=True,
+            )
+        else:
+            prompt = sample["prompt"]
+        formatted_rows.append({"text": f"{prompt}{sample['completion']}"})
+    dataset = Dataset.from_list(formatted_rows)
 
     train_indices, val_indices, val_fens = fen_level_split(valid_data)
     train_ds = dataset.select(train_indices)
@@ -154,21 +200,32 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
 
     training_args = build_sft_config(args)
+    data_collator = build_completion_collator(tokenizer, model_name=args.model)
 
     trainer = SFTTrainer(
         model=model,
         processing_class=tokenizer,
         train_dataset=train_ds,
         eval_dataset=eval_ds,
+        data_collator=data_collator,
         args=training_args,
     )
 
     trainer.train()
 
     print("\nSaving model...")
-    model.save_pretrained(args.output / "final")
-    tokenizer.save_pretrained(args.output / "final")
-    print(f"Training complete! Model saved to: {args.output / 'final'}")
+    final_dir = args.output / "final"
+    model.save_pretrained(final_dir)
+    tokenizer.save_pretrained(final_dir)
+    print(f"Training complete! Adapter saved to: {final_dir}")
+
+    if args.merge_and_save and hasattr(model, "merge_and_unload"):
+        merged_dir = args.output / "final_merged"
+        print(f"Merging LoRA adapter into base weights -> {merged_dir}")
+        merged_model = model.merge_and_unload()
+        merged_model.save_pretrained(merged_dir)
+        tokenizer.save_pretrained(merged_dir)
+        print(f"Merged model saved to: {merged_dir}")
 
 
 if __name__ == "__main__":

@@ -73,6 +73,23 @@ def test_sft_single_step_runs(tmp_path):
     trainer.train()
 
 
+def test_sft_completion_collator_masks_prompt_tokens():
+    from chessfm.config import build_chat_prompt
+    from chessfm.training.train_sft import build_completion_collator
+
+    _, tokenizer = _load_tiny_model()
+    collator = build_completion_collator(tokenizer)
+    prompt = build_chat_prompt(START_FEN)
+    completion = "<think>control center.</think>\ne2e4"
+    encoded = tokenizer(prompt + completion)
+    batch = collator([encoded])
+    labels = batch["labels"][0].tolist()
+    # Prompt tokens are masked to -100 while completion tokens remain unmasked.
+    assert labels[0] == -100
+    assert any(tok != -100 for tok in labels)
+    assert labels.count(-100) < len(labels)
+
+
 def test_grpo_single_step_runs_with_stage0_rewards(tmp_path):
     from trl import GRPOConfig, GRPOTrainer
 

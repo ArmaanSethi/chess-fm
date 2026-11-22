@@ -74,6 +74,19 @@ def estimated_elo(wins: int, losses: int, draws: int, opponent_elo: int) -> floa
     return opponent_elo + 400 * math.log10(score / (1 - score))
 
 
+def wilson_ci(wins: int, losses: int, draws: int, z: float = 1.96) -> tuple[float, float]:
+    """Return the 95% Wilson score confidence interval ``(low, high)`` for win-score."""
+    games = wins + losses + draws
+    if games == 0:
+        return (0.0, 0.0)
+    p = (wins + 0.5 * draws) / games
+    z2 = z * z
+    denom = 1.0 + z2 / games
+    center = (p + z2 / (2.0 * games)) / denom
+    margin = (z * math.sqrt((p * (1.0 - p)) / games + z2 / (4.0 * games * games))) / denom
+    return (max(0.0, center - margin), min(1.0, center + margin))
+
+
 def load_openings(path: Path | None) -> list[str]:
     """Load opening FENs (one per line). Returns [] if no file given."""
     if path is None or not path.exists():
@@ -149,6 +162,8 @@ def play_game(
         "result": "*",
     }
     game = chess.pgn.Game()
+    if env.get_fen() != chess.STARTING_FEN:
+        game.setup(env.board.copy())
     node = game
     done = False
 
@@ -323,12 +338,13 @@ def evaluate_model(
 
     env.close()
 
-    pgn_path = PGNS_DIR / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pgn"
-    write_pgn(games_list, pgn_path)
-    print(f"\nGames saved to {pgn_path}")
+    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pgn_path = PGNS_DIR / f"eval_{run_ts}.pgn"
+    out_path = RESULTS_DIR / f"eval_{run_ts}.json"
 
     legal_rate = 100 * legal_moves / max(1, total_moves)
     format_rate = 100 * formatted_outputs / max(1, total_moves)
+    ci_low, ci_high = wilson_ci(wins, losses, draws)
 
     print("\n" + "=" * 60)
     print("Evaluation Results Summary")
@@ -337,6 +353,7 @@ def evaluate_model(
     print(f"Legal Move Rate:      {legal_moves}/{total_moves} ({legal_rate:.1f}%)")
     print(f"Format Adherence:     {formatted_outputs}/{total_moves} ({format_rate:.1f}%)")
     print(f"Record (W-L-D):       {wins}-{losses}-{draws}")
+    print(f"Score 95% Wilson CI:  [{ci_low:.3f}, {ci_high:.3f}]")
     print(f"Illegal moves by AI:  {illegal_by_model}")
     elo = None
     if not use_random_opponent:
@@ -357,6 +374,8 @@ def evaluate_model(
         "wins": wins,
         "losses": losses,
         "draws": draws,
+        "score_ci_95": [round(ci_low, 4), round(ci_high, 4)],
+        "decoding_mode": "greedy",
         "estimated_elo": None if elo is None else round(elo, 1),
         "opponent": opponent,
         "stockfish_level": stockfish_level,
@@ -369,9 +388,11 @@ def evaluate_model(
         "git_revision": git_revision(),
         "timestamp": datetime.now().isoformat(),
     }
-    out_path = RESULTS_DIR / f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     write_report(results, out_path)
     print(f"\nResults saved to {out_path}")
+
+    write_pgn(games_list, pgn_path)
+    print(f"Games saved to {pgn_path}")
 
 
 def main():
