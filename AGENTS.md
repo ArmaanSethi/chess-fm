@@ -32,25 +32,26 @@ Package uses `src` layout (`src/chessfm/`). Entry points run as modules via `pyt
   - Kaggle 2x T4 runner: `python scripts/kaggle_train.py --task pipeline --resume`
   - GGUF + Ollama Modelfile export: `python scripts/export_gguf.py --model <merged_ckpt> --output <dir> --family gemma4 --dry-run`
 
-Installed console scripts: `chessfm-convert`, `chessfm-generate-data`, `chessfm-fetch-fens`, `chessfm-train-sft`, `chessfm-train-grpo`, `chessfm-evaluate`, `chessfm-coach`, `chessfm-eval-suite`.
+- Installed console scripts: `chessfm-convert`, `chessfm-generate-data`, `chessfm-distill-teacher`, `chessfm-fetch-fens`, `chessfm-train-sft`, `chessfm-train-grpo`, `chessfm-evaluate`, `chessfm-coach`, `chessfm-eval-suite`.
 
 ## Architecture & Conventions
 
-- `src/chessfm/config.py` is the single source of truth: model tracks (`DEFAULT_BASE_MODEL`, `DEFAULT_V1_MODEL`, `DEFAULT_COACH_MODEL`, `OFFICIAL_GEMMA_COACH_MODEL`), model-agnostic prompt templates (`build_chat_prompt`, `make_prompt`, `render_ascii_board`), `MAX_CENTIPAWN_LOSS=200`, Stockfish depth (10), and binary search paths.
+- `src/chessfm/config.py` is the single source of truth: model tracks (`DEFAULT_BASE_MODEL`, `DEFAULT_V1_MODEL`, `DEFAULT_V1_5_MODEL`, `DEFAULT_COACH_MODEL`, `OFFICIAL_GEMMA_COACH_MODEL`, `DEFAULT_BROWSER_STUDENT_MODEL`, `DEFAULT_LOCAL_STUDENT_MODEL`, `DEFAULT_TEACHER_MODEL`, `ALT_TEACHER_MODEL`), `requires_modern_transformers`, model-agnostic prompt templates (`build_chat_prompt`, `make_prompt`, `render_ascii_board`), `MAX_CENTIPAWN_LOSS=200`, Stockfish depth (10), and binary search paths.
 - Prompt formatting MUST stay identical across data conversion, SFT, GRPO, and evaluation. `build_chat_prompt` delegates to `tokenizer.apply_chat_template` when available and falls back to ChatML for Qwen-2.5.
 - Train/val splits MUST be done at the FEN level (`training/split.py` `fen_level_split`, `data_generation/phase_sampler.py` `normalize_board_fen`) so no positions leak between splits.
-- `data_generation/phase_sampler.py` handles opening/middlegame/endgame classification and stratified sampling; `data_generation/coaching_dataset.py` builds deterministic, engine-verified best-line SFT and coaching examples at `$0` API cost.
+- `data_generation/phase_sampler.py` handles opening/middlegame/endgame classification and stratified sampling; `data_generation/coaching_dataset.py` builds deterministic, engine-verified best-line SFT and coaching examples at `$0` API cost; `data_generation/distill_open_teacher.py` runs rejection-sampled distillation against any OpenAI-compatible open-weight server (`vLLM`/`Ollama`) filtered by `verify_claims()` and `contains_move_spoiler()`.
 - `rl/constrained_decoding.py` provides a trie-based UCI `LogitsProcessor` enforcing 100% legal moves after `</think>` at inference time.
 - `coach/` contains the AI Chess Coach stack: MultiPV Partial Strategy Trees & WDL classification (`classifier.py`), Maia-2 human-Elo calibration (`maia_sidecar.py`), 3-level 0%-spoiler Socratic hints (`socratic.py`), ACT-Eval deterministic claim verification (`verifier.py`), full-game PGN review & weakness profiling (`game_review.py`), Q&A orchestration (`multimodal.py`), and the stdlib HTTP server (`server.py`) serving `static/index.html`.
 - `eval/suite.py` implements the 4-Tier Evaluation Suite (Static Engine Metrics, Board-State Probing / ChessQA, ACT-Eval Coaching Faithfulness, and Paired Color-Balanced Match Summary).
-- `scripts/` holds top-level deployment runners (`modal_train.py`, `kaggle_train.py`, `export_gguf.py`) with pure command-builder helpers unit-tested in `tests/test_cloud_runners.py`.
+- `scripts/` holds top-level deployment runners (`modal_train.py`, `kaggle_train.py`, `export_gguf.py`) with pure command-builder helpers unit-tested in `tests/test_cloud_runners.py`. `modal_train.py` uses dual container images: stable TRL 0.16 (`v0`/`v1`) and modern `transformers>=5.2` + `trl>=1.18` + `vllm` (`v1.5`, `v2`, `student`, `teacher`).
+- Architectural rationale and reproducible multi-machine workflows live in `docs/DESIGN_DECISIONS.md` and `docs/TRAINING_GUIDE.md`.
 - Do NOT commit model artifacts (`checkpoints/`), eval outputs (`results/`), or large dataset files (`data_generation/full/`). Only small sample JSONL files are committed for pipeline verification.
 - GPU/hardware-dependent entry points (`load_model.py`, `scripts/*`, `training/*`, `rl/train_grpo.py`, `benchmarks/*`, `fetch_elite_data.py`) are intentionally omitted from coverage in `pyproject.toml`. Pure helper functions in these files are unit-tested directly.
 
 ## Gotchas
 
-- `generate_synthetic_data` requires provider API keys in env (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`); never put keys in files.
-- `google/gemma-4-E4B-it` is gated and requires `HF_TOKEN`; `unsloth/gemma-4-E4B-it` is the ungated default for the v2 coach track.
+- `generate_synthetic_data` requires provider API keys in env (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`); prefer `distill_open_teacher` for zero-API open-weight generation; never put keys in files.
+- All Gemma 4 and Qwen3/3.5/3.6 models are Apache-2.0 and ungated; `HF_TOKEN` is only needed when pushing artifacts to Hugging Face Hub or pulling private/gated repos.
 - GRPO Stage 0 is Stockfish-free; Stages 1 and 2 fail fast if Stockfish binary is missing.
 - Evaluation runs generate JSON reports and PGN files under `results/` (gitignored). Model metrics are captured in eval reports rather than hardcoded in source.
 

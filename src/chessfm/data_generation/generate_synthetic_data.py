@@ -219,7 +219,9 @@ def gen_batch(
 def main():
     parser = argparse.ArgumentParser(description="Generate synthetic SFT traces")
     parser.add_argument("--provider", choices=["openai", "anthropic", "gemini"], required=True)
-    parser.add_argument("--model", required=True, help="Teacher model id (e.g. gpt-4o)")
+    parser.add_argument(
+        "--model", required=True, help="Provider model identifier (e.g. current flagship model)"
+    )
     parser.add_argument("--positions", type=Path, required=True, help="FEN list (one per line)")
     parser.add_argument("--limit", type=int, default=None, help="Cap on positions to process")
     parser.add_argument(

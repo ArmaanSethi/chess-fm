@@ -44,8 +44,15 @@ def get_response_template(model_name: str = DEFAULT_BASE_MODEL) -> str:
 
 
 def build_completion_collator(tokenizer, model_name: str = DEFAULT_BASE_MODEL):
-    """Build a TRL collator that masks prompt tokens to -100 during SFT."""
-    from trl import DataCollatorForCompletionOnlyLM
+    """Build a TRL collator that masks prompt tokens to -100 during SFT.
+
+    Returns ``None`` on TRL 1.x+ where ``DataCollatorForCompletionOnlyLM`` is
+    superseded by trainer-level completion masking.
+    """
+    try:
+        from trl import DataCollatorForCompletionOnlyLM
+    except ImportError:
+        return None
 
     response_template = get_response_template(model_name)
     return DataCollatorForCompletionOnlyLM(

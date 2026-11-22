@@ -249,10 +249,15 @@ class TestModalTrainAST:
         _, tree = self._parse_modal_source()
         fn_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
         for expected in (
+            "requires_modern_stack",
             "resolve_track_model",
             "run_sft",
+            "run_sft_modern",
             "run_grpo",
+            "run_grpo_modern",
             "run_eval",
+            "run_eval_modern",
+            "run_distill_teacher",
             "run_coach_eval",
             "run_export_gguf",
             "main",
@@ -266,14 +271,27 @@ class TestModalTrainAST:
             for node in ast.walk(tree)
             if isinstance(node, ast.Constant) and isinstance(node.value, str)
         }
-        for task in ("smoke-pipeline", "sft", "grpo", "eval", "coach-eval", "export-gguf"):
+        for task in (
+            "smoke-pipeline",
+            "sft",
+            "grpo",
+            "eval",
+            "coach-eval",
+            "distill-teacher",
+            "export-gguf",
+        ):
             assert task in string_literals, f"Task {task!r} not found in scripts/modal_train.py"
 
         for model_id in (
             "Qwen/Qwen2.5-3B-Instruct",
             "Qwen/Qwen3-4B",
+            "Qwen/Qwen3.5-4B",
             "unsloth/gemma-4-E4B-it",
             "google/gemma-4-E4B-it",
+            "Qwen/Qwen3.5-0.8B",
+            "google/gemma-4-E2B-it",
+            "google/gemma-4-26B-A4B-it",
+            "Qwen/Qwen3.6-35B-A3B",
         ):
             assert model_id in string_literals, f"Track model {model_id!r} missing"
 
@@ -282,3 +300,4 @@ class TestModalTrainAST:
         assert "final_merged" in source
         assert "scripts/export_gguf.py" in string_literals
         assert "chessfm.eval.suite" in string_literals
+        assert "chessfm.data_generation.distill_open_teacher" in string_literals
