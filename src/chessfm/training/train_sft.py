@@ -68,10 +68,13 @@ def build_sft_config(args) -> SFTConfig:
     stack. Kept separate from ``main`` so the exact kwargs the training script
     passes are exercised by tests (guards against TRL API drift).
     """
+    import os
+
     import torch
     from trl import SFTConfig
 
     use_gpu = torch.cuda.is_available()
+    report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
     return SFTConfig(
         output_dir=str(args.output),
         num_train_epochs=args.epochs,
@@ -84,6 +87,7 @@ def build_sft_config(args) -> SFTConfig:
         save_steps=50,
         save_total_limit=3,
         eval_strategy="epoch",
+        report_to=report_to,
         # bf16 is preferred on modern GPUs (matches Qwen2.5's native dtype);
         # fp16 is only a fallback for pre-Ampere hardware.
         bf16=use_gpu and torch.cuda.is_bf16_supported(),

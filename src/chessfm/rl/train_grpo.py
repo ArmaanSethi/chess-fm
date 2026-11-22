@@ -188,6 +188,7 @@ def build_grpo_config(args) -> GRPOConfig:
     from trl import GRPOConfig
 
     use_gpu = torch.cuda.is_available()
+    report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
     return GRPOConfig(
         output_dir=str(args.output),
         learning_rate=args.lr,
@@ -202,6 +203,7 @@ def build_grpo_config(args) -> GRPOConfig:
         logging_steps=10,
         save_steps=args.checkpoint_every,
         save_total_limit=3,
+        report_to=report_to,
         seed=args.seed,
         bf16=use_gpu and torch.cuda.is_bf16_supported(),
         fp16=use_gpu and not torch.cuda.is_bf16_supported(),
