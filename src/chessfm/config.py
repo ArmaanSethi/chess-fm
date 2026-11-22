@@ -20,8 +20,13 @@ PGNS_DIR = RESULTS_DIR / "pgns"
 
 DEFAULT_BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
 DEFAULT_V1_MODEL = "Qwen/Qwen3-4B"
+DEFAULT_V1_5_MODEL = "Qwen/Qwen3.5-4B"
 DEFAULT_COACH_MODEL = "unsloth/gemma-4-E4B-it"
 OFFICIAL_GEMMA_COACH_MODEL = "google/gemma-4-E4B-it"
+DEFAULT_BROWSER_STUDENT_MODEL = "Qwen/Qwen3.5-0.8B"
+DEFAULT_LOCAL_STUDENT_MODEL = "google/gemma-4-E2B-it"
+DEFAULT_TEACHER_MODEL = "google/gemma-4-26B-A4B-it"
+ALT_TEACHER_MODEL = "Qwen/Qwen3.6-35B-A3B"
 
 # ---------------------------------------------------------------------------
 # Training parameters
@@ -181,6 +186,14 @@ def is_gemma4_model(model_name: str) -> bool:
     """Return True if ``model_name`` identifies a Gemma 4 checkpoint."""
     lower = str(model_name).lower()
     return "gemma-4" in lower or "gemma4" in lower
+
+
+def requires_modern_transformers(model_name: str) -> bool:
+    """Return True if ``model_name`` requires transformers>=5.2 / TRL>=1.x."""
+    lower = str(model_name).lower()
+    return is_gemma4_model(lower) or any(
+        tag in lower for tag in ("qwen3.5", "qwen3-5", "qwen3.6", "qwen3.8")
+    )
 
 
 def get_assistant_role(model_name: str) -> str:

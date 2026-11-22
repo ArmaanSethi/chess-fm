@@ -2,10 +2,15 @@
 """Unit tests for ChessFM central configuration."""
 
 from chessfm.config import (
+    ALT_TEACHER_MODEL,
     CHATML_ASSISTANT_OPEN,
     CHATML_USER_OPEN,
     DEFAULT_BASE_MODEL,
+    DEFAULT_BROWSER_STUDENT_MODEL,
     DEFAULT_COACH_MODEL,
+    DEFAULT_LOCAL_STUDENT_MODEL,
+    DEFAULT_TEACHER_MODEL,
+    DEFAULT_V1_5_MODEL,
     DEFAULT_V1_MODEL,
     OFFICIAL_GEMMA_COACH_MODEL,
     PROMPT_TEMPLATE,
@@ -15,6 +20,7 @@ from chessfm.config import (
     is_gemma4_model,
     make_prompt,
     render_ascii_board,
+    requires_modern_transformers,
 )
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -24,8 +30,13 @@ class TestConstants:
     def test_model_constants(self):
         assert DEFAULT_BASE_MODEL == "Qwen/Qwen2.5-3B-Instruct"
         assert DEFAULT_V1_MODEL == "Qwen/Qwen3-4B"
+        assert DEFAULT_V1_5_MODEL == "Qwen/Qwen3.5-4B"
         assert DEFAULT_COACH_MODEL == "unsloth/gemma-4-E4B-it"
         assert OFFICIAL_GEMMA_COACH_MODEL == "google/gemma-4-E4B-it"
+        assert DEFAULT_BROWSER_STUDENT_MODEL == "Qwen/Qwen3.5-0.8B"
+        assert DEFAULT_LOCAL_STUDENT_MODEL == "google/gemma-4-E2B-it"
+        assert DEFAULT_TEACHER_MODEL == "google/gemma-4-26B-A4B-it"
+        assert ALT_TEACHER_MODEL == "Qwen/Qwen3.6-35B-A3B"
 
     def test_stockfish_paths_include_usr_games(self):
         assert "/usr/games/stockfish" in STOCKFISH_PATHS
@@ -36,6 +47,15 @@ class TestConstants:
         assert is_gemma4_model("local/gemma4-finetuned") is True
         assert is_gemma4_model("Qwen/Qwen2.5-3B-Instruct") is False
         assert is_gemma4_model("Qwen/Qwen3-4B") is False
+
+    def test_requires_modern_transformers(self):
+        assert requires_modern_transformers("Qwen/Qwen3.5-4B") is True
+        assert requires_modern_transformers("Qwen/Qwen3.5-0.8B") is True
+        assert requires_modern_transformers("Qwen/Qwen3.6-35B-A3B") is True
+        assert requires_modern_transformers("google/gemma-4-26B-A4B-it") is True
+        assert requires_modern_transformers("google/gemma-4-E2B-it") is True
+        assert requires_modern_transformers("Qwen/Qwen3-4B") is False
+        assert requires_modern_transformers("Qwen/Qwen2.5-3B-Instruct") is False
 
     def test_get_assistant_role(self):
         assert get_assistant_role("unsloth/gemma-4-E4B-it") == "model"

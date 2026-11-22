@@ -27,35 +27,41 @@ All training harnesses, reward math, constrained decoding, coaching engines, 4-t
 
 ## Two-Track Architecture
 
-### Track 1 — Research & RL (`v0` / `v1`)
+> See [docs/DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) for the full Architecture Decision Record (`ADR-001`–`ADR-008`) and [docs/TRAINING_GUIDE.md](docs/TRAINING_GUIDE.md) for reproducible multi-machine setup and GPU workflows.
 
-| Track | Default Model | Role |
-|-------|---------------|------|
-| **v0 (Control)** | `Qwen/Qwen2.5-3B-Instruct` | 3B baseline selected in [Phase 0 benchmarks](docs/phase0/BASELINE_REPORT.md) |
-| **v1 (Reasoning Upgrade)** | `Qwen/Qwen3-4B` | 4B reasoning backbone with native `<think>` alignment |
+### Track 1 — Research & RL (`v0` / `v1` / `v1.5`)
+
+| Track | Model | Role |
+|-------|-------|------|
+| **v0 (Legacy Control)** | `Qwen/Qwen2.5-3B-Instruct` | 3B baseline selected in [Phase 0 benchmarks](docs/phase0/BASELINE_REPORT.md) |
+| **v1 (Fast RL Backbone)** | `Qwen/Qwen3-4B` | 4B text-only reasoning backbone with native `<think>` alignment |
+| **v1.5 (Hybrid Reasoning)** | `Qwen/Qwen3.5-4B` | 4B hybrid Gated DeltaNet reasoning backbone (`transformers>=5.2`) |
 
 Key capabilities:
 - **Model-Agnostic Prompting & Board Representation**: Single source of truth in `src/chessfm/config.py` (`build_chat_prompt`) using `tokenizer.apply_chat_template` with ChatML fallback and optional ASCII+FEN board rendering (`--include-ascii`).
 - **Best-Line SFT & Leakage-Free Splits**: Completion-only loss (`train_sft.py`), FEN-level splitting (`training/split.py`), phase-stratified sampling across opening/middlegame/endgame (`data_generation/phase_sampler.py`), and deterministic `$0`-API best-line trace construction (`data_generation/coaching_dataset.py`).
-- **Merged SFT → Staged GRPO**: LoRA adapters merge cleanly (`--merge-adapter`) into a standalone checkpoint before staged GRPO (`rl/train_grpo.py`):
+- **Merged SFT → Staged GRPO**: LoRA adapters merge cleanly (`--merge-and-save`) into a standalone checkpoint before staged GRPO (`rl/train_grpo.py`):
   - **Stage 0** — Legality (`+1` legal / `-1` illegal) + `<think>` format and length-budget shaping (Stockfish-free).
   - **Stage 1** — Adds Stockfish move quality relative to the engine's best move.
   - **Stage 2** — Adds opponent-reply delta (evaluation after Stockfish's best counterplay).
   - Engine errors are isolated as neutral infrastructure failures and abort training if the failure rate exceeds 5%.
 - **100%-Legal Constrained Decoding**: Trie-based UCI `LogitsProcessor` (`rl/constrained_decoding.py`) masks illegal move continuations after `</think>` at inference time without altering pre-move reasoning.
 
-### Track 2 — AI Chess Coach (`v2`)
+### Track 2 — AI Chess Coach (`v2` & Distilled Compact Students)
 
-| Track | Default Model | Gated Official Variant |
-|-------|---------------|------------------------|
-| **v2 (Coach)** | `unsloth/gemma-4-E4B-it` | `google/gemma-4-E4B-it` (via `HF_TOKEN`) |
+| Role | Model (Apache-2.0, Ungated) | Purpose |
+|------|-----------------------------|---------|
+| **v2 (Workstation Coach)** | `unsloth/gemma-4-E4B-it` / `google/gemma-4-E4B-it` | Local / Ollama multimodal chess coaching |
+| **Browser Student** | `Qwen/Qwen3.5-0.8B` | Distilled compact WebGPU narration model |
+| **Local Student** | `google/gemma-4-E2B-it` | Compact local / Ollama narration model |
+| **Offline Prose Writer** | `google/gemma-4-26B-A4B-it` / `Qwen/Qwen3.6-35B-A3B` | Zero-API vLLM data writer filtered 100% by `ACT-Eval` |
 
 Key capabilities:
 - **Stockfish MultiPV Partial Strategy Trees & WDL Classification** (`coach/classifier.py`): Evaluates candidate lines, computes win-probability deltas, and classifies moves (`brilliant`, `best`, `good`, `inaccuracy`, `mistake`, `blunder`).
 - **Maia-2 Human-Elo Calibration (600–2600)** (`coach/maia_sidecar.py`): Estimates human move probabilities at the student's target Elo and flags practical traps where engine-best lines diverge from likely human replies.
 - **3-Level Socratic Hints with 0% Spoilers** (`coach/socratic.py`): Progressive coaching hints (Level 1 strategic theme → Level 2 target piece/square → Level 3 tactical mechanism) verified by `contains_move_spoiler` so answers are never leaked.
 - **ACT-Eval Deterministic Claim Verifier** (`coach/verifier.py`): Audits natural-language coaching claims (checks, captures, hanging pieces, legal moves, tactical motifs) directly against `python-chess` board ground truth.
-- **Full-Game PGN Review & Weakness Profiler** (`coach/game_review.py`): Analyzes complete PGNs, identifies critical turning points, aggregates recurring weaknesses, and produces clickable tactical drills.
+- **Full-Game PGN Review, Openings & Spaced-Repetition Drills** (`coach/game_review.py`, `coach/openings.py`, `coach/drills.py`, `coach/importers.py`): Analyzes PGNs and public Lichess/Chess.com games, detects ECO openings/traps, extracts critical turning points, and schedules SM-2 practice drills.
 - **Offline Interactive Coach Studio UI** (`coach/server.py`, `coach/static/index.html`): Zero-dependency Python stdlib HTTP server (`python -m chessfm.coach.server` or `chessfm-coach`) supporting deterministic Stockfish+Maia coaching out of the box and optional local Ollama LLM narration (`OLLAMA_HOST`, `CHESSFM_OLLAMA_MODEL`).
 
 ---
@@ -104,19 +110,23 @@ Installed console scripts after `pip install -e .`:
 
 ---
 
-## `$0` Cloud & Local Workflows
+## Cloud & Local Workflows
 
-### Modal (L4 GPU) — `scripts/modal_train.py`
+See [docs/TRAINING_GUIDE.md](docs/TRAINING_GUIDE.md) for full multi-machine setup, environment variables, and end-to-end training commands.
+
+### Modal GPU Runner — `scripts/modal_train.py`
 
 ```bash
 pip install modal && modal setup
 
 # End-to-end smoke pipeline: merged SFT -> GRPO Stage 0 -> Stockfish eval
-modal run scripts/modal_train.py --task smoke-pipeline --include-ascii
+modal run scripts/modal_train.py --task smoke-pipeline --track v1 --include-ascii
 
-# Individual stages (v0, v1, or v2/coach; set HF_TOKEN for google/gemma-4-E4B-it)
-modal run scripts/modal_train.py --task sft --track v2 --epochs 3 --include-ascii
-modal run scripts/modal_train.py --task grpo --stage 0 --steps 500 --include-ascii
+# Individual stages (v0, v1, v1.5, v2/coach, student, student-e2b, teacher)
+modal run scripts/modal_train.py --task sft --track v1 --epochs 3 --include-ascii
+modal run scripts/modal_train.py --task sft --track v1.5 --epochs 3 --include-ascii
+modal run scripts/modal_train.py --task grpo --track v1 --stage 0 --steps 500 --include-ascii
+modal run scripts/modal_train.py --task distill-teacher --track teacher --limit 1000
 modal run scripts/modal_train.py --task eval --games 20 --stockfish-level 1
 modal run scripts/modal_train.py --task coach-eval
 modal run scripts/modal_train.py --task export-gguf --model /vol/checkpoints/sft_smoke/final_merged
@@ -167,17 +177,18 @@ ollama create chesscoach -f exports/chesscoach-gemma4/Modelfile
 
 ## Reproducibility & Testing
 
-No fabricated Elo ratings or uncommitted GPU metrics are claimed in this repository. Model checkpoints (`checkpoints/`), raw evaluation outputs (`results/`), and large training corpora are gitignored and regenerated via the commands below.
+No fabricated Elo ratings or uncommitted GPU metrics are claimed in this repository. Verified local Stockfish-16 baselines and CPU micro-experiments are documented in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md). Model checkpoints (`checkpoints/`), raw evaluation outputs (`results/`), and large training corpora are gitignored and regenerated via the commands below.
 
 | Verification / Artifact | Command | Verified Result / Output |
 |-------------------------|---------|--------------------------|
 | Lint & formatting | `venv/bin/ruff check . && venv/bin/ruff format --check .` | Clean pass in CI |
-| Unit & integration suite | `venv/bin/python -m pytest --cov=chessfm --cov-report=term-missing` | 432 passing tests, 93%+ coverage (CI gate ≥80%) |
+| Unit & integration suite | `venv/bin/python -m pytest --cov=chessfm --cov-report=term-missing` | 580+ passing tests, 94%+ coverage (CI gate ≥80%) |
 | TRL CPU smoke test | `venv/bin/python -m pytest tests/test_training_smoke.py` | 1 real SFT step + 1 real GRPO step (`sshleifer/tiny-gpt2`) |
 | 4-Tier Eval Suite | `python -m chessfm.eval.suite --demo` | Structured JSON report across Tiers 1–4 |
+| Open-weight distiller dry-run | `python -m chessfm.data_generation.distill_open_teacher --dry-run --limit 5` | Validates engine-fact schema and teacher prompts (no GPU) |
 | Data conversion & manifest | `python -m chessfm.data_generation.convert_to_training` | `data_generation/sft_train.jsonl` + `data_manifest.json` |
 | SFT dry-run validation | `python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --dry-run` | Schema & split validation (no GPU) |
-| SFT training (GPU) | `python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --merge-adapter` | LoRA + merged checkpoint under `checkpoints/` |
+| SFT training (GPU) | `python -m chessfm.training.train_sft --data data_generation/sft_train.jsonl --merge-and-save` | LoRA + merged checkpoint under `checkpoints/` |
 | GRPO training (GPU) | `python -m chessfm.rl.train_grpo --stage 0 --steps 2000 --checkpoint-every 500` | RL checkpoint under `checkpoints/` |
 | Stockfish match eval (GPU) | `python -m chessfm.rl.evaluate --model <checkpoint> --games 50` | `results/eval_<timestamp>.json` + `results/pgns/eval_<timestamp>.pgn` |
 
@@ -187,12 +198,14 @@ Each evaluation run records reproducibility metadata (git revision, seed, oppone
 
 ## Committed Sample Data
 
-The repository includes a small sample dataset for deterministic pipeline verification; full corpora are generated on demand:
+The repository includes small Stockfish-16-verified sample datasets for deterministic pipeline verification; full corpora are generated on demand:
 
 | File | Contents |
 |------|----------|
 | `data_generation/all_sft_data.jsonl` | Raw engine-validated samples (85 rows) |
-| `data_generation/sft_train.jsonl` | Converted `prompt`/`completion` dataset (44 rows, deduped by FEN) |
+| `data_generation/sft_train.jsonl` | Cleaned `prompt`/`completion` dataset (40 rows, deduped by FEN, >200 cp blunders removed) |
+| `data_generation/coaching_sample.jsonl` | Phase-balanced coaching sample (240 rows, 0 claim violations, 0 Socratic L1/L2 spoilers) |
+| `data_generation/eval_benchmark.jsonl` | Phase-balanced benchmark FENs (40 rows, Stockfish depth-10 ground truth) |
 | `data_generation/positions.txt` | 25,000 elite-game FENs (position pool) |
 | `data_generation/data_manifest.json` | Provenance manifest (counts, sources, timestamp) |
 
@@ -202,30 +215,42 @@ The repository includes a small sample dataset for deterministic pipeline verifi
 
 ```
 chess-fm/
-├── README.md                     # Portfolio & engineering documentation
+├── README.md                     # Project overview and documentation
 ├── AGENTS.md                     # Developer and agent operational guide
 ├── pyproject.toml                # Packaging, console scripts, ruff, pytest, coverage
 ├── setup_env.sh                  # Local venv + Stockfish setup
-├── scripts/                      # $0 cloud & local deployment runners
-│   ├── modal_train.py            # Modal L4 runner (v0/v1/v2, eval, export)
+├── docs/
+│   ├── ARCHITECTURE.md           # Module and dataflow architecture
+│   ├── DESIGN_DECISIONS.md       # Architecture Decision Record (ADR-001 to ADR-008)
+│   ├── TRAINING_GUIDE.md         # Multi-machine setup and GPU training workflows
+│   ├── BENCHMARKS.md             # Verified local Stockfish-16 4-tier baselines
+│   ├── EXPERIMENTS.md            # Reproducible CPU/Stockfish micro-experiments
+│   └── phase0/                   # Phase 0 baseline reports
+├── scripts/                      # Cloud & local deployment runners
+│   ├── modal_train.py            # Dual-image Modal GPU runner (RL, distillation, eval, export)
 │   ├── kaggle_train.py           # Resumable Kaggle 2x T4 runner
 │   └── export_gguf.py            # GGUF conversion + Ollama Modelfile generator
 ├── src/chessfm/
 │   ├── config.py                 # Central config, model tracks, chat/ASCII prompts
 │   ├── fens.py                   # Shared FEN/JSONL readers
 │   ├── load_model.py             # Quantized & PEFT model loading
-│   ├── coach/                    # AI Chess Coach (v2)
+│   ├── coach/                    # AI Chess Coach stack
 │   │   ├── classifier.py         # MultiPV Partial Strategy Trees & WDL classification
 │   │   ├── maia_sidecar.py       # Maia-2 human-Elo (600-2600) calibration & traps
 │   │   ├── socratic.py           # 3-level Socratic hints + 0%-spoiler verifier
 │   │   ├── verifier.py           # ACT-Eval deterministic claim verifier
 │   │   ├── game_review.py        # Full-game PGN review & weakness profiler
+│   │   ├── openings.py           # ECO opening & trap classifier
+│   │   ├── drills.py             # SM-2 spaced-repetition drill engine
+│   │   ├── importers.py          # Lichess & Chess.com public game importers
 │   │   ├── multimodal.py         # CoachOrchestrator Q&A pipeline
 │   │   ├── server.py             # Offline Coach Studio HTTP server & REST API
 │   │   └── static/index.html     # Interactive Coach Studio UI
 │   ├── data_generation/
 │   │   ├── coaching_dataset.py   # Motif detection & $0-API best-line/coaching builder
+│   │   ├── distill_open_teacher.py # Zero-API open-weight rejection-sampled distiller
 │   │   ├── phase_sampler.py      # Opening/middlegame/endgame stratified sampling
+│   │   ├── build_corpus.py       # Stockfish-verified sample corpus builder
 │   │   ├── convert_to_training.py
 │   │   ├── generate_synthetic_data.py
 │   │   ├── download_positions.py
@@ -241,25 +266,28 @@ chess-fm/
 │   │   ├── train_grpo.py         # TRL GRPO training entry point
 │   │   └── evaluate.py           # Paired color-balanced Stockfish evaluator
 │   ├── training/
+│   │   ├── manifest.py           # Reproducible run_manifest.json writer
 │   │   ├── split.py              # Leakage-free FEN-level train/val split
 │   │   └── train_sft.py          # SFT training + adapter merging
 │   ├── benchmarks/phase0/        # Phase 0 model-selection benchmarks
 │   └── scripts/                  # Tokenizer audit & model download helpers
-├── docs/phase0/                  # Phase 0 baseline reports
 ├── data_generation/              # Committed sample data & manifest
 └── tests/                        # Unit, integration, and TRL smoke tests
 ```
 
 ---
 
-## References
+## Documentation & References
 
+- [Design Decisions (ADR-001 to ADR-008)](docs/DESIGN_DECISIONS.md)
+- [Reproducible Setup & Training Guide](docs/TRAINING_GUIDE.md)
+- [Verified Local Benchmarks](docs/BENCHMARKS.md)
+- [CPU & Stockfish-16 Micro-Experiments](docs/EXPERIMENTS.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Phase 0 Baseline Report](docs/phase0/BASELINE_REPORT.md)
 - [GRPO Paper](https://arxiv.org/abs/2402.03300) — Group Relative Policy Optimization
-- [Qwen2.5](https://arxiv.org/abs/2409.12122) — Base model architecture (v0)
-- [ChessLLM](https://arxiv.org/abs/2501.17186) — LLM chess via SFT
 - [DeepSeek-R1](https://arxiv.org/abs/2501.12948) — `<think>` reasoning paradigm
-- [Phase 0 Baseline Report](docs/phase0/BASELINE_REPORT.md) — Model selection
-- [ChessFM Roadmap](chess_fm_roadmap.md) — Implementation plan
+- [ChessLLM](https://arxiv.org/abs/2501.17186) — LLM chess via SFT
 
 ---
 

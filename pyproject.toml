@@ -5,13 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chess-fm"
 version = "0.1.0"
-description = "A 3B parameter model that plays chess by reasoning"
+description = "Engine-grounded chess reasoning models and an open-source AI Chess Coach"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.1.0",
-    # transformers 4.52+ breaks TRL 0.16's GRPOTrainer (_get_train_sampler
-    # signature drift); verified against 4.51.3.
+    # Core CI/CPU baseline: transformers 4.52+ breaks TRL 0.16's GRPOTrainer
+    # (_get_train_sampler signature drift); verified against 4.51.3.
+    # For Qwen3.5 / Gemma 4 GPU runs, install the `modern` extra or use the
+    # modern Modal container image in scripts/modal_train.py.
     "transformers>=4.51.0,<4.52",
     "accelerate>=0.34.0",
     "peft>=0.11.0,<0.25",
@@ -32,6 +34,15 @@ dev = [
 gpu = [
     "bitsandbytes>=0.45.0",
 ]
+modern = [
+    "transformers>=5.2.0",
+    "trl>=1.18.0",
+    "accelerate>=1.0.0",
+    "peft>=0.15.0",
+    "bitsandbytes>=0.45.0",
+    "wandb>=0.19.0",
+    "huggingface-hub>=0.28.0",
+]
 coach = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
@@ -47,6 +58,7 @@ unsloth = [
 [project.scripts]
 chessfm-convert = "chessfm.data_generation.convert_to_training:main"
 chessfm-generate-data = "chessfm.data_generation.generate_synthetic_data:main"
+chessfm-distill-teacher = "chessfm.data_generation.distill_open_teacher:main"
 chessfm-fetch-fens = "chessfm.data_generation.fetch_elite_data:main"
 chessfm-train-sft = "chessfm.training.train_sft:main"
 chessfm-train-grpo = "chessfm.rl.train_grpo:main"
