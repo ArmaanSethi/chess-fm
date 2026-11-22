@@ -344,6 +344,40 @@
       font-size: 0.78rem;
     }
 
+    .sparring-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+
+    .sparring-bar select {
+      padding: 4px 8px;
+      font-size: 0.82rem;
+    }
+
+    .blunder-banner {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--red-soft);
+      border: 1px solid rgba(248, 81, 73, 0.55);
+      color: #ff7b72;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
     button {
       background: var(--panel-alt);
       color: var(--text);
@@ -588,6 +622,32 @@
               <button id="btn-analyze" class="primary">Analyze Position</button>
             </div>
 
+            <div class="sparring-bar">
+              <label for="sparring-select" style="font-weight:600; color:var(--text);">Sparring:</label>
+              <select id="sparring-select" aria-label="Sparring opponent">
+                <option value="off" selected>Off</option>
+                <option value="maia">Maia (Elo)</option>
+                <option value="stockfish">Stockfish</option>
+              </select>
+              <label id="sf-level-wrap" class="muted" style="display:none;">
+                Lvl:
+                <select id="sf-level-select" aria-label="Stockfish skill level">
+                  <option value="0">0</option>
+                  <option value="2" selected>2</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="15">15</option>
+                  <option value="20">20</option>
+                </select>
+              </label>
+              <span id="sparring-status" class="muted mono" style="margin-left:auto;"></span>
+            </div>
+
+            <div id="blunder-banner" class="blunder-banner" role="alert">
+              <span id="blunder-text"></span>
+              <button id="btn-undo-hint" class="primary">Undo &amp; Get Hint</button>
+            </div>
+
             <div class="fen-row">
               <input id="fen-input" type="text" aria-label="FEN position" />
               <button id="btn-load-fen">Load FEN</button>
@@ -736,6 +796,7 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
       maiaTop: [],
       imagePath: null,
       imageDataUrl: null,
+      sparringBusy: false,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -960,7 +1021,63 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
       });
     }
 
+    function hideBlunderBanner() {
+      $("blunder-banner").style.display = "none";
+      $("blunder-text").textContent = "";
+    }
+
+    function showBlunderBanner(feedback) {
+      const cpLoss = Math.round(Number(feedback.cp_loss || 0));
+      const wdlDrop = Number(feedback.wdl_drop || 0).toFixed(1);
+      $("blunder-text").textContent =
+        `Blunder alert: ${feedback.san} (${feedback.label}, -${cpLoss} cp, -${wdlDrop}% win prob).`;
+      $("blunder-banner").style.display = "flex";
+    }
+
+    async function playSparringMove(prevFen, studentMoveUci, opponent) {
+      state.sparringBusy = true;
+      const oppLabel = opponent === "maia" ? "Maia" : "Stockfish";
+      $("sparring-status").textContent = `${oppLabel} thinking...`;
+      try {
+        const data = await apiJson("/api/play-move", {
+          fen: prevFen,
+          student_move: studentMoveUci,
+          opponent,
+          student_elo: Number($("elo-select").value),
+          stockfish_level: Number($("sf-level-select").value),
+        });
+        state.fen = data.fen;
+        if (data.ai_move) {
+          state.lastMove = {
+            from: data.ai_move.slice(0, 2),
+            to: data.ai_move.slice(2, 4),
+            uci: data.ai_move,
+            san: data.ai_san || data.ai_move,
+            prevFen,
+          };
+          $("sparring-status").textContent = `${oppLabel} played ${data.ai_san || data.ai_move}`;
+        }
+        if (data.game_over) {
+          $("sparring-status").textContent = `Game Over (${data.result || "*"})`;
+        }
+        if (data.student_feedback && data.student_feedback.is_blunder) {
+          showBlunderBanner(data.student_feedback);
+        }
+        updateLastMoveBadge();
+        renderBoard();
+        await runAnalyze();
+      } catch (err) {
+        state.fen = prevFen;
+        state.history.pop();
+        $("sparring-status").textContent = `Sparring error: ${err.message}`;
+        renderBoard();
+      } finally {
+        state.sparringBusy = false;
+      }
+    }
+
     function onSquareClick(sq) {
+      if (state.sparringBusy) return;
       if (state.selectedSquare) {
         const candidates = state.legalMoves.filter(
           (m) => m.from === state.selectedSquare && m.to === sq
@@ -969,6 +1086,7 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
           // Prefer queen promotion if promotion move exists.
           const chosen = candidates.find((m) => m.uci.endsWith("q")) || candidates[0];
           const prevFen = state.fen;
+          hideBlunderBanner();
           state.history.push({ fen: prevFen, moveUci: chosen.uci, moveSan: chosen.san });
           state.lastMove = {
             from: chosen.from,
@@ -981,7 +1099,13 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
           state.selectedSquare = null;
           updateLastMoveBadge();
           renderBoard();
-          runAnalyze();
+
+          const sparringMode = $("sparring-select").value;
+          if (sparringMode === "maia" || sparringMode === "stockfish") {
+            playSparringMove(prevFen, chosen.uci, sparringMode);
+          } else {
+            runAnalyze();
+          }
           return;
         }
       }
@@ -1260,32 +1384,62 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
     });
 
     $("btn-undo").addEventListener("click", () => {
-      if (!state.history.length) return;
+      if (!state.history.length || state.sparringBusy) return;
       const prev = state.history.pop();
       state.fen = prev.fen;
       state.selectedSquare = null;
       state.lastMove = null;
+      hideBlunderBanner();
+      $("sparring-status").textContent = "";
       updateLastMoveBadge();
       renderBoard();
       runAnalyze();
     });
 
+    $("btn-undo-hint").addEventListener("click", () => {
+      if (!state.history.length || state.sparringBusy) return;
+      const prev = state.history.pop();
+      state.fen = prev.fen;
+      state.selectedSquare = null;
+      state.lastMove = null;
+      hideBlunderBanner();
+      $("sparring-status").textContent = "Rewound blunder — check Hint L1";
+      updateLastMoveBadge();
+      renderBoard();
+      runAnalyze();
+      runHint(1);
+    });
+
+    $("sparring-select").addEventListener("change", () => {
+      const mode = $("sparring-select").value;
+      $("sf-level-wrap").style.display = mode === "stockfish" ? "inline-flex" : "none";
+      $("sparring-status").textContent =
+        mode === "off" ? "" : `Active: ${mode === "maia" ? "Maia (Elo)" : "Stockfish"}`;
+      hideBlunderBanner();
+    });
+
     $("btn-reset").addEventListener("click", () => {
+      if (state.sparringBusy) return;
       state.fen = START_FEN;
       state.history = [];
       state.selectedSquare = null;
       state.lastMove = null;
+      hideBlunderBanner();
+      $("sparring-status").textContent = "";
       updateLastMoveBadge();
       renderBoard();
       runAnalyze();
     });
 
     $("btn-load-fen").addEventListener("click", () => {
+      if (state.sparringBusy) return;
       const val = $("fen-input").value.trim();
       if (!val) return;
       state.fen = val;
       state.selectedSquare = null;
       state.lastMove = null;
+      hideBlunderBanner();
+      $("sparring-status").textContent = "";
       updateLastMoveBadge();
       renderBoard();
       runAnalyze();

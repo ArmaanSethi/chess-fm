@@ -14,6 +14,7 @@ USAGE:
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,7 @@ from chessfm.config import (
     get_assistant_role,
 )
 from chessfm.fens import read_jsonl
+from chessfm.training.manifest import write_run_manifest
 from chessfm.training.split import fen_level_split
 
 GEMMA_ASSISTANT_OPEN = "<|turn>model\n"
@@ -165,6 +167,7 @@ def main():
         print("\nDry run complete. Data looks good!")
         return
 
+    import torch
     from datasets import Dataset
     from trl import SFTTrainer
 
@@ -211,7 +214,9 @@ def main():
         args=training_args,
     )
 
+    train_start = time.monotonic()
     trainer.train()
+    wall_clock_seconds = round(time.monotonic() - train_start, 2)
 
     print("\nSaving model...")
     final_dir = args.output / "final"
@@ -226,6 +231,25 @@ def main():
         merged_model.save_pretrained(merged_dir)
         tokenizer.save_pretrained(merged_dir)
         print(f"Merged model saved to: {merged_dir}")
+
+    gpu_type = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+    manifest_path = write_run_manifest(
+        args.output,
+        model_id=args.model,
+        stage="sft",
+        seed=args.seed,
+        hyperparameters={
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lr": args.lr,
+            "include_ascii": args.include_ascii,
+            "merge_and_save": args.merge_and_save,
+        },
+        dataset_path=args.data,
+        gpu_type=gpu_type,
+        wall_clock_seconds=wall_clock_seconds,
+    )
+    print(f"Run manifest saved to: {manifest_path}")
 
 
 if __name__ == "__main__":
