@@ -51,9 +51,14 @@ chessfm-fetch-fens = "chessfm.data_generation.fetch_elite_data:main"
 chessfm-train-sft = "chessfm.training.train_sft:main"
 chessfm-train-grpo = "chessfm.rl.train_grpo:main"
 chessfm-evaluate = "chessfm.rl.evaluate:main"
+chessfm-coach = "chessfm.coach.server:main"
+chessfm-eval-suite = "chessfm.eval.suite:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"chessfm.coach" = ["static/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
