@@ -30,6 +30,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import chess
+import chess.engine
 import requests
 
 from chessfm.coach.classifier import (
@@ -563,6 +564,177 @@ class CoachServerContext:
             "weakness_profile": profile,
         }
 
+    def _pick_maia_reply(self, board: chess.Board, student_elo: int) -> chess.Move:
+        """Select the top legal move predicted by Maia-2 for ``board``."""
+        maia_pred = self.maia.predict_human_moves(board.fen(), student_elo=student_elo, top_k=3)
+        for uci, _prob in maia_pred.get("top_moves", []):
+            try:
+                cand = chess.Move.from_uci(uci)
+            except ValueError:
+                continue
+            if cand in board.legal_moves:
+                return cand
+        return next(iter(board.legal_moves))
+
+    def _pick_stockfish_reply(
+        self,
+        board: chess.Board,
+        stockfish_level: int,
+        student_elo: int,
+    ) -> chess.Move:
+        """Select a Stockfish reply at clamped ``Skill Level`` (depth 6), falling back to Maia."""
+        if self.engine is None:
+            return self._pick_maia_reply(board, student_elo)
+
+        configured_skill = False
+        try:
+            if hasattr(self.engine, "configure"):
+                try:
+                    self.engine.configure({"Skill Level": stockfish_level})
+                    configured_skill = True
+                except (chess.engine.EngineError, OSError):
+                    configured_skill = False
+
+            limit = chess.engine.Limit(depth=6)
+            move_obj: chess.Move | None = None
+            if hasattr(self.engine, "play"):
+                play_res = self.engine.play(board, limit)
+                move_obj = getattr(play_res, "move", None)
+            else:
+                info = self.engine.analyse(board, limit)
+                if isinstance(info, list):
+                    info = info[0] if info else {}
+                pv = info.get("pv") if isinstance(info, dict) else None
+                if pv:
+                    move_obj = pv[0]
+
+            if move_obj is not None and move_obj in board.legal_moves:
+                return move_obj
+        except (chess.engine.EngineError, OSError) as exc:
+            logger.warning("Stockfish play-move failed (%s); falling back to Maia.", exc)
+        finally:
+            if configured_skill and hasattr(self.engine, "configure"):
+                try:
+                    self.engine.configure({"Skill Level": 20})
+                except (chess.engine.EngineError, OSError):
+                    pass
+
+        return self._pick_maia_reply(board, student_elo)
+
+    def handle_play_move(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Evaluate an optional student move and generate a Maia or Stockfish sparring reply."""
+        board = _parse_fen(payload.get("fen"))
+
+        raw_opponent = payload.get("opponent")
+        if raw_opponent is None:
+            opponent = "maia"
+        elif not isinstance(raw_opponent, str):
+            raise ValueError("Field 'opponent' must be 'maia' or 'stockfish'.")
+        else:
+            opponent = raw_opponent.strip().lower()
+        if opponent not in ("maia", "stockfish"):
+            raise ValueError("Field 'opponent' must be 'maia' or 'stockfish'.")
+
+        student_elo = _parse_int(payload.get("student_elo"), "student_elo", 1200, lo=400, hi=3200)
+
+        raw_sf_level = payload.get("stockfish_level")
+        if raw_sf_level is None:
+            stockfish_level = 2
+        elif isinstance(raw_sf_level, bool) or not isinstance(raw_sf_level, (int, float, str)):
+            raise ValueError("Field 'stockfish_level' must be an integer.")
+        else:
+            try:
+                stockfish_level = max(0, min(20, int(raw_sf_level)))
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Field 'stockfish_level' must be an integer.") from exc
+
+        raw_student_move = payload.get("student_move")
+        student_move: str | None = None
+        student_move_obj: chess.Move | None = None
+        if raw_student_move is not None:
+            if not isinstance(raw_student_move, str):
+                raise ValueError("Field 'student_move' must be a UCI move string.")
+            cleaned_move = raw_student_move.strip().lower()
+            if cleaned_move:
+                student_move = cleaned_move
+                try:
+                    student_move_obj = chess.Move.from_uci(student_move)
+                except ValueError as exc:
+                    raise ValueError(f"Invalid UCI student_move: {student_move!r}") from exc
+                if student_move_obj not in board.legal_moves:
+                    raise ValueError(f"Illegal student_move {student_move!r} for FEN.")
+
+        student_feedback: dict[str, Any] | None = None
+
+        with self.engine_lock:
+            if student_move is not None and student_move_obj is not None:
+                if self.engine is not None:
+                    tree = build_partial_strategy_tree(
+                        fen=board.fen(),
+                        engine=self.engine,
+                        depth=min(self.default_depth, 8),
+                        multipv=1,
+                        pv_plies=4,
+                        student_move=student_move,
+                    )
+                else:
+                    tree = _heuristic_strategy_tree(
+                        board,
+                        depth=min(self.default_depth, 6),
+                        student_move=student_move,
+                    )
+                student_branch = tree.get("student_branch")
+                if student_branch is not None:
+                    cls = student_branch["classification"]
+                    label = cls["label"]
+                    cp_loss = float(cls["cp_loss"])
+                    wdl_drop = float(cls["win_prob_drop"])
+                    is_blunder = (
+                        label in ("Blunder", "Missed Win") or cp_loss >= 250.0 or wdl_drop >= 20.0
+                    )
+                    student_feedback = {
+                        "move": student_branch["move"],
+                        "san": student_branch["san"],
+                        "label": label,
+                        "cp_loss": round(cp_loss, 2),
+                        "wdl_drop": round(wdl_drop, 2),
+                        "is_blunder": bool(is_blunder),
+                    }
+
+                board.push(student_move_obj)
+
+            if board.is_game_over():
+                return {
+                    "fen": board.fen(),
+                    "ai_move": None,
+                    "ai_san": None,
+                    "opponent": opponent,
+                    "student_feedback": student_feedback,
+                    "game_over": True,
+                    "result": board.result(),
+                }
+
+            if opponent == "maia":
+                ai_move_obj = self._pick_maia_reply(board, student_elo)
+            else:
+                ai_move_obj = self._pick_stockfish_reply(board, stockfish_level, student_elo)
+
+        ai_san = board.san(ai_move_obj)
+        ai_uci = ai_move_obj.uci()
+        board.push(ai_move_obj)
+        game_over = board.is_game_over()
+        result = board.result() if game_over else None
+
+        return {
+            "fen": board.fen(),
+            "ai_move": ai_uci,
+            "ai_san": ai_san,
+            "opponent": opponent,
+            "student_feedback": student_feedback,
+            "game_over": game_over,
+            "result": result,
+        }
+
 
 class CoachHTTPServer(ThreadingHTTPServer):
     """Threaded HTTP server carrying a shared :class:`CoachServerContext`."""
@@ -675,6 +847,7 @@ class CoachRequestHandler(BaseHTTPRequestHandler):
             "/api/hint": ctx.handle_hint,
             "/api/coach": ctx.handle_coach,
             "/api/review": ctx.handle_review,
+            "/api/play-move": ctx.handle_play_move,
         }
         handler = routes.get(path)
         if handler is None:

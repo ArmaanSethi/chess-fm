@@ -114,6 +114,12 @@ class TestValidateWithStockfish:
         is_legal, loss, _ = validate_with_stockfish(_MockEngine(), self.FEN, "not-a-move")
         assert is_legal is False
 
+    def test_engine_none_returns_invalid(self):
+        is_legal, loss, best = validate_with_stockfish(None, self.FEN, "e2e4")
+        assert is_legal is False
+        assert loss is None
+        assert best is None
+
 
 class TestGeneratePositions:
     def test_count_respected(self):
@@ -180,6 +186,40 @@ class TestGenBatch:
         gen_batch(api, engine, [self.FEN], out, depth=1, delay=0)
         assert sum(1 for _ in out.open() if _.strip()) == 0
 
+    def test_illegal_move_is_skipped(self, tmp_path):
+        out = tmp_path / "data.jsonl"
+        api = _FakeAPI(["<think>push pawn three squares.</think>\ne2e5"])
+        engine = _MockEngineWithPV(pv="e2e4")
+        gen_batch(api, engine, [self.FEN], out, depth=1, delay=0)
+        assert sum(1 for _ in out.open() if _.strip()) == 0
+
+    def test_api_error_is_caught_and_batch_continues(self, tmp_path, capsys):
+        class _FlakyAPI:
+            provider = "openai"
+            model = "gpt-test"
+
+            def __init__(self):
+                self.calls = 0
+
+            def complete(self, prompt):
+                self.calls += 1
+                if self.calls == 1:
+                    raise RuntimeError("transient 429")
+                return "<think>solid opening.</think>\ne2e4"
+
+        out = tmp_path / "data.jsonl"
+        gen_batch(_FlakyAPI(), _MockEngineWithPV(pv="e2e4"), [self.FEN, self.FEN], out, delay=0)
+        rows = [json.loads(line) for line in out.open() if line.strip()]
+        assert len(rows) == 1
+        assert "API error on 0: transient 429" in capsys.readouterr().out
+
+    def test_progress_logged_every_ten_samples(self, tmp_path, capsys):
+        out = tmp_path / "data.jsonl"
+        api = _FakeAPI(["<think>ok.</think>\ne2e4"] * 10)
+        gen_batch(api, _MockEngineWithPV(pv="e2e4"), [self.FEN] * 10, out, depth=1, delay=0)
+        stdout = capsys.readouterr().out
+        assert "10/10 processed, 10 kept, 10 legal, 0 skipped" in stdout
+
 
 class TestProviderAPI:
     def test_unknown_provider_raises(self):
@@ -227,3 +267,89 @@ class TestProviderAPI:
         monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp())
         api = ProviderAPI("gemini", "gemini-test", "key")
         assert api.complete("p") == "yo"
+
+
+class TestMainCLI:
+    FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+    def test_missing_api_key_exits(self, tmp_path, monkeypatch):
+        from chessfm.data_generation import generate_synthetic_data as gsd
+
+        pos = tmp_path / "positions.txt"
+        pos.write_text(self.FEN + "\n")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr(
+            "sys.argv",
+            ["prog", "--provider", "openai", "--model", "gpt-4o", "--positions", str(pos)],
+        )
+        with pytest.raises(SystemExit, match="Missing OPENAI_API_KEY"):
+            gsd.main()
+
+    def test_missing_stockfish_exits(self, tmp_path, monkeypatch):
+        from chessfm.data_generation import generate_synthetic_data as gsd
+
+        pos = tmp_path / "positions.txt"
+        pos.write_text(self.FEN + "\n")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setattr(gsd, "open_engine", lambda: None)
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "prog",
+                "--provider",
+                "anthropic",
+                "--model",
+                "claude-test",
+                "--positions",
+                str(pos),
+            ],
+        )
+        with pytest.raises(SystemExit, match="Stockfish not found"):
+            gsd.main()
+
+    def test_main_runs_batch_and_closes_engine(self, tmp_path, monkeypatch):
+        from chessfm.data_generation import generate_synthetic_data as gsd
+
+        pos = tmp_path / "positions.txt"
+        pos.write_text(self.FEN + "\n")
+        out = tmp_path / "nested" / "out.jsonl"
+
+        fake_engine = _MockEngineWithPV(pv="e2e4")
+        closed = []
+
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        monkeypatch.setattr(gsd, "open_engine", lambda: fake_engine)
+        monkeypatch.setattr(gsd, "close_engine", lambda eng: closed.append(eng))
+        monkeypatch.setattr(
+            gsd.ProviderAPI,
+            "complete",
+            lambda self, prompt: "<think>develop center.</think>\ne2e4",
+        )
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "prog",
+                "--provider",
+                "gemini",
+                "--model",
+                "gemini-test",
+                "--positions",
+                str(pos),
+                "--output",
+                str(out),
+                "--limit",
+                "1",
+                "--depth",
+                "1",
+                "--delay",
+                "0",
+            ],
+        )
+
+        gsd.main()
+
+        assert closed == [fake_engine]
+        rows = [json.loads(line) for line in out.open() if line.strip()]
+        assert len(rows) == 1
+        assert rows[0]["move"] == "e2e4"
+        assert rows[0]["model"] == "gemini:gemini-test"

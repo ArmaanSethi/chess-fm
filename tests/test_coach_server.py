@@ -39,6 +39,22 @@ SAMPLE_PGN = (
 class FakeEngine:
     """Minimal deterministic Stockfish stand-in for fast server tests."""
 
+    def __init__(self) -> None:
+        self.configured_options: list[dict[str, Any]] = []
+
+    def configure(self, options: dict[str, Any]) -> None:
+        self.configured_options.append(dict(options))
+
+    def play(
+        self,
+        board: chess.Board,
+        limit: chess.engine.Limit,
+    ) -> chess.engine.PlayResult:
+        info = self.analyse(board, limit, multipv=1)
+        assert isinstance(info, dict)
+        move = info["pv"][0]
+        return chess.engine.PlayResult(move=move, ponder=None)
+
     def analyse(
         self,
         board: chess.Board,
@@ -613,3 +629,207 @@ def test_index_html_uses_filereader_for_image_data_url(server_url: str) -> None:
     assert resp.status_code == 200
     assert "readAsDataURL" in resp.text
     assert "image_data_url" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# POST /api/play-move (Live Sparring Mode)
+# ---------------------------------------------------------------------------
+
+
+def test_play_move_maia_reply_with_and_without_student_move(server_url: str) -> None:
+    resp = requests.post(
+        f"{server_url}/api/play-move",
+        json={
+            "fen": START_FEN,
+            "student_move": "e2e4",
+            "opponent": "maia",
+            "student_elo": 1200,
+        },
+        timeout=5,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["opponent"] == "maia"
+    assert data["game_over"] is False
+    assert data["result"] is None
+    assert isinstance(data["ai_move"], str) and len(data["ai_move"]) >= 4
+    assert isinstance(data["ai_san"], str) and data["ai_san"]
+
+    fb = data["student_feedback"]
+    assert fb is not None
+    assert fb["move"] == "e2e4"
+    assert fb["san"] == "e4"
+    assert isinstance(fb["label"], str)
+    assert isinstance(fb["cp_loss"], (int, float))
+    assert isinstance(fb["wdl_drop"], (int, float))
+    assert isinstance(fb["is_blunder"], bool)
+
+    # Verify the returned FEN matches pushing e2e4 then ai_move.
+    expected = chess.Board(START_FEN)
+    expected.push_uci("e2e4")
+    expected.push_uci(data["ai_move"])
+    assert data["fen"] == expected.fen()
+
+    # Without student_move, Maia replies directly for side to move.
+    resp_no_student = requests.post(
+        f"{server_url}/api/play-move",
+        json={"fen": START_FEN, "opponent": "maia", "student_elo": 1400},
+        timeout=5,
+    )
+    assert resp_no_student.status_code == 200
+    d2 = resp_no_student.json()
+    assert d2["student_feedback"] is None
+    assert d2["ai_move"] is not None
+    assert d2["game_over"] is False
+
+
+def test_play_move_stockfish_reply_and_fallback(server_url: str) -> None:
+    fake_engine = FakeEngine()
+    with running_server(engine=fake_engine, auto_open_engine=False, depth=4) as (_, base_url):
+        resp = requests.post(
+            f"{base_url}/api/play-move",
+            json={
+                "fen": START_FEN,
+                "student_move": "e2e4",
+                "opponent": "stockfish",
+                "stockfish_level": 5,
+            },
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["opponent"] == "stockfish"
+        assert data["ai_move"] is not None
+        assert data["ai_san"] is not None
+        assert data["game_over"] is False
+        assert {"Skill Level": 5} in fake_engine.configured_options
+        assert fake_engine.configured_options[-1] == {"Skill Level": 20}
+
+        # Clamping out-of-range stockfish_level (> 20 -> 20, < 0 -> 0).
+        fake_engine.configured_options.clear()
+        resp_clamp = requests.post(
+            f"{base_url}/api/play-move",
+            json={"fen": START_FEN, "opponent": "stockfish", "stockfish_level": 99},
+            timeout=5,
+        )
+        assert resp_clamp.status_code == 200
+        assert fake_engine.configured_options[0] == {"Skill Level": 20}
+
+    # Without Stockfish engine, opponent="stockfish" falls back cleanly to Maia.
+    resp_fallback = requests.post(
+        f"{server_url}/api/play-move",
+        json={"fen": START_FEN, "student_move": "d2d4", "opponent": "stockfish"},
+        timeout=5,
+    )
+    assert resp_fallback.status_code == 200
+    d_fb = resp_fallback.json()
+    assert d_fb["ai_move"] is not None
+    assert d_fb["game_over"] is False
+
+
+def test_play_move_instant_blunder_detection(engine_server_url: str) -> None:
+    # In TACTICAL_FEN, h5f7 is Scholar's mate (+9900 cp), so playing a2a3 is a massive blunder.
+    resp = requests.post(
+        f"{engine_server_url}/api/play-move",
+        json={
+            "fen": TACTICAL_FEN,
+            "student_move": "a2a3",
+            "opponent": "maia",
+            "student_elo": 1200,
+        },
+        timeout=5,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    fb = data["student_feedback"]
+    assert fb is not None
+    assert fb["move"] == "a2a3"
+    assert fb["san"] == "a3"
+    assert fb["is_blunder"] is True
+    assert fb["cp_loss"] > 200
+    assert fb["wdl_drop"] > 20
+    assert data["ai_move"] is not None
+    assert data["game_over"] is False
+
+
+def test_play_move_game_over_scholars_mate(engine_server_url: str) -> None:
+    resp = requests.post(
+        f"{engine_server_url}/api/play-move",
+        json={
+            "fen": TACTICAL_FEN,
+            "student_move": "h5f7",
+            "opponent": "stockfish",
+        },
+        timeout=5,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["game_over"] is True
+    assert data["result"] == "1-0"
+    assert data["ai_move"] is None
+    assert data["ai_san"] is None
+    assert data["student_feedback"] is not None
+    assert data["student_feedback"]["move"] == "h5f7"
+    assert data["student_feedback"]["san"] == "Qxf7#"
+    assert data["student_feedback"]["is_blunder"] is False
+
+
+def test_play_move_invalid_requests_return_400(server_url: str) -> None:
+    # Invalid FEN
+    assert (
+        requests.post(
+            f"{server_url}/api/play-move",
+            json={"fen": "not-a-fen", "opponent": "maia"},
+            timeout=5,
+        ).status_code
+        == 400
+    )
+
+    # Illegal move
+    assert (
+        requests.post(
+            f"{server_url}/api/play-move",
+            json={"fen": START_FEN, "student_move": "e2e5", "opponent": "maia"},
+            timeout=5,
+        ).status_code
+        == 400
+    )
+
+    # Malformed UCI move
+    assert (
+        requests.post(
+            f"{server_url}/api/play-move",
+            json={"fen": START_FEN, "student_move": "notamove", "opponent": "maia"},
+            timeout=5,
+        ).status_code
+        == 400
+    )
+
+    # Invalid opponent
+    assert (
+        requests.post(
+            f"{server_url}/api/play-move",
+            json={"fen": START_FEN, "student_move": "e2e4", "opponent": "random-bot"},
+            timeout=5,
+        ).status_code
+        == 400
+    )
+
+    # Invalid stockfish_level
+    assert (
+        requests.post(
+            f"{server_url}/api/play-move",
+            json={"fen": START_FEN, "opponent": "stockfish", "stockfish_level": "hard"},
+            timeout=5,
+        ).status_code
+        == 400
+    )
+
+
+def test_index_html_includes_sparring_controls(server_url: str) -> None:
+    resp = requests.get(f"{server_url}/", timeout=5)
+    assert resp.status_code == 200
+    assert "sparring-select" in resp.text
+    assert "/api/play-move" in resp.text
+    assert "blunder-banner" in resp.text
+    assert "btn-undo-hint" in resp.text

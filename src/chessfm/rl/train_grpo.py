@@ -21,6 +21,7 @@ import argparse
 import logging
 import os
 import random
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -40,6 +41,7 @@ from chessfm.fens import read_fens
 from chessfm.rl.engine import close_engine, open_engine
 from chessfm.rl.move_utils import extract_fen_from_prompt, parse_move_from_output
 from chessfm.rl.rewards import EngineAnalysisError, combined_reward
+from chessfm.training.manifest import write_run_manifest
 
 logger = logging.getLogger("chessfm.train_grpo")
 
@@ -338,16 +340,40 @@ def main():
 
     try:
         print("\nStarting GRPO Training Loop...")
+        train_start = time.monotonic()
         if args.resume and any(args.output.glob("checkpoint-*")):
             print("Resuming from latest checkpoint...")
             trainer.train(resume_from_checkpoint=True)
         else:
             trainer.train()
+        wall_clock_seconds = round(time.monotonic() - train_start, 2)
 
         final_path = args.output / f"stage{args.stage}_final"
         model.save_pretrained(str(final_path))
         tokenizer.save_pretrained(str(final_path))
         print(f"\nTraining complete! Model saved to {final_path}")
+
+        gpu_type = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+        manifest_path = write_run_manifest(
+            args.output,
+            model_id=args.model,
+            stage=f"grpo_stage{args.stage}",
+            seed=args.seed,
+            hyperparameters={
+                "steps": args.steps,
+                "num_generations": args.num_generations,
+                "per_device_batch_size": args.per_device_batch_size,
+                "grad_accum": args.grad_accum,
+                "lr": args.lr,
+                "temperature": args.temperature,
+                "beta": args.beta,
+                "include_ascii": args.include_ascii,
+            },
+            dataset_path=args.positions,
+            gpu_type=gpu_type,
+            wall_clock_seconds=wall_clock_seconds,
+        )
+        print(f"Run manifest saved to: {manifest_path}")
     finally:
         close_engine(engine)
 
