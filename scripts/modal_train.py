@@ -117,10 +117,17 @@ def resolve_track_model(model: str = "", track: str = "", use_official_gemma: bo
 
 # Forward optional runtime secrets (HF_TOKEN for Hub uploads / private repos,
 # WANDB_API_KEY for experiment tracking) strictly from the local environment.
-_RUNTIME_SECRET_DICT = {
+# When WANDB_API_KEY is absent, explicitly disable W&B so Hugging Face Trainer
+# does not block on interactive login prompts inside headless containers.
+_RUNTIME_SECRET_DICT: dict[str, str] = {
     key: os.environ[key] for key in ("HF_TOKEN", "WANDB_API_KEY") if os.environ.get(key)
 }
-_SECRETS = [modal.Secret.from_dict(_RUNTIME_SECRET_DICT)] if _RUNTIME_SECRET_DICT else []
+if "WANDB_API_KEY" in _RUNTIME_SECRET_DICT:
+    _RUNTIME_SECRET_DICT.setdefault("WANDB_PROJECT", "chess-fm")
+else:
+    _RUNTIME_SECRET_DICT["WANDB_DISABLED"] = "true"
+    _RUNTIME_SECRET_DICT["WANDB_MODE"] = "disabled"
+_SECRETS = [modal.Secret.from_dict(_RUNTIME_SECRET_DICT)]
 
 _REPO_IGNORE = [
     "venv",
