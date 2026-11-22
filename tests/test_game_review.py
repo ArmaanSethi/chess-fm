@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
+
 import chess
 import chess.engine
 import pytest
@@ -13,6 +17,8 @@ from chessfm.coach.game_review import (
     _tag_weakness,
     build_weakness_profile,
     cp_to_win_prob,
+    format_review_report,
+    main,
     move_accuracy,
     review_pgn_game,
 )
@@ -345,3 +351,87 @@ class TestBuildWeaknessProfile:
         assert len(profile["top_priorities"]) == 3
         assert profile["top_priorities"][0]["category"] == "hanging_piece"
         assert len(profile["drills"]) == 4
+
+
+class TestGameReviewCLI:
+    def test_cli_help(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "chessfm.coach.game_review", "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        assert "--pgn" in proc.stdout
+        assert "--color" in proc.stdout
+        assert "--elo" in proc.stdout
+        assert "--depth" in proc.stdout
+        assert "--json" in proc.stdout
+
+    def test_cli_review_pgn_json(self, tmp_path):
+        pgn_file = tmp_path / "sample.pgn"
+        pgn_file.write_text(HANGING_QUEEN_PGN, encoding="utf-8")
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "chessfm.coach.game_review",
+                "--pgn",
+                str(pgn_file),
+                "--color",
+                "white",
+                "--elo",
+                "1200",
+                "--depth",
+                "6",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0, proc.stderr
+        payload = json.loads(proc.stdout)
+        assert payload["student_color"] == "white"
+        assert payload["student_elo"] == 1200
+        assert payload["engine_used"] in ("stockfish", "heuristic")
+        assert payload["counts"]["Blunder"] >= 1
+        assert payload["critical_moments"][0]["played_move"] == "h5e5"
+
+    def test_main_human_readable_report_and_fallback(self, tmp_path, monkeypatch, capsys):
+        pgn_file = tmp_path / "sample.pgn"
+        pgn_file.write_text(HANGING_QUEEN_PGN, encoding="utf-8")
+        monkeypatch.setattr("chessfm.coach.game_review.open_engine", lambda **_: None)
+
+        rc = main(
+            [
+                "--pgn",
+                str(pgn_file),
+                "--color",
+                "white",
+                "--elo",
+                "1350",
+                "--depth",
+                "6",
+            ]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "ChessFM Game Review" in out
+        assert "Engine: heuristic" in out
+        assert "Elo 1350" in out
+        assert "Critical Moments:" in out
+        assert "Qxe5+" in out
+
+    def test_main_missing_file_returns_nonzero(self, tmp_path, capsys):
+        missing = tmp_path / "does_not_exist.pgn"
+        rc = main(["--pgn", str(missing)])
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "PGN file not found" in err
+
+    def test_format_review_report_no_critical_moments(self):
+        review = review_pgn_game(EMPTY_MOVES_PGN, engine=None)
+        text = format_review_report(review)
+        assert "Critical Moments: none" in text

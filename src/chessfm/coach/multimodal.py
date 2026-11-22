@@ -29,6 +29,8 @@ from chessfm.coach.game_review import (
     cp_to_win_prob,
     review_pgn_game,
 )
+from chessfm.coach.maia_sidecar import MaiaSidecar
+from chessfm.coach.verifier import verify_and_repair, verify_claims
 from chessfm.config import render_ascii_board
 from chessfm.rl.engine import _cp_from_white, close_engine
 
@@ -161,14 +163,15 @@ def build_gemma4_coach_messages(
     user_question: str,
     context: dict[str, Any] | None = None,
     image_path: str | None = None,
+    image_data_url: str | None = None,
     audio_transcript: str | None = None,
 ) -> list[dict[str, Any]]:
     """Construct Gemma 4 multimodal ``messages`` for chess coaching.
 
     Uses strict Gemma 4 roles (``"user"`` and ``"model"``), attaches a
-    ``{"type": "image", "image": image_path}`` part when ``image_path`` is
-    provided, includes optional voice transcript text, and embeds Stockfish /
-    Maia grounding so the LLM never guesses board state.
+    ``{"type": "image", "image": ...}`` part when ``image_data_url`` or
+    ``image_path`` is provided, includes optional voice transcript text, and
+    embeds Stockfish / Maia grounding so the LLM never guesses board state.
 
     Args:
         fen: Valid FEN string for the current chess position.
@@ -176,6 +179,8 @@ def build_gemma4_coach_messages(
         context: Optional grounding dictionary (may include ``stockfish``,
             ``maia``, ``student_elo``, ``hint_level``, and prior ``history``).
         image_path: Optional path or URI to a board image for multimodal input.
+        image_data_url: Optional base64 ``data:image/...`` URI for inline
+            multimodal image input (takes precedence over ``image_path``).
         audio_transcript: Optional ASR transcript of a student's spoken query.
 
     Returns:
@@ -199,7 +204,9 @@ def build_gemma4_coach_messages(
         messages.append({"role": role, "content": content_parts})
 
     user_parts: list[dict[str, Any]] = []
-    if image_path:
+    if image_data_url:
+        user_parts.append({"type": "image", "image": str(image_data_url)})
+    elif image_path:
         user_parts.append({"type": "image", "image": str(image_path)})
 
     grounding_text = _format_grounding_block(board, ctx)
@@ -469,33 +476,104 @@ def _default_socratic_hint(
     return {"level": 3, "hint": nudge, "reveals_move": True, "best_move": best_uci}
 
 
+def _format_verifier_result(
+    raw: dict[str, Any],
+    *,
+    retries_used: int = 0,
+) -> dict[str, Any]:
+    """Normalize ``verify_claims`` output with backward-compatible keys."""
+    violations = list(raw.get("violations") or [])
+    passed = bool(raw.get("passed", len(violations) == 0))
+    issues = [str(v.get("reason", "")) for v in violations]
+    illegal_moves = [
+        str(v["claim"].get("move") or v["claim"].get("raw") or "")
+        for v in violations
+        if v.get("type") == "illegal_move" and isinstance(v.get("claim"), dict)
+    ]
+    hallucinated_pieces = [
+        str(v["claim"].get("raw") or "")
+        for v in violations
+        if v.get("type") == "piece_on_square" and isinstance(v.get("claim"), dict)
+    ]
+    return {
+        "passed": passed,
+        "verified": passed,
+        "factuality_score": float(raw.get("factuality_score", 1.0 if passed else 0.0)),
+        "total_claims": int(raw.get("total_claims", 0)),
+        "verified_claims": int(raw.get("verified_claims", 0)),
+        "violations": violations,
+        "issues": issues,
+        "illegal_moves": illegal_moves,
+        "hallucinated_pieces": hallucinated_pieces,
+        "retries_used": retries_used,
+    }
+
+
+def _build_repair_messages(
+    base_messages: list[dict[str, Any]],
+    current_text: str,
+    violations: list[dict[str, Any]],
+    fen: str,
+    analysis: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Construct targeted Gemma 4 repair messages citing exact claim violations."""
+    sf = analysis.get("stockfish") or {}
+    best_label = (
+        f"{sf['best_san']} ({sf['best_move']})"
+        if sf.get("best_san") and sf.get("best_move")
+        else sf.get("best_move") or "N/A"
+    )
+    violation_bullets = "\n".join(
+        f"- {v.get('reason', 'Unverified chess claim')}" for v in violations
+    )
+    repair_instruction = (
+        "Your previous coaching response contained factual chess claim violations "
+        f"for FEN `{fen}`:\n{violation_bullets}\n\n"
+        f"Verified engine best move: {best_label}.\n"
+        "Please rewrite your coaching explanation so every move, piece-on-square "
+        "reference, and check/checkmate claim is strictly legal and accurate for "
+        "this exact position."
+    )
+    return [
+        *base_messages,
+        {"role": "model", "content": [{"type": "text", "text": current_text}]},
+        {"role": "user", "content": [{"type": "text", "text": repair_instruction}]},
+    ]
+
+
 class CoachOrchestrator:
     """High-level facade tying together Stockfish, Maia-2, Socratic hints,
-    Claim Verification, and optional Gemma 4 multimodal LLM generation.
+    ACT-Eval Claim Verification + Repair, and optional Gemma 4 multimodal LLM
+    generation.
 
     Works fully end-to-end on CPU when ``llm_fn is None`` (via deterministic
     template-backed coaching prose) and/or when ``engine is None`` (via
     heuristic fallback). External components can be injected via ``engine``,
-    ``analyzer_fn``, ``maia_fn``, ``hint_fn``, ``verifier_fn``, and ``llm_fn``.
+    ``maia_sidecar``, ``analyzer_fn``, ``maia_fn``, ``hint_fn``,
+    ``verifier_fn``, and ``llm_fn``.
     """
 
     def __init__(
         self,
         engine: Any | None = None,
         *,
+        maia_sidecar: MaiaSidecar | None = None,
         llm_fn: Callable[[list[dict[str, Any]]], str] | None = None,
         analyzer_fn: Callable[[str, int], dict[str, Any]] | None = None,
         maia_fn: Callable[[str, int], dict[str, Any]] | None = None,
         hint_fn: Callable[[str, int, dict[str, Any]], dict[str, Any]] | None = None,
         verifier_fn: Callable[[str, str, dict[str, Any] | None], dict[str, Any]] | None = None,
+        max_repair_retries: int = 2,
         owns_engine: bool = False,
     ) -> None:
         self.engine = engine
+        self.maia_sidecar = maia_sidecar
         self.llm_fn = llm_fn
         self.analyzer_fn = analyzer_fn
         self.maia_fn = maia_fn
         self.hint_fn = hint_fn
         self.verifier_fn = verifier_fn
+        self.max_repair_retries = max(0, int(max_repair_retries))
         self._owns_engine = owns_engine
 
     def close(self) -> None:
@@ -509,6 +587,86 @@ class CoachOrchestrator:
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         self.close()
+
+    def _analyze_with_maia_sidecar(
+        self,
+        board: chess.Board,
+        best_uci: str | None,
+        best_cp: float,
+        student_elo: int,
+        depth: int,
+    ) -> dict[str, Any]:
+        """Use a shared ``MaiaSidecar`` instance for human moves and trap detection."""
+        assert self.maia_sidecar is not None
+        fen = board.fen()
+        pred = self.maia_sidecar.predict_human_moves(fen, student_elo=student_elo, top_k=5)
+        top_moves: list[tuple[str, float]] = list(pred.get("top_moves") or [])
+
+        human_moves: list[dict[str, Any]] = []
+        for uci, prob in top_moves:
+            try:
+                mv = chess.Move.from_uci(uci)
+                san = board.san(mv) if mv in board.legal_moves else uci
+            except ValueError:
+                san = uci
+            human_moves.append({"move": uci, "san": san, "prob": round(float(prob), 3)})
+
+        mover = board.turn
+        traps: list[dict[str, Any]] = []
+        for idx, (uci, prob) in enumerate(top_moves[:4]):
+            if uci == best_uci:
+                continue
+            try:
+                move = chess.Move.from_uci(uci)
+            except ValueError:
+                continue
+            if move not in board.legal_moves:
+                continue
+            is_tempting = (
+                float(prob) >= 0.15 or board.is_capture(move) or board.gives_check(move) or idx == 0
+            )
+            if not is_tempting:
+                continue
+
+            san = board.san(move)
+            board.push(move)
+            if board.is_checkmate():
+                cp_after = 10000.0
+            elif self.engine is not None:
+                try:
+                    info = self.engine.analyse(board, chess.engine.Limit(depth=max(4, depth - 2)))
+                    cp_after = _cp_from_white(info, mover)
+                except _ENGINE_ERRORS:
+                    cp_after = _static_eval(board, mover)
+            else:
+                cp_after = _static_eval(board, mover)
+            board.pop()
+
+            cp_loss = max(0.0, best_cp - cp_after)
+            if cp_loss >= 120.0:
+                reason = (
+                    "loses material to a recapture or counter-tactic"
+                    if board.is_capture(move)
+                    else "allows a strong opponent tactical reply"
+                )
+                traps.append(
+                    {
+                        "uci": uci,
+                        "san": san,
+                        "cp_loss": round(cp_loss, 1),
+                        "reason": reason,
+                    }
+                )
+
+        traps.sort(key=lambda t: t["cp_loss"], reverse=True)
+        return {
+            "student_elo": student_elo,
+            "backend": pred.get("backend", self.maia_sidecar.backend),
+            "elo_bracket": pred.get("elo_bracket"),
+            "predicted_human_move": human_moves[0]["move"] if human_moves else None,
+            "human_moves": human_moves,
+            "traps": traps[:3],
+        }
 
     def analyze_position(
         self,
@@ -526,6 +684,14 @@ class CoachOrchestrator:
 
         if self.maia_fn is not None:
             maia_data = dict(self.maia_fn(fen, student_elo))
+        elif self.maia_sidecar is not None:
+            maia_data = self._analyze_with_maia_sidecar(
+                board=board,
+                best_uci=sf_data.get("best_move"),
+                best_cp=float(sf_data.get("eval_cp", 0.0)),
+                student_elo=student_elo,
+                depth=depth,
+            )
         else:
             maia_data = _detect_human_traps_heuristic(
                 board=board,
@@ -634,7 +800,8 @@ class CoachOrchestrator:
         """Verify factual chess claims in ``response_text`` against ``fen``."""
         if self.verifier_fn is not None:
             return dict(self.verifier_fn(fen, response_text, analysis))
-        return verify_chess_claims(fen, response_text, analysis)
+        raw = verify_claims(fen, response_text, engine=None)
+        return _format_verifier_result(raw, retries_used=0)
 
     def _template_fallback_response(
         self,
@@ -689,6 +856,7 @@ class CoachOrchestrator:
         student_elo: int = 1200,
         hint_level: int | None = None,
         image_path: str | None = None,
+        image_data_url: str | None = None,
         audio_transcript: str | None = None,
         history: list[dict[str, Any]] | None = None,
         depth: int = 8,
@@ -701,9 +869,11 @@ class CoachOrchestrator:
         3. Construct Gemma 4 multimodal ``messages`` with full grounding context.
         4. Call ``llm_fn(messages)`` if available, otherwise use the deterministic
            CPU template fallback.
-        5. Run the deterministic Claim Verifier on the response; if an LLM
-           response contains unverified/illegal claims, append a verified
-           ground-truth correction note.
+        5. Run the ACT-Eval Claim Verifier on the response; when ``llm_fn`` is
+           provided and violations are detected, run up to
+           ``max_repair_retries`` targeted repair passes via
+           :func:`chessfm.coach.verifier.verify_and_repair`. If violations still
+           remain after repair, append a verified ground-truth correction note.
         """
         board = chess.Board(fen)
         analysis = self.analyze_position(fen, student_elo=student_elo, depth=depth)
@@ -726,6 +896,7 @@ class CoachOrchestrator:
             user_question=user_question,
             context=context,
             image_path=image_path,
+            image_data_url=image_data_url,
             audio_transcript=audio_transcript,
         )
 
@@ -742,8 +913,35 @@ class CoachOrchestrator:
                 audio_transcript=audio_transcript,
             )
 
-        verification = self.verify_response(fen, raw_response, analysis)
-        final_response = raw_response
+        if mode == "llm" and self.llm_fn is not None and self.verifier_fn is None:
+            llm_callable = self.llm_fn
+
+            def _repair_fn(current_text: str, violations: list[dict[str, Any]]) -> str:
+                repair_msgs = _build_repair_messages(
+                    base_messages=messages,
+                    current_text=current_text,
+                    violations=violations,
+                    fen=board.fen(),
+                    analysis=analysis,
+                )
+                return str(llm_callable(repair_msgs))
+
+            repaired = verify_and_repair(
+                fen=board.fen(),
+                text=raw_response,
+                repair_fn=_repair_fn,
+                max_retries=self.max_repair_retries,
+                engine=None,
+            )
+            final_response = repaired["text"]
+            verification = _format_verifier_result(
+                repaired["verification"],
+                retries_used=repaired["retries_used"],
+            )
+        else:
+            final_response = raw_response
+            verification = self.verify_response(fen, raw_response, analysis)
+
         if not verification["verified"] and mode == "llm":
             sf = analysis["stockfish"]
             best_label = (
@@ -756,7 +954,7 @@ class CoachOrchestrator:
                 f"({'; '.join(verification['issues'])}). "
                 f"Verified engine recommendation: {best_label}.]"
             )
-            final_response = raw_response + correction
+            final_response = final_response + correction
 
         return {
             "fen": board.fen(),

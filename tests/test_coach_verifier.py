@@ -158,6 +158,53 @@ def test_verify_claims_no_claims_passes():
     assert res["verified_claims"] == 0
 
 
+def test_verify_claims_variation_boundary_reset_expected_continuation():
+    # Regression test: after "Best move: Nxe5 (f3e5).", the sentence/continuation
+    # boundary must reset var_board to the root position; otherwise Black's c6
+    # knight could capture Nxe5 and subsequent Nxe4 would fail as illegal.
+    text = "Best move: Nxe5 (f3e5). Expected continuation: Nxe5 Nxe4 Nf3 Nf6."
+    res = verify_claims(ITALIAN_FEN, text)
+    assert res["passed"] is True, f"Unexpected violations: {res['violations']}"
+    assert res["total_claims"] == 6
+    assert res["verified_claims"] == 6
+    assert res["violations"] == []
+
+
+def test_verify_claims_variation_boundary_reset_key_continuation():
+    # After 1. d4 Nf6 2. Nf3, Black plays 2...e6 3. c4 Bb4+ 4. Nbd2.
+    nimzo_setup_fen = "rnbqkb1r/pppppppp/5n2/8/3P4/5N2/PPP1PPPP/RNBQKB1R b KQkq - 2 2"
+
+    res_direct = verify_claims(nimzo_setup_fen, "Key continuation: e6 c4 Bb4+ Nbd2.")
+    assert res_direct["passed"] is True, f"Unexpected violations: {res_direct['violations']}"
+    assert res_direct["total_claims"] == 4
+    assert res_direct["verified_claims"] == 4
+
+    res_after_best = verify_claims(
+        nimzo_setup_fen,
+        "Best move: e6 (e7e6). Key continuation: e6 c4 Bb4+ Nbd2.",
+    )
+    assert res_after_best["passed"] is True, (
+        f"Unexpected violations: {res_after_best['violations']}"
+    )
+    assert res_after_best["total_claims"] == 6
+    assert res_after_best["verified_claims"] == 6
+
+
+def test_verify_claims_move_numbers_do_not_reset_variation_board():
+    # Move numbers like "2." must NOT trigger variation-boundary resets.
+    res_four_ply = verify_claims(START_FEN, "Play 1. e4 e5 2. Nf3 Nc6.")
+    assert res_four_ply["passed"] is True
+    assert res_four_ply["total_claims"] == 4
+    assert res_four_ply["verified_claims"] == 4
+
+    # 3. Bb5 is illegal from START_FEN (e2 pawn blocks f1 bishop), so passing
+    # proves that neither "2." nor "3." reset the variation board to root.
+    res_ruy = verify_claims(START_FEN, "Play 1. e4 e5 2. Nf3 Nc6 3. Bb5.")
+    assert res_ruy["passed"] is True, f"Unexpected violations: {res_ruy['violations']}"
+    assert res_ruy["total_claims"] == 5
+    assert res_ruy["verified_claims"] == 5
+
+
 # ---------------------------------------------------------------------------
 # Synthetic Hallucination Suite (must achieve 100% catch rate)
 # ---------------------------------------------------------------------------

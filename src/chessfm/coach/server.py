@@ -52,7 +52,13 @@ logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 DEFAULT_OLLAMA_TIMEOUT_S = 15.0
-MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024  # 2 MiB
+MAX_REQUEST_BODY_BYTES = 3 * 1024 * 1024  # 3 MiB
+MAX_IMAGE_DATA_URL_CHARS = 2_000_000
+ALLOWED_IMAGE_DATA_URL_PREFIXES: tuple[str, ...] = (
+    "data:image/png;base64,",
+    "data:image/jpeg;base64,",
+    "data:image/webp;base64,",
+)
 
 
 class OllamaUnavailableError(RuntimeError):
@@ -131,6 +137,27 @@ def _parse_int(value: Any, name: str, default: int, *, lo: int, hi: int) -> int:
     if parsed < lo or parsed > hi:
         raise ValueError(f"Field '{name}' must be between {lo} and {hi}.")
     return parsed
+
+
+def _parse_image_data_url(value: Any) -> str | None:
+    """Validate an optional base64 image data URL for ``POST /api/coach``."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Field 'image_data_url' must be a string.")
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    if len(cleaned) > MAX_IMAGE_DATA_URL_CHARS:
+        raise ValueError(
+            f"Field 'image_data_url' exceeds maximum length ({MAX_IMAGE_DATA_URL_CHARS} chars)."
+        )
+    if not cleaned.startswith(ALLOWED_IMAGE_DATA_URL_PREFIXES):
+        raise ValueError(
+            "Field 'image_data_url' must start with one of: "
+            + ", ".join(ALLOWED_IMAGE_DATA_URL_PREFIXES)
+        )
+    return cleaned
 
 
 def _heuristic_strategy_tree(
@@ -405,6 +432,7 @@ class CoachServerContext:
         student_move_raw = payload.get("student_move")
         student_move = str(student_move_raw).strip().lower() if student_move_raw else None
         image_path = str(payload["image_path"]).strip() if payload.get("image_path") else None
+        image_data_url = _parse_image_data_url(payload.get("image_data_url"))
         audio_transcript = (
             str(payload["audio_transcript"]).strip() if payload.get("audio_transcript") else None
         )
@@ -442,7 +470,11 @@ class CoachServerContext:
                     tree = _heuristic_strategy_tree(board, depth=depth, student_move=student_move)
                 student_move_analysis = tree.get("student_branch")
 
-            orchestrator = CoachOrchestrator(engine=self.engine, llm_fn=self.llm_fn)
+            orchestrator = CoachOrchestrator(
+                engine=self.engine,
+                maia_sidecar=self.maia,
+                llm_fn=self.llm_fn,
+            )
             try:
                 coach_result = orchestrator.coach(
                     fen=fen,
@@ -450,6 +482,7 @@ class CoachServerContext:
                     student_elo=student_elo,
                     hint_level=hint_level,
                     image_path=image_path,
+                    image_data_url=image_data_url,
                     audio_transcript=audio_transcript,
                     depth=depth,
                 )
@@ -457,13 +490,18 @@ class CoachServerContext:
                 logger.warning("Ollama unavailable (%s); falling back to deterministic coach.", exc)
                 llm_fallback_used = True
                 active_llm_backend = "deterministic_fallback"
-                fallback_orch = CoachOrchestrator(engine=self.engine, llm_fn=None)
+                fallback_orch = CoachOrchestrator(
+                    engine=self.engine,
+                    maia_sidecar=self.maia,
+                    llm_fn=None,
+                )
                 coach_result = fallback_orch.coach(
                     fen=fen,
                     user_question=question,
                     student_elo=student_elo,
                     hint_level=hint_level,
                     image_path=image_path,
+                    image_data_url=image_data_url,
                     audio_transcript=audio_transcript,
                     depth=depth,
                 )

@@ -70,14 +70,21 @@ _CONTEXTUAL_PAWN_MOVE_RE = re.compile(
     r"(?:"
     r"\b\d+\.(?:\.\.)?\s*"
     r"|\b(?:play|plays|playing|played|push|pushes|pushing|move|moves|moving|"
-    r"try|tries|trying|consider|after|reply|replies|with|best\s+move\s+is|"
-    r"instead\s+of|then|or)\s+"
+    r"try|tries|trying|consider|after|reply|replies|with|best\s+move(?:\s+is|:)|"
+    r"choice\s+is|instead(?:\s+of|,)|then|or|"
+    r"(?:expected|key|main|best)?\s*(?:continuation|line|variation):)\s+"
     r")(?P<move>[a-h][2-7])(?![A-Za-z0-9=+#])",
     re.IGNORECASE,
 )
 
 # Continuation pawn move immediately following another move token, e.g. "1. e4 e5"
 _FOLLOWUP_PAWN_MOVE_RE = re.compile(r"^\s+(?P<move>[a-h][2-7])(?![A-Za-z0-9=+#])")
+
+# Text separators between two moves that signal a fresh variation from the root position.
+_VARIATION_RESET_RE = re.compile(
+    r"(?:(?<!\d)[.!?;]\s+|\b(?:continuation|line|variation|instead|alternatively)\s*[:,\s])",
+    re.IGNORECASE,
+)
 
 # Check and checkmate prose claims.
 _CHECKMATE_CLAIM_RE = re.compile(
@@ -496,6 +503,11 @@ def verify_claims(
         elif ctype == "move":
             move_str = claim["move"]
             notation = claim["notation"]
+
+            if last_move_span is not None:
+                between = text[last_move_span[1] : claim["span"][0]]
+                if _VARIATION_RESET_RE.search(between):
+                    var_board = root_board.copy()
 
             # Try continuing the current variation first, then fall back to root
             # (handles both variations like "1. e4 e5 2. Nf3" and alternatives

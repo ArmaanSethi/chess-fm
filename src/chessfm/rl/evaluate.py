@@ -98,20 +98,46 @@ def load_openings(path: Path | None) -> list[str]:
 
 
 def generate_completion(
-    model, tokenizer, prompt: str, max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS
+    model,
+    tokenizer,
+    prompt: str,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
+    decoding_mode: str = "strict",
+    fen: str | None = None,
 ) -> str:
     """Generate a completion for ``prompt`` and return ONLY the newly generated text.
 
     ``max_new_tokens`` defaults to the training-time completion budget
     (``config.DEFAULT_MAX_NEW_TOKENS``) so the model is never truncated to a
     tighter budget at inference than it was trained on.
+
+    When ``decoding_mode == "constrained"``, attaches a
+    :class:`~chessfm.rl.constrained_decoding.LegalMoveLogitsProcessor` for ``fen``
+    so only legal UCI moves can be emitted after ``</think>``.
     """
+    if decoding_mode not in ("strict", "constrained"):
+        raise ValueError(
+            f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
+        )
     inputs = tokenizer(prompt, return_tensors="pt")
     device = getattr(model, "device", None)
     if device is not None:
         inputs = inputs.to(device)
-    outputs = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
     input_len = inputs.input_ids.shape[1]
+    gen_kwargs: dict = {"max_new_tokens": max_new_tokens, "do_sample": False}
+    if decoding_mode == "constrained":
+        if fen is None:
+            raise ValueError("fen must be provided when decoding_mode='constrained'.")
+        from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
+
+        proc = LegalMoveLogitsProcessor(fen, tokenizer, prompt_length=input_len)
+        try:
+            from transformers import LogitsProcessorList
+
+            gen_kwargs["logits_processor"] = LogitsProcessorList([proc])
+        except ImportError:
+            gen_kwargs["logits_processor"] = [proc]
+    outputs = model.generate(**inputs, **gen_kwargs)
     generated = outputs[0][input_len:]
     return tokenizer.decode(generated, skip_special_tokens=True)
 
@@ -139,6 +165,7 @@ def play_game(
     model_color: str,
     use_random_opponent: bool = False,
     opponent_depth: int = DEFAULT_OPPONENT_DEPTH,
+    decoding_mode: str = "strict",
 ) -> tuple:
     """Play one game between the model and the opponent in ``env``.
 
@@ -172,7 +199,13 @@ def play_game(
         # actual current board, never a stale one.
         fen = env.get_fen()
         if env.get_turn() == model_color:
-            completion = generate_completion(model, tokenizer, build_chat_prompt(fen))
+            completion = generate_completion(
+                model,
+                tokenizer,
+                build_chat_prompt(fen),
+                decoding_mode=decoding_mode,
+                fen=fen,
+            )
             move_uci = parse_move_from_output(completion) or "xxxx"
             stats["total_moves"] += 1
 
@@ -241,6 +274,7 @@ def evaluate_model(
     use_random_opponent: bool = False,
     seed: int = 42,
     openings: Path | None = None,
+    decoding_mode: str = "strict",
 ):
     """Run ``num_games`` games of ``model`` (with ``tokenizer``) and write reports.
 
@@ -256,6 +290,11 @@ def evaluate_model(
     unapplied skill level would make every reported number meaningless, so a
     configuration failure aborts the run.
     """
+    if decoding_mode not in ("strict", "constrained"):
+        raise ValueError(
+            f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
+        )
+
     print("=" * 60)
     opponent = (
         "Random bot"
@@ -265,6 +304,7 @@ def evaluate_model(
     print(f"ChessFM Evaluation: {model_name} vs {opponent}")
     color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
     print(f"Model color: {color_desc}")
+    print(f"Decoding mode: {decoding_mode}")
     print(f"Seed: {seed}")
     print("=" * 60)
 
@@ -315,6 +355,7 @@ def evaluate_model(
             game_color,
             use_random_opponent=use_random_opponent,
             opponent_depth=opponent_depth,
+            decoding_mode=decoding_mode,
         )
 
         game.headers["Event"] = f"ChessFM Eval game {g + 1}"
@@ -375,7 +416,7 @@ def evaluate_model(
         "losses": losses,
         "draws": draws,
         "score_ci_95": [round(ci_low, 4), round(ci_high, 4)],
-        "decoding_mode": "greedy",
+        "decoding_mode": decoding_mode,
         "estimated_elo": None if elo is None else round(elo, 1),
         "opponent": opponent,
         "stockfish_level": stockfish_level,
@@ -437,6 +478,13 @@ def main():
         default=None,
         help="Path to opening FENs (one per line) to vary game starts",
     )
+    parser.add_argument(
+        "--decoding-mode",
+        type=str,
+        default="strict",
+        choices=["strict", "constrained"],
+        help="Decoding mode: 'strict' (unconstrained Pass@1) or 'constrained' (100%%-legal trie)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -455,6 +503,7 @@ def main():
         use_random_opponent=args.random_opponent,
         seed=args.seed,
         openings=args.openings,
+        decoding_mode=args.decoding_mode,
     )
 
 

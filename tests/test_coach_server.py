@@ -530,3 +530,86 @@ def test_parse_args_defaults_and_overrides() -> None:
     assert custom.port == 9000
     assert custom.depth == 6
     assert custom.no_stockfish is True
+
+
+def test_coach_shares_server_maia_sidecar() -> None:
+    from chessfm.coach import MaiaSidecar
+
+    calls: list[str] = []
+
+    class SpyMaia(MaiaSidecar):
+        def predict_human_moves(
+            self,
+            fen: str,
+            student_elo: int = 1200,
+            opponent_elo: int | None = None,
+            top_k: int = 5,
+        ) -> dict[str, Any]:
+            calls.append(fen)
+            return super().predict_human_moves(
+                fen, student_elo=student_elo, opponent_elo=opponent_elo, top_k=top_k
+            )
+
+    with running_server(maia_sidecar=SpyMaia(use_neural=False)) as (_, base_url):
+        resp = requests.post(
+            f"{base_url}/api/coach",
+            json={"fen": START_FEN, "question": "Best move?"},
+            timeout=5,
+        )
+        assert resp.status_code == 200
+        assert calls == [START_FEN]
+        assert resp.json()["analysis"]["maia"]["backend"] == "calibrated_fallback"
+
+
+def test_coach_image_data_url_valid_and_invalid() -> None:
+    captured: list[list[dict[str, Any]]] = []
+
+    def spy_llm(messages: list[dict[str, Any]]) -> str:
+        captured.append(messages)
+        return "Play e2e4 to control the center."
+
+    valid_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    valid_jpeg = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/"
+    valid_webp = "data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA="
+
+    with running_server(llm_fn=spy_llm) as (_, base_url):
+        for data_url in (valid_png, valid_jpeg, valid_webp):
+            r_ok = requests.post(
+                f"{base_url}/api/coach",
+                json={"fen": START_FEN, "question": "What do you see?", "image_data_url": data_url},
+                timeout=5,
+            )
+            assert r_ok.status_code == 200
+            assert captured[-1][-1]["content"][0] == {"type": "image", "image": data_url}
+
+        # Invalid MIME prefix -> 400
+        r_bad_prefix = requests.post(
+            f"{base_url}/api/coach",
+            json={"fen": START_FEN, "image_data_url": "data:image/gif;base64,R0lGODlh"},
+            timeout=5,
+        )
+        assert r_bad_prefix.status_code == 400
+
+        # Non-string -> 400
+        r_non_str = requests.post(
+            f"{base_url}/api/coach",
+            json={"fen": START_FEN, "image_data_url": 12345},
+            timeout=5,
+        )
+        assert r_non_str.status_code == 400
+
+        # Oversized (> 2_000_000 chars) -> 400
+        oversized = "data:image/png;base64," + ("A" * 2_000_000)
+        r_too_big = requests.post(
+            f"{base_url}/api/coach",
+            json={"fen": START_FEN, "image_data_url": oversized},
+            timeout=5,
+        )
+        assert r_too_big.status_code == 400
+
+
+def test_index_html_uses_filereader_for_image_data_url(server_url: str) -> None:
+    resp = requests.get(f"{server_url}/", timeout=5)
+    assert resp.status_code == 200
+    assert "readAsDataURL" in resp.text
+    assert "image_data_url" in resp.text
