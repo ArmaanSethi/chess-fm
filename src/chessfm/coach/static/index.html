@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChessFM Coach Studio</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-alt: #1c222b;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-soft: rgba(88, 166, 255, 0.14);
+      --green: #3fb950;
+      --green-soft: rgba(63, 185, 80, 0.16);
+      --yellow: #d29922;
+      --yellow-soft: rgba(210, 153, 34, 0.16);
+      --red: #f85149;
+      --red-soft: rgba(248, 81, 73, 0.16);
+      --purple: #a371f7;
+      --sq-light: #d7cfb8;
+      --sq-dark: #7b9365;
+      --sq-select: rgba(245, 208, 66, 0.65);
+      --sq-last: rgba(88, 166, 255, 0.36);
+      --sq-maia: rgba(163, 113, 247, 0.35);
+      --radius: 10px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 22px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #2f81f7, #a371f7);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+    }
+
+    .header-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      border: 1px solid var(--border);
+      background: var(--panel-alt);
+      color: var(--muted);
+    }
+
+    .pill.ok {
+      border-color: rgba(63, 185, 80, 0.45);
+      background: var(--green-soft);
+      color: #7ee787;
+    }
+
+    .pill.warn {
+      border-color: rgba(210, 153, 34, 0.45);
+      background: var(--yellow-soft);
+      color: #e3b341;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.86rem;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #0d1117;
+    }
+
+    .elo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      background: var(--panel-alt);
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    select, input[type="text"], textarea {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-family: inherit;
+      font-size: 0.88rem;
+    }
+
+    select:focus, input[type="text"]:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    main {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 18px 20px 36px;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .studio-grid {
+      display: grid;
+      grid-template-columns: minmax(340px, 540px) minmax(340px, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .studio-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .card + .card { margin-top: 14px; }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: var(--text);
+    }
+
+    .board-stage {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .eval-bar {
+      position: relative;
+      width: 28px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #2b313a;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .eval-fill {
+      width: 100%;
+      height: 50%;
+      background: #eceff4;
+      transition: height 0.3s ease;
+    }
+
+    .eval-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 6px;
+      text-align: center;
+      font-size: 0.66rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+    }
+
+    .board-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      user-select: none;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      height: 100%;
+    }
+
+    .sq {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: clamp(24px, 4.2vw, 44px);
+      line-height: 1;
+    }
+
+    .sq.light { background: var(--sq-light); }
+    .sq.dark { background: var(--sq-dark); }
+    .sq.selected::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--sq-select);
+      pointer-events: none;
+    }
+    .sq.last-move::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--sq-last);
+      pointer-events: none;
+    }
+    .sq.maia-target {
+      box-shadow: inset 0 0 0 3px var(--purple);
+    }
+
+    .piece {
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    .piece.white { color: #ffffff; -webkit-text-stroke: 0.6px #1f2328; }
+    .piece.black { color: #161b22; }
+
+    .legal-dot {
+      position: absolute;
+      z-index: 3;
+      width: 26%;
+      height: 26%;
+      border-radius: 50%;
+      background: rgba(13, 17, 23, 0.32);
+      pointer-events: none;
+    }
+
+    .coord-rank, .coord-file {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--mono);
+      opacity: 0.78;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .sq.light .coord-rank, .sq.light .coord-file { color: #4c5e3c; }
+    .sq.dark .coord-rank, .sq.dark .coord-file { color: #ece6d2; }
+    .coord-rank { top: 2px; left: 3px; }
+    .coord-file { bottom: 2px; right: 3px; }
+
+    .board-overlay-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .fen-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .fen-row input {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    button {
+      background: var(--panel-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    button:hover { border-color: var(--accent); background: #212834; }
+    button.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+    button.primary:hover { background: #79b8ff; }
+    button.success { background: var(--green-soft); color: #7ee787; border-color: rgba(63, 185, 80, 0.45); }
+    button.purple { background: rgba(163, 113, 247, 0.16); color: #d2a8ff; border-color: rgba(163, 113, 247, 0.45); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .maia-list, .pv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .maia-row {
+      display: grid;
+      grid-template-columns: 56px 1fr 48px;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.84rem;
+    }
+
+    .bar-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #a371f7, #58a6ff);
+      border-radius: 999px;
+    }
+
+    .pv-item {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    .pv-eval {
+      min-width: 56px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .hint-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .qa-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .qa-row input { flex: 1; }
+
+    .upload-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .coach-output {
+      margin-top: 12px;
+      padding: 13px;
+      border-radius: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      min-height: 110px;
+      white-space: pre-wrap;
+      font-size: 0.9rem;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      align-items: center;
+    }
+
+    .verified-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: var(--green-soft);
+      color: #7ee787;
+      border: 1px solid rgba(63, 185, 80, 0.5);
+    }
+
+    .verified-badge.fail {
+      background: var(--red-soft);
+      color: #ff7b72;
+      border-color: rgba(248, 81, 73, 0.5);
+    }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: minmax(300px, 420px) 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .review-grid { grid-template-columns: 1fr; }
+    }
+
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat-box {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .stat-val { font-size: 1.35rem; font-weight: 800; color: var(--accent); }
+    .stat-lbl { font-size: 0.75rem; color: var(--muted); }
+
+    .drill-item, .turning-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+
+    .drill-item:hover { border-color: var(--accent); }
+
+    .mono { font-family: var(--mono); }
+    .muted { color: var(--muted); font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">&#9822;</div>
+      <div>
+        ChessFM Coach Studio
+        <span class="muted" style="font-weight:400; margin-left:6px;">Engine-Verified Coaching</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="board-tab">Coach Board</button>
+        <button class="tab-btn" data-tab="review-tab">Game Review</button>
+      </div>
+
+      <label class="elo-wrap">
+        Student Elo
+        <select id="elo-select">
+          <option value="600">600</option>
+          <option value="800">800</option>
+          <option value="1000">1000</option>
+          <option value="1200" selected>1200</option>
+          <option value="1400">1400</option>
+          <option value="1600">1600</option>
+          <option value="1800">1800</option>
+          <option value="2000">2000</option>
+          <option value="2200">2200</option>
+          <option value="2400">2400</option>
+          <option value="2600">2600</option>
+        </select>
+      </label>
+
+      <span id="health-sf" class="pill">Stockfish: ...</span>
+      <span id="health-maia" class="pill">Maia: ...</span>
+      <span id="health-llm" class="pill">LLM: ...</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- COACH BOARD TAB -->
+    <section id="board-tab" class="tab-panel active">
+      <div class="studio-grid">
+        <!-- Left column: Board + Maia + Strategy Tree -->
+        <div>
+          <div class="card">
+            <div class="card-title">
+              <span id="turn-status">White to move</span>
+              <span id="eval-summary" class="mono muted">Eval: 0.00</span>
+            </div>
+
+            <div class="board-stage">
+              <div class="eval-bar" title="Stockfish evaluation (White perspective)">
+                <div id="eval-fill" class="eval-fill"></div>
+                <div id="eval-label" class="eval-label">0.0</div>
+              </div>
+              <div class="board-container">
+                <div id="board-grid" class="board-grid"></div>
+                <svg id="board-arrows" class="board-overlay-svg" viewBox="0 0 800 800"></svg>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <button id="btn-flip">Flip Board</button>
+              <button id="btn-undo">Undo Move</button>
+              <button id="btn-reset">Reset Position</button>
+              <button id="btn-analyze" class="primary">Analyze Position</button>
+            </div>
+
+            <div class="fen-row">
+              <input id="fen-input" type="text" aria-label="FEN position" />
+              <button id="btn-load-fen">Load FEN</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Maia-2 Human Move Predictions</span>
+              <span id="maia-meta" class="muted">Elo 1200</span>
+            </div>
+            <div id="maia-list" class="maia-list">
+              <div class="muted">Click Analyze or play a move to see human move probabilities.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Stockfish Partial Strategy Tree</span>
+              <span id="engine-meta" class="muted">MultiPV</span>
+            </div>
+            <div id="pv-list" class="pv-list">
+              <div class="muted">Awaiting analysis...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column: Coaching, Socratic Hints, Why Not X?, Multimodal -->
+        <div>
+          <div class="card">
+            <div class="card-title">
+              <span>Interactive Coach &amp; Socratic Hints</span>
+              <span id="last-move-badge" class="pill" style="display:none;"></span>
+            </div>
+
+            <div class="hint-buttons">
+              <button id="btn-explain" class="primary">Explain Position / Last Move</button>
+              <button class="purple hint-btn" data-level="1">Hint L1 (Nudge)</button>
+              <button class="purple hint-btn" data-level="2">Hint L2 (Guided)</button>
+              <button class="success hint-btn" data-level="3">Hint L3 (Solution)</button>
+            </div>
+
+            <div class="qa-row">
+              <input
+                id="qa-input"
+                type="text"
+                placeholder='Ask "Why not Nf3?" or "What is the plan here?"'
+              />
+              <button id="btn-ask" class="primary">Ask Coach</button>
+            </div>
+
+            <div class="upload-row">
+              <label for="image-upload">Board Photo (Gemma 4 Multimodal):</label>
+              <input id="image-upload" type="file" accept="image/*" />
+              <span id="image-status" class="mono"></span>
+            </div>
+
+            <div id="badge-row" class="badge-row"></div>
+            <div id="coach-output" class="coach-output">Welcome to ChessFM Coach Studio!
+Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not ...?" to get engine-verified coaching.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GAME REVIEW TAB -->
+    <section id="review-tab" class="tab-panel">
+      <div class="review-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>PGN Game Input</span>
+            <button id="btn-sample-pgn" style="padding:4px 9px; font-size:0.76rem;">Load Sample PGN</button>
+          </div>
+          <textarea
+            id="pgn-input"
+            rows="12"
+            style="width:100%; font-family:var(--mono); font-size:0.8rem;"
+            placeholder="Paste a PGN game here (e.g. 1. e4 e5 2. Nf3 Nc6 ...)"
+          ></textarea>
+          <div class="toolbar" style="justify-content:space-between; align-items:center;">
+            <label class="muted">
+              Student Color:
+              <select id="review-color">
+                <option value="white" selected>White</option>
+                <option value="black">Black</option>
+                <option value="both">Both</option>
+              </select>
+            </label>
+            <button id="btn-review" class="primary">Review Game</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">
+              <span>Game Summary &amp; Accuracy</span>
+              <span id="review-engine-badge" class="muted"></span>
+            </div>
+            <div id="review-stats" class="stat-strip">
+              <div class="muted">Paste a PGN and click Review Game to generate accuracy, turning points, and practice drills.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span>Weakness Profile &amp; Study Priorities</span></div>
+            <div id="weakness-list" class="muted">No game reviewed yet.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Clickable Practice Drills</span>
+              <span class="muted">Click any drill to load onto the board</span>
+            </div>
+            <div id="drill-list" class="muted">No drills yet.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span>Top Turning Points</span></div>
+            <div id="turning-list" class="muted">No turning points yet.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    const SAMPLE_PGN = `[Event "Coach Studio Sample"]
+[White "Student"]
+[Black "Opponent"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. Ng5 Qxg5 5. d3 Qxg2 6. Rf1 d6 7. Qh5 g6 8. Qg5 Qxg5 9. Bxg5`;
+
+    const PIECE_UNICODE = {
+      K: "\u2654", Q: "\u2655", R: "\u2656", B: "\u2657", N: "\u2658", P: "\u2659",
+      k: "\u265A", q: "\u265B", r: "\u265C", b: "\u265D", n: "\u265E", p: "\u265F",
+    };
+
+    const state = {
+      fen: START_FEN,
+      flipped: false,
+      selectedSquare: null,
+      legalMoves: [],
+      history: [], // [{fen, moveUci, moveSan}]
+      lastMove: null, // {from, to, uci, san, prevFen}
+      maiaTop: [],
+      imagePath: null,
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    // --- Tab Switching ---
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        $(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // --- FEN Parsing & Local Move Application ---
+    function parseFenBoard(fen) {
+      const parts = fen.trim().split(/\s+/);
+      const rows = parts[0].split("/");
+      const grid = [];
+      for (let r = 0; r < 8; r++) {
+        const row = [];
+        for (const ch of rows[r]) {
+          if (ch >= "1" && ch <= "8") {
+            for (let k = 0; k < Number(ch); k++) row.push(null);
+          } else {
+            row.push(ch);
+          }
+        }
+        grid.push(row);
+      }
+      return {
+        grid,
+        turn: parts[1] || "w",
+        castling: parts[2] || "-",
+        ep: parts[3] || "-",
+        halfmove: Number(parts[4] || 0),
+        fullmove: Number(parts[5] || 1),
+      };
+    }
+
+    function sqToRC(sq) {
+      const file = sq.charCodeAt(0) - 97;
+      const rank = 8 - Number(sq[1]);
+      return [rank, file];
+    }
+
+    function rcToSq(r, c) {
+      return String.fromCharCode(97 + c) + String(8 - r);
+    }
+
+    function applyUciToFen(fen, uci) {
+      const parsed = parseFenBoard(fen);
+      const { grid } = parsed;
+      const fromSq = uci.slice(0, 2);
+      const toSq = uci.slice(2, 4);
+      const promo = uci.length === 5 ? uci[4] : null;
+      const [fr, fc] = sqToRC(fromSq);
+      const [tr, tc] = sqToRC(toSq);
+      const piece = grid[fr][fc];
+      if (!piece) return fen;
+
+      const isWhite = piece === piece.toUpperCase();
+      const target = grid[tr][tc];
+      const isPawn = piece.toLowerCase() === "p";
+
+      // En passant capture
+      if (isPawn && toSq === parsed.ep && fc !== tc && !target) {
+        grid[fr][tc] = null;
+      }
+
+      // Move piece
+      grid[fr][fc] = null;
+      grid[tr][tc] = promo ? (isWhite ? promo.toUpperCase() : promo.toLowerCase()) : piece;
+
+      // Castling rook move
+      if (piece.toLowerCase() === "k" && Math.abs(tc - fc) === 2) {
+        if (tc === 6) {
+          grid[tr][5] = grid[tr][7];
+          grid[tr][7] = null;
+        } else if (tc === 2) {
+          grid[tr][3] = grid[tr][0];
+          grid[tr][0] = null;
+        }
+      }
+
+      // Update castling rights
+      let castling = parsed.castling;
+      if (piece === "K") castling = castling.replace(/[KQ]/g, "");
+      if (piece === "k") castling = castling.replace(/[kq]/g, "");
+      if (fromSq === "a1" || toSq === "a1") castling = castling.replace("Q", "");
+      if (fromSq === "h1" || toSq === "h1") castling = castling.replace("K", "");
+      if (fromSq === "a8" || toSq === "a8") castling = castling.replace("q", "");
+      if (fromSq === "h8" || toSq === "h8") castling = castling.replace("k", "");
+      if (!castling) castling = "-";
+
+      // En passant target square
+      let ep = "-";
+      if (isPawn && Math.abs(tr - fr) === 2) {
+        ep = rcToSq((fr + tr) / 2, fc);
+      }
+
+      const halfmove = isPawn || target ? 0 : parsed.halfmove + 1;
+      const fullmove = parsed.turn === "b" ? parsed.fullmove + 1 : parsed.fullmove;
+      const nextTurn = parsed.turn === "w" ? "b" : "w";
+
+      const boardStr = grid
+        .map((row) => {
+          let s = "";
+          let empty = 0;
+          for (const cell of row) {
+            if (!cell) empty++;
+            else {
+              if (empty) { s += empty; empty = 0; }
+              s += cell;
+            }
+          }
+          if (empty) s += empty;
+          return s;
+        })
+        .join("/");
+
+      return `${boardStr} ${nextTurn} ${castling} ${ep} ${halfmove} ${fullmove}`;
+    }
+
+    // --- Board Rendering ---
+    function renderBoard() {
+      const parsed = parseFenBoard(state.fen);
+      const boardEl = $("board-grid");
+      boardEl.innerHTML = "";
+      $("fen-input").value = state.fen;
+      $("turn-status").textContent = parsed.turn === "w" ? "White to move" : "Black to move";
+
+      const legalTargets = new Set(
+        state.selectedSquare
+          ? state.legalMoves.filter((m) => m.from === state.selectedSquare).map((m) => m.to)
+          : []
+      );
+
+      const maiaTargetSet = new Set(state.maiaTop.slice(0, 2).map((m) => m.uci.slice(2, 4)));
+
+      for (let vr = 0; vr < 8; vr++) {
+        for (let vc = 0; vc < 8; vc++) {
+          const r = state.flipped ? 7 - vr : vr;
+          const c = state.flipped ? 7 - vc : vc;
+          const sq = rcToSq(r, c);
+          const isLight = (r + c) % 2 === 0;
+          const div = document.createElement("div");
+          div.className = `sq ${isLight ? "light" : "dark"}`;
+          div.dataset.sq = sq;
+
+          if (state.selectedSquare === sq) div.classList.add("selected");
+          else if (state.lastMove && (state.lastMove.from === sq || state.lastMove.to === sq)) {
+            div.classList.add("last-move");
+          }
+          if (maiaTargetSet.has(sq)) div.classList.add("maia-target");
+
+          if (vc === 0) {
+            const rankLbl = document.createElement("span");
+            rankLbl.className = "coord-rank";
+            rankLbl.textContent = String(8 - r);
+            div.appendChild(rankLbl);
+          }
+          if (vr === 7) {
+            const fileLbl = document.createElement("span");
+            fileLbl.className = "coord-file";
+            fileLbl.textContent = String.fromCharCode(97 + c);
+            div.appendChild(fileLbl);
+          }
+
+          const piece = parsed.grid[r][c];
+          if (piece) {
+            const span = document.createElement("span");
+            span.className = `piece ${piece === piece.toUpperCase() ? "white" : "black"}`;
+            span.textContent = PIECE_UNICODE[piece] || piece;
+            div.appendChild(span);
+          }
+
+          if (legalTargets.has(sq)) {
+            const dot = document.createElement("span");
+            dot.className = "legal-dot";
+            div.appendChild(dot);
+          }
+
+          div.addEventListener("click", () => onSquareClick(sq));
+          boardEl.appendChild(div);
+        }
+      }
+
+      renderMaiaArrows();
+    }
+
+    function renderMaiaArrows() {
+      const svg = $("board-arrows");
+      svg.innerHTML = "";
+      if (!state.maiaTop.length) return;
+
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs.innerHTML = `<marker id="maia-head" markerWidth="6" markerHeight="6" refX="4.5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#a371f7" fill-opacity="0.85"></path>
+      </marker>`;
+      svg.appendChild(defs);
+
+      state.maiaTop.slice(0, 2).forEach((m, idx) => {
+        const [fr, fc] = sqToRC(m.uci.slice(0, 2));
+        const [tr, tc] = sqToRC(m.uci.slice(2, 4));
+        const x1 = ((state.flipped ? 7 - fc : fc) + 0.5) * 100;
+        const y1 = ((state.flipped ? 7 - fr : fr) + 0.5) * 100;
+        const x2 = ((state.flipped ? 7 - tc : tc) + 0.5) * 100;
+        const y2 = ((state.flipped ? 7 - tr : tr) + 0.5) * 100;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", "#a371f7");
+        line.setAttribute("stroke-opacity", idx === 0 ? "0.78" : "0.42");
+        line.setAttribute("stroke-width", idx === 0 ? "12" : "8");
+        line.setAttribute("stroke-linecap", "round");
+        line.setAttribute("marker-end", "url(#maia-head)");
+        svg.appendChild(line);
+      });
+    }
+
+    function onSquareClick(sq) {
+      if (state.selectedSquare) {
+        const candidates = state.legalMoves.filter(
+          (m) => m.from === state.selectedSquare && m.to === sq
+        );
+        if (candidates.length) {
+          // Prefer queen promotion if promotion move exists.
+          const chosen = candidates.find((m) => m.uci.endsWith("q")) || candidates[0];
+          const prevFen = state.fen;
+          state.history.push({ fen: prevFen, moveUci: chosen.uci, moveSan: chosen.san });
+          state.lastMove = {
+            from: chosen.from,
+            to: chosen.to,
+            uci: chosen.uci,
+            san: chosen.san,
+            prevFen,
+          };
+          state.fen = applyUciToFen(prevFen, chosen.uci);
+          state.selectedSquare = null;
+          updateLastMoveBadge();
+          renderBoard();
+          runAnalyze();
+          return;
+        }
+      }
+
+      const hasMovesFrom = state.legalMoves.some((m) => m.from === sq);
+      state.selectedSquare = hasMovesFrom ? sq : null;
+      renderBoard();
+    }
+
+    function updateLastMoveBadge() {
+      const badge = $("last-move-badge");
+      if (state.lastMove) {
+        badge.style.display = "inline-flex";
+        badge.textContent = `Last move: ${state.lastMove.san} (${state.lastMove.uci})`;
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    // --- API Helpers ---
+    async function apiJson(url, body = null) {
+      const opts = body
+        ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+        : { method: "GET" };
+      const res = await fetch(url, opts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    async function loadHealth() {
+      try {
+        const h = await apiJson("/api/health");
+        const sf = $("health-sf");
+        sf.textContent = `Stockfish: ${h.stockfish ? "Ready" : "Heuristic"}`;
+        sf.className = `pill ${h.stockfish ? "ok" : "warn"}`;
+
+        const maia = $("health-maia");
+        maia.textContent = `Maia: ${h.maia_backend}`;
+        maia.className = "pill ok";
+
+        const llm = $("health-llm");
+        llm.textContent = `LLM: ${h.llm_backend}`;
+        llm.className = "pill";
+      } catch (err) {
+        $("health-sf").textContent = "Server offline";
+      }
+    }
+
+    async function runAnalyze() {
+      const elo = Number($("elo-select").value);
+      $("eval-summary").textContent = "Analyzing...";
+      try {
+        const data = await apiJson("/api/analyze", { fen: state.fen, student_elo: elo });
+        state.legalMoves = data.legal_moves || [];
+        state.maiaTop = (data.maia && data.maia.top_moves) || [];
+
+        const evalPawns = (data.eval_cp_white / 100).toFixed(2);
+        const sign = data.eval_cp_white >= 0 ? "+" : "";
+        $("eval-summary").textContent = `Eval: ${sign}${evalPawns} (${data.engine_source})`;
+        $("eval-label").textContent = `${sign}${evalPawns}`;
+        $("eval-fill").style.height = `${Math.max(5, Math.min(95, data.win_prob_white))}%`;
+
+        $("maia-meta").textContent = `Elo ${data.maia.student_elo} (${data.maia.backend})`;
+        const maiaEl = $("maia-list");
+        if (!state.maiaTop.length) {
+          maiaEl.innerHTML = `<div class="muted">No legal moves.</div>`;
+        } else {
+          maiaEl.innerHTML = state.maiaTop
+            .map((m) => {
+              const pct = Math.round(m.prob * 100);
+              return `<div class="maia-row">
+                <strong class="mono">${m.san}</strong>
+                <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+                <span class="mono muted">${pct}%</span>
+              </div>`;
+            })
+            .join("");
+        }
+
+        const pvEl = $("pv-list");
+        const lines = (data.strategy_tree && data.strategy_tree.top_lines) || [];
+        $("engine-meta").textContent = `${lines.length} line(s) | ${data.engine_source}`;
+        if (!lines.length) {
+          pvEl.innerHTML = `<div class="muted">Game over.</div>`;
+        } else {
+          pvEl.innerHTML = lines
+            .map((l) => {
+              const p = (l.eval_cp / 100).toFixed(2);
+              const s = l.eval_cp >= 0 ? "+" : "";
+              return `<div class="pv-item">
+                <span class="pv-eval">${s}${p}</span>
+                <span>${(l.pv_san || [l.san]).join(" ")}</span>
+              </div>`;
+            })
+            .join("");
+        }
+
+        renderBoard();
+      } catch (err) {
+        $("eval-summary").textContent = `Error: ${err.message}`;
+      }
+    }
+
+    function renderVerificationBadge(verification, extraPills = []) {
+      const row = $("badge-row");
+      row.innerHTML = "";
+      if (verification) {
+        const pct = Math.round((verification.factuality_score || 0) * 100);
+        const badge = document.createElement("span");
+        badge.className = `verified-badge ${verification.passed ? "" : "fail"}`;
+        badge.textContent = verification.passed
+          ? `\u2713 Engine-Verified (${pct}% factuality, ${verification.verified_claims}/${verification.total_claims} claims)`
+          : `\u26A0 Verification Flag (${verification.violations.length} issue(s))`;
+        row.appendChild(badge);
+      }
+      extraPills.forEach((p) => {
+        const el = document.createElement("span");
+        el.className = `pill ${p.cls || ""}`;
+        el.textContent = p.text;
+        row.appendChild(el);
+      });
+    }
+
+    async function runCoach(question = "", useLastMove = false) {
+      const elo = Number($("elo-select").value);
+      $("coach-output").textContent = "Consulting ChessFM Coach...";
+      $("badge-row").innerHTML = "";
+
+      const payload = {
+        fen: useLastMove && state.lastMove ? state.lastMove.prevFen : state.fen,
+        student_elo: elo,
+      };
+      if (question) payload.question = question;
+      if (useLastMove && state.lastMove) payload.student_move = state.lastMove.uci;
+      if (state.imagePath) payload.image_path = state.imagePath;
+
+      try {
+        const data = await apiJson("/api/coach", payload);
+        renderVerificationBadge(data.verification, [
+          { text: `Mode: ${data.llm_backend}`, cls: "" },
+        ]);
+        $("coach-output").textContent = data.response;
+      } catch (err) {
+        $("coach-output").textContent = `Coach error: ${err.message}`;
+      }
+    }
+
+    async function runHint(level) {
+      $("coach-output").textContent = `Generating Level ${level} Socratic hint...`;
+      $("badge-row").innerHTML = "";
+      try {
+        const data = await apiJson("/api/hint", { fen: state.fen, level });
+        const pills = [
+          {
+            text: data.spoiler_free ? "0% Spoiler Verified" : "Full Solution",
+            cls: data.spoiler_free ? "ok" : "warn",
+          },
+        ];
+        if (data.themes && data.themes.length) {
+          pills.push({ text: `Themes: ${data.themes.join(", ")}`, cls: "" });
+        }
+        renderVerificationBadge(null, pills);
+        $("coach-output").textContent = `Level ${data.level} Hint:\n${data.hint}`;
+      } catch (err) {
+        $("coach-output").textContent = `Hint error: ${err.message}`;
+      }
+    }
+
+    // --- Game Review ---
+    async function runReview() {
+      const pgn = $("pgn-input").value.trim();
+      if (!pgn) {
+        $("review-stats").innerHTML = `<div class="muted">Please paste a PGN first.</div>`;
+        return;
+      }
+      const studentColor = $("review-color").value;
+      const elo = Number($("elo-select").value);
+      $("review-stats").innerHTML = `<div class="muted">Analyzing PGN game...</div>`;
+
+      try {
+        const data = await apiJson("/api/review", {
+          pgn,
+          student_color: studentColor,
+          student_elo: elo,
+        });
+        const rev = data.review;
+        const prof = data.weakness_profile;
+
+        $("review-engine-badge").textContent = `Engine: ${rev.engine_used}`;
+        $("review-stats").innerHTML = `
+          <div class="stat-box"><div class="stat-val">${rev.accuracy}%</div><div class="stat-lbl">Accuracy</div></div>
+          <div class="stat-box"><div class="stat-val">${rev.counts.Best || 0}</div><div class="stat-lbl">Best</div></div>
+          <div class="stat-box"><div class="stat-val">${rev.counts.Inaccuracy || 0}</div><div class="stat-lbl">Inaccuracies</div></div>
+          <div class="stat-box"><div class="stat-val">${rev.counts.Mistake || 0}</div><div class="stat-lbl">Mistakes</div></div>
+          <div class="stat-box"><div class="stat-val">${rev.counts.Blunder || 0}</div><div class="stat-lbl">Blunders</div></div>
+        `;
+
+        const weakEl = $("weakness-list");
+        if (!prof.top_priorities || !prof.top_priorities.length) {
+          weakEl.innerHTML = `<div class="muted">Clean game — no recurring weakness categories detected!</div>`;
+        } else {
+          weakEl.innerHTML = prof.top_priorities
+            .map(
+              (p) => `<div class="turning-item">
+                <div>
+                  <strong>${p.category.replace(/_/g, " ")}</strong>
+                  <span class="muted"> (${p.count}x, avg ${p.avg_cp_loss} cp)</span>
+                  <div class="muted">${p.recommendation}</div>
+                </div>
+              </div>`
+            )
+            .join("");
+        }
+
+        const drillEl = $("drill-list");
+        if (!prof.drills || !prof.drills.length) {
+          drillEl.innerHTML = `<div class="muted">No practice drills extracted.</div>`;
+        } else {
+          drillEl.innerHTML = "";
+          prof.drills.forEach((d, idx) => {
+            const row = document.createElement("div");
+            row.className = "drill-item";
+            row.innerHTML = `
+              <div>
+                <strong>Drill #${idx + 1}: ${d.category.replace(/_/g, " ")}</strong>
+                <div class="muted mono">Played: ${d.student_mistake} | Best: ${d.best_move}</div>
+              </div>
+              <button class="primary">Load on Board</button>
+            `;
+            row.querySelector("button").addEventListener("click", () => {
+              state.fen = d.fen;
+              state.selectedSquare = null;
+              state.lastMove = null;
+              updateLastMoveBadge();
+              document.querySelector('[data-tab="board-tab"]').click();
+              renderBoard();
+              runAnalyze();
+              $("coach-output").textContent =
+                `Practice Drill Loaded (${d.category.replace(/_/g, " ")})!\n` +
+                `In the game you played ${d.student_mistake}. Try finding a stronger move or click Hint L1!`;
+            });
+            drillEl.appendChild(row);
+          });
+        }
+
+        const turnEl = $("turning-list");
+        if (!rev.critical_moments || !rev.critical_moments.length) {
+          turnEl.innerHTML = `<div class="muted">No major turning points detected.</div>`;
+        } else {
+          turnEl.innerHTML = rev.critical_moments
+            .map(
+              (m) => `<div class="turning-item">
+                <div>
+                  <strong class="mono">Move ${m.move_number} (${m.color}): ${m.played_san}</strong>
+                  <span class="pill warn" style="margin-left:6px;">${m.classification}</span>
+                  <div class="muted">Best: <span class="mono">${m.best_san || m.best_move}</span> | CP loss: ${m.cp_loss} | WDL swing: ${m.wdl_swing}%</div>
+                </div>
+              </div>`
+            )
+            .join("");
+        }
+      } catch (err) {
+        $("review-stats").innerHTML = `<div class="muted">Review error: ${err.message}</div>`;
+      }
+    }
+
+    // --- Event Wiring ---
+    $("btn-flip").addEventListener("click", () => {
+      state.flipped = !state.flipped;
+      renderBoard();
+    });
+
+    $("btn-undo").addEventListener("click", () => {
+      if (!state.history.length) return;
+      const prev = state.history.pop();
+      state.fen = prev.fen;
+      state.selectedSquare = null;
+      state.lastMove = null;
+      updateLastMoveBadge();
+      renderBoard();
+      runAnalyze();
+    });
+
+    $("btn-reset").addEventListener("click", () => {
+      state.fen = START_FEN;
+      state.history = [];
+      state.selectedSquare = null;
+      state.lastMove = null;
+      updateLastMoveBadge();
+      renderBoard();
+      runAnalyze();
+    });
+
+    $("btn-load-fen").addEventListener("click", () => {
+      const val = $("fen-input").value.trim();
+      if (!val) return;
+      state.fen = val;
+      state.selectedSquare = null;
+      state.lastMove = null;
+      updateLastMoveBadge();
+      renderBoard();
+      runAnalyze();
+    });
+
+    $("btn-analyze").addEventListener("click", runAnalyze);
+    $("elo-select").addEventListener("change", runAnalyze);
+    $("btn-explain").addEventListener("click", () => runCoach("", Boolean(state.lastMove)));
+    $("btn-ask").addEventListener("click", () => runCoach($("qa-input").value.trim(), false));
+    $("qa-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") runCoach($("qa-input").value.trim(), false);
+    });
+
+    document.querySelectorAll(".hint-btn").forEach((btn) => {
+      btn.addEventListener("click", () => runHint(Number(btn.dataset.level)));
+    });
+
+    $("image-upload").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      state.imagePath = file ? file.name : null;
+      $("image-status").textContent = file ? `Attached: ${file.name}` : "";
+    });
+
+    $("btn-sample-pgn").addEventListener("click", () => {
+      $("pgn-input").value = SAMPLE_PGN;
+    });
+    $("btn-review").addEventListener("click", runReview);
+
+    // Boot
+    renderBoard();
+    loadHealth();
+    runAnalyze();
+  </script>
+</body>
+</html>
