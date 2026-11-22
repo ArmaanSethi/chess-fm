@@ -13,15 +13,19 @@ Provides:
 
 from __future__ import annotations
 
+import argparse
 import io
+import json
 import math
+import sys
+from pathlib import Path
 from typing import Any
 
 import chess
 import chess.engine
 import chess.pgn
 
-from chessfm.rl.engine import _cp_from_white
+from chessfm.rl.engine import _cp_from_white, close_engine, open_engine
 
 # Standard centipawn piece values for heuristic evaluation and material counts.
 PIECE_VALUES: dict[chess.PieceType, int] = {
@@ -659,3 +663,140 @@ def build_weakness_profile(reviews: list[dict[str, Any]]) -> dict[str, Any]:
         "top_priorities": top_priorities,
         "drills": drills,
     }
+
+
+def format_review_report(review: dict[str, Any]) -> str:
+    """Format a ``review_pgn_game`` result into a crisp terminal report."""
+    headers = review.get("headers", {})
+    white = headers.get("White", "?")
+    black = headers.get("Black", "?")
+    event = headers.get("Event", "Game Review")
+    result = headers.get("Result", "*")
+
+    lines = [
+        f"ChessFM Game Review — {event}",
+        f"Players: {white} vs {black} ({result})",
+        (
+            f"Student: {review['student_color']} (Elo {review['student_elo']}) | "
+            f"Engine: {review['engine_used']} | "
+            f"Accuracy: {review['accuracy']:.1f}% "
+            f"({review['student_moves']}/{review['total_plies']} plies)"
+        ),
+    ]
+
+    counts = review.get("counts", {})
+    lines.append(
+        "Move Quality: "
+        + " | ".join(
+            f"{label}: {counts.get(label, 0)}"
+            for label in ("Best", "Good", "Inaccuracy", "Mistake", "Blunder")
+        )
+    )
+
+    weakness_counts = review.get("weakness_counts", {})
+    if weakness_counts:
+        summary = ", ".join(f"{cat} ({cnt})" for cat, cnt in weakness_counts.items())
+        lines.append(f"Weaknesses: {summary}")
+
+    critical = review.get("critical_moments", [])
+    if critical:
+        lines.append("Critical Moments:")
+        for idx, moment in enumerate(critical, start=1):
+            move_prefix = (
+                f"{moment['move_number']}."
+                if moment["color"] == "white"
+                else f"{moment['move_number']}..."
+            )
+            best_label = moment.get("best_san") or moment.get("best_move") or "-"
+            cat_suffix = f" [{moment['category']}]" if moment.get("category") else ""
+            lines.append(
+                f"  {idx}. {move_prefix} {moment['played_san']} ({moment['classification']}) "
+                f"— best: {best_label} | -{moment['cp_loss']:.0f} cp, "
+                f"WDL swing {moment['wdl_swing']:.1f}%{cat_suffix}"
+            )
+    else:
+        lines.append("Critical Moments: none")
+
+    return "\n".join(lines)
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the CLI argument parser for ``python -m chessfm.coach.game_review``."""
+    parser = argparse.ArgumentParser(
+        prog="python -m chessfm.coach.game_review",
+        description="Review a chess game from a PGN file using Stockfish (with heuristic fallback).",
+    )
+    parser.add_argument(
+        "--pgn",
+        type=Path,
+        required=True,
+        help="Path to the PGN file to review.",
+    )
+    parser.add_argument(
+        "--color",
+        default="white",
+        choices=("white", "black", "both"),
+        help="Student side to evaluate (default: white).",
+    )
+    parser.add_argument(
+        "--elo",
+        type=int,
+        default=1200,
+        help="Approximate student Elo rating (default: 1200).",
+    )
+    parser.add_argument(
+        "--depth",
+        type=int,
+        default=8,
+        help="Stockfish analysis depth when available (default: 8).",
+    )
+    parser.add_argument(
+        "--max-critical",
+        type=int,
+        default=5,
+        help="Maximum number of critical turning points to report (default: 5).",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Output the structured game review as JSON.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point for reviewing a PGN file from the terminal."""
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if not args.pgn.is_file():
+        print(f"Error: PGN file not found: {args.pgn}", file=sys.stderr)
+        return 1
+
+    pgn_text = args.pgn.read_text(encoding="utf-8")
+    engine = open_engine(threads=1, hash_mb=16)
+    try:
+        review = review_pgn_game(
+            pgn_text,
+            engine=engine,
+            student_color=args.color,
+            student_elo=args.elo,
+            depth=args.depth,
+            max_critical=args.max_critical,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        close_engine(engine)
+
+    if args.as_json:
+        print(json.dumps(review, indent=2))
+    else:
+        print(format_review_report(review))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

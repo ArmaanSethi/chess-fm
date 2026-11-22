@@ -88,6 +88,18 @@ class TestBuildGemma4CoachMessages:
         with pytest.raises(ValueError):
             build_gemma4_coach_messages("not a valid fen", "Help?")
 
+    def test_image_data_url_supported_and_takes_precedence(self):
+        data_url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        messages = build_gemma4_coach_messages(
+            fen=START_FEN,
+            user_question="What opening is this?",
+            image_path="/tmp/ignored.png",
+            image_data_url=data_url,
+        )
+        content = messages[-1]["content"]
+        assert content[0] == {"type": "image", "image": data_url}
+        assert content[1]["type"] == "text"
+
 
 class TestVerifyChessClaims:
     def test_verified_legal_moves_and_pieces(self):
@@ -273,3 +285,93 @@ class TestCoachOrchestratorLiveStockfish:
         analysis = coach.analyze_position(SCHOLARS_MATE_FEN, depth=6)
         assert analysis["stockfish"]["source"] == "heuristic"
         assert analysis["stockfish"]["best_move"] == "h5f7"
+
+
+class TestCoachIntegrationWave5:
+    def test_coach_package_public_exports(self):
+        import chessfm.coach as coach_pkg
+
+        expected = {
+            "CoachOrchestrator",
+            "MaiaSidecar",
+            "classify_move",
+            "build_partial_strategy_tree",
+            "win_prob_from_cp",
+            "generate_socratic_hint",
+            "contains_move_spoiler",
+            "verify_claims",
+            "verify_and_repair",
+            "review_pgn_game",
+            "build_weakness_profile",
+        }
+        assert expected.issubset(set(coach_pkg.__all__))
+        for name in expected:
+            assert hasattr(coach_pkg, name)
+
+    def test_shared_maia_sidecar_used_by_orchestrator(self):
+        from chessfm.coach import MaiaSidecar
+
+        calls: list[tuple[str, int]] = []
+
+        class SpyMaiaSidecar(MaiaSidecar):
+            def predict_human_moves(
+                self,
+                fen: str,
+                student_elo: int = 1200,
+                opponent_elo: int | None = None,
+                top_k: int = 5,
+            ):
+                calls.append((fen, student_elo))
+                return super().predict_human_moves(
+                    fen, student_elo=student_elo, opponent_elo=opponent_elo, top_k=top_k
+                )
+
+        sidecar = SpyMaiaSidecar(use_neural=False)
+        orch = CoachOrchestrator(maia_sidecar=sidecar)
+        analysis = orch.analyze_position(TRAP_FEN, student_elo=1100)
+
+        assert len(calls) == 1
+        assert calls[0] == (TRAP_FEN, 1100)
+        assert analysis["maia"]["backend"] == "calibrated_fallback"
+        assert analysis["maia"]["predicted_human_move"] is not None
+        assert len(analysis["maia"]["human_moves"]) == 5
+
+    def test_llm_verify_and_repair_succeeds_on_retry(self):
+        seen_prompts: list[list[dict]] = []
+
+        def self_correcting_llm(messages: list[dict]) -> str:
+            seen_prompts.append(messages)
+            if len(seen_prompts) == 1:
+                return "Move your knight on a1 via e2e5 to win immediately."
+            return "Play Qxf7# (h5f7) with your white queen on h5 for checkmate."
+
+        orch = CoachOrchestrator(llm_fn=self_correcting_llm, max_repair_retries=2)
+        res = orch.coach(SCHOLARS_MATE_FEN, "How do I win?")
+
+        assert len(seen_prompts) == 2
+        assert res["verification"]["passed"] is True
+        assert res["verification"]["verified"] is True
+        assert res["verification"]["retries_used"] == 1
+        assert "[Coach Verifier Note:" not in res["response"]
+        assert "Qxf7#" in res["response"]
+        # Second call should include targeted violation feedback
+        repair_text = seen_prompts[1][-1]["content"][0]["text"]
+        assert "e2e5" in repair_text or "a1" in repair_text
+
+    def test_llm_verify_and_repair_exhausts_retries_and_appends_note(self):
+        call_count = {"n": 0}
+
+        def stubborn_llm(_messages: list[dict]) -> str:
+            call_count["n"] += 1
+            return "Play e2e5 with your knight on a1."
+
+        orch = CoachOrchestrator(llm_fn=stubborn_llm, max_repair_retries=2)
+        res = orch.coach(SCHOLARS_MATE_FEN, "How do I win?")
+
+        # 1 initial call + 2 repair retries = 3 calls
+        assert call_count["n"] == 3
+        assert res["verification"]["passed"] is False
+        assert res["verification"]["verified"] is False
+        assert res["verification"]["retries_used"] == 2
+        assert "[Coach Verifier Note:" in res["response"]
+        assert "h5f7" in res["response"]

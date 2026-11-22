@@ -90,9 +90,14 @@ class _FakeInputs:
 
 
 class _FakeTokenizer:
+    eos_token_id = 0
+
     def __call__(self, prompt, return_tensors=None):
         ids = list(range(len(prompt.split()))) + [99, 100]
         return _FakeInputs(ids)
+
+    def encode(self, text, add_special_tokens=False):
+        return [ord(ch) for ch in text]
 
     def decode(self, ids, skip_special_tokens=None):
         return "decoded:" + ",".join(str(int(i)) for i in ids)
@@ -108,8 +113,10 @@ class _MoveTokenizer(_FakeTokenizer):
 class _FakeModel:
     def __init__(self):
         self.device = "cpu"
+        self.generate_calls = []
 
     def generate(self, **kwargs):
+        self.generate_calls.append(kwargs)
         input_ids = kwargs["input_ids"]
         out = input_ids._values + [101, 102, 103]
         return _FakeTensor(out)
@@ -401,7 +408,7 @@ def test_evaluate_model_with_custom_openings_writes_valid_pgn(tmp_path, monkeypa
     report = json.loads(reports[0].read_text())
     assert "score_ci_95" in report
     assert len(report["score_ci_95"]) == 2
-    assert report["decoding_mode"] == "greedy"
+    assert report["decoding_mode"] == "strict"
 
     pgns = list((tmp_path / "pgns").glob("*.pgn"))
     assert len(pgns) == 1
@@ -445,8 +452,94 @@ def test_evaluate_model_writes_json_report_before_pgn(tmp_path, monkeypatch):
     assert len(reports) == 1
     report = json.loads(reports[0].read_text())
     assert report["num_games"] == 1
-    assert report["decoding_mode"] == "greedy"
+    assert report["decoding_mode"] == "strict"
     assert len(report["score_ci_95"]) == 2
+
+
+def test_generate_completion_strict_omits_logits_processor():
+    import chess
+
+    from chessfm.rl.evaluate import generate_completion
+
+    model = _FakeModel()
+    tok = _FakeTokenizer()
+    generate_completion(
+        model, tok, "some prompt here", decoding_mode="strict", fen=chess.STARTING_FEN
+    )
+
+    assert len(model.generate_calls) == 1
+    assert "logits_processor" not in model.generate_calls[0]
+
+
+def test_generate_completion_constrained_attaches_logits_processor():
+    import chess
+    import pytest
+
+    from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
+    from chessfm.rl.evaluate import generate_completion
+
+    model = _FakeModel()
+    tok = _FakeTokenizer()
+    prompt = "some prompt here"
+    generate_completion(model, tok, prompt, decoding_mode="constrained", fen=chess.STARTING_FEN)
+
+    assert len(model.generate_calls) == 1
+    call_kwargs = model.generate_calls[0]
+    assert "logits_processor" in call_kwargs
+    processors = call_kwargs["logits_processor"]
+    assert len(processors) == 1
+    proc = processors[0]
+    assert isinstance(proc, LegalMoveLogitsProcessor)
+    assert proc.fen == chess.STARTING_FEN
+    assert proc.prompt_length == len(prompt.split()) + 2
+
+    with pytest.raises(ValueError, match="fen must be provided"):
+        generate_completion(model, tok, prompt, decoding_mode="constrained")
+
+    with pytest.raises(ValueError, match="Unsupported decoding_mode"):
+        generate_completion(model, tok, prompt, decoding_mode="beam")
+
+
+def test_evaluate_model_records_constrained_decoding_mode(tmp_path, monkeypatch):
+    import pytest
+
+    import chessfm.rl.evaluate as evaluate
+    from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    model = _FakeModel()
+    tokenizer = _MoveTokenizer()
+
+    evaluate.evaluate_model(
+        model,
+        tokenizer,
+        "fake-checkpoint",
+        num_games=1,
+        use_random_opponent=True,
+        seed=1,
+        decoding_mode="constrained",
+    )
+
+    reports = list(tmp_path.glob("eval_*.json"))
+    assert len(reports) == 1
+    report = json.loads(reports[0].read_text())
+    assert report["decoding_mode"] == "constrained"
+    assert len(model.generate_calls) >= 1
+    for call_kwargs in model.generate_calls:
+        assert "logits_processor" in call_kwargs
+        assert isinstance(call_kwargs["logits_processor"][0], LegalMoveLogitsProcessor)
+
+    with pytest.raises(ValueError, match="Unsupported decoding_mode"):
+        evaluate.evaluate_model(
+            _FakeModel(),
+            _MoveTokenizer(),
+            "fake-checkpoint",
+            num_games=1,
+            use_random_opponent=True,
+            decoding_mode="invalid",
+        )
 
 
 if __name__ == "__main__":

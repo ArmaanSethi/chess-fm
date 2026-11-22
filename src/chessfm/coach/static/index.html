@@ -641,7 +641,7 @@
 
             <div class="upload-row">
               <label for="image-upload">Board Photo (Gemma 4 Multimodal):</label>
-              <input id="image-upload" type="file" accept="image/*" />
+              <input id="image-upload" type="file" accept="image/png,image/jpeg,image/webp" />
               <span id="image-status" class="mono"></span>
             </div>
 
@@ -735,6 +735,7 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
       lastMove: null, // {from, to, uci, san, prevFen}
       maiaTop: [],
       imagePath: null,
+      imageDataUrl: null,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -1116,7 +1117,8 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
       };
       if (question) payload.question = question;
       if (useLastMove && state.lastMove) payload.student_move = state.lastMove.uci;
-      if (state.imagePath) payload.image_path = state.imagePath;
+      if (state.imageDataUrl) payload.image_data_url = state.imageDataUrl;
+      else if (state.imagePath) payload.image_path = state.imagePath;
 
       try {
         const data = await apiJson("/api/coach", payload);
@@ -1301,10 +1303,40 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
       btn.addEventListener("click", () => runHint(Number(btn.dataset.level)));
     });
 
+    const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
     $("image-upload").addEventListener("change", (e) => {
       const file = e.target.files && e.target.files[0];
-      state.imagePath = file ? file.name : null;
-      $("image-status").textContent = file ? `Attached: ${file.name}` : "";
+      if (!file) {
+        state.imagePath = null;
+        state.imageDataUrl = null;
+        $("image-status").textContent = "";
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        state.imagePath = null;
+        state.imageDataUrl = null;
+        e.target.value = "";
+        $("image-status").textContent = "Image too large (max 1.5 MB).";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          state.imageDataUrl = reader.result;
+          state.imagePath = file.name;
+          $("image-status").textContent = `Attached: ${file.name}`;
+        } else {
+          state.imageDataUrl = null;
+          state.imagePath = null;
+          $("image-status").textContent = "Failed to read image.";
+        }
+      };
+      reader.onerror = () => {
+        state.imageDataUrl = null;
+        state.imagePath = null;
+        $("image-status").textContent = "Error reading image.";
+      };
+      reader.readAsDataURL(file);
     });
 
     $("btn-sample-pgn").addEventListener("click", () => {
