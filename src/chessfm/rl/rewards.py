@@ -386,10 +386,15 @@ def _best_reply_eval(engine, after_board: chess.Board, mover: chess.Color, depth
     """Evaluation after Stockfish's best reply, from ``mover``'s perspective."""
     if after_board.is_game_over():
         # No reply exists; the move itself decided the game.
-        return best_cp(engine, after_board, depth, for_color=mover)
-    reply = best_move(engine, after_board, depth)
-    if reply is None:
-        raise EngineAnalysisError(f"no reply analysis for {after_board.fen()}")
-    reply_board = after_board.copy()
-    reply_board.push(chess.Move.from_uci(reply))
-    return best_cp(engine, reply_board, depth, for_color=mover)
+        eval_after_reply = best_cp(engine, after_board, depth, for_color=mover)
+    else:
+        reply = best_move(engine, after_board, depth)
+        if reply is None:
+            raise EngineAnalysisError(f"no reply analysis for {after_board.fen()}")
+        reply_board = after_board.copy()
+        reply_board.push(chess.Move.from_uci(reply))
+        eval_after_reply = best_cp(engine, reply_board, depth, for_color=mover)
+
+    if eval_after_reply is None:
+        raise EngineAnalysisError(f"reply evaluation failed for {after_board.fen()}")
+    return eval_after_reply

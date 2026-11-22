@@ -110,6 +110,27 @@ class TestChessEnv(unittest.TestCase):
         assert env.engine is None
         env.close()
 
+    def test_threefold_repetition_terminates_as_draw(self):
+        self.env.reset()
+        # After 7 plies (Nf3 Nf6 Ng1 Ng8 Nf3 Nf6 Ng1), Black can claim a draw by
+        # threefold repetition on Ng8, so is_game_over(claim_draw=True) triggers.
+        moves = ["g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1"]
+        for move in moves[:-1]:
+            res = self.env.step(move)
+            self.assertFalse(res.done)
+        res = self.env.step(moves[-1])
+        self.assertTrue(res.done)
+        self.assertTrue(res.legal)
+        self.assertEqual(res.info.get("result"), "1/2-1/2")
+
+    def test_fifty_move_rule_terminates_as_draw(self):
+        # Halfmove clock at 99; one quiet rook move reaches 100 halfmoves (50 full moves).
+        self.env.reset("4k3/8/8/8/8/8/8/4K2R w - - 99 60")
+        res = self.env.step("h1h2")
+        self.assertTrue(res.done)
+        self.assertTrue(res.legal)
+        self.assertEqual(res.info.get("result"), "1/2-1/2")
+
 
 class TestStepResult(unittest.TestCase):
     def test_step_result_creation(self):

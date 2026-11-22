@@ -124,3 +124,65 @@ def test_close_engine_handles_failure():
 def test_open_engine_returns_none_when_unavailable(monkeypatch):
     monkeypatch.setattr("chessfm.rl.engine.STOCKFISH_PATHS", ["/nonexistent/stockfish"])
     assert open_engine() is None
+
+
+class _PovScoreEngine:
+    """Returns a real python-chess PovScore for testing mate/MateGiven semantics."""
+
+    def __init__(self, pov_score):
+        self._pov_score = pov_score
+
+    def analyse(self, board, limit):
+        return {"score": self._pov_score}
+
+
+def test_white_delivered_mate_scores_positive_10000():
+    # White just checkmated Black: Black is to move and mated -> PovScore(Mate(0), BLACK).
+    eng = _PovScoreEngine(chess.engine.PovScore(chess.engine.Mate(0), chess.BLACK))
+    board = chess.Board()
+    assert best_cp(eng, board, for_color=chess.WHITE) == 10000.0
+    assert best_cp(eng, board, for_color=chess.BLACK) == -10000.0
+
+
+def test_black_delivered_mate_scores_positive_10000():
+    # Black just checkmated White: White is to move and mated -> PovScore(Mate(0), WHITE).
+    eng = _PovScoreEngine(chess.engine.PovScore(chess.engine.Mate(0), chess.WHITE))
+    board = chess.Board()
+    assert best_cp(eng, board, for_color=chess.BLACK) == 10000.0
+    assert best_cp(eng, board, for_color=chess.WHITE) == -10000.0
+
+
+def test_mate_given_explicit_pov():
+    eng_w = _PovScoreEngine(chess.engine.PovScore(chess.engine.MateGiven, chess.WHITE))
+    assert best_cp(eng_w, chess.Board(), for_color=chess.WHITE) == 10000.0
+    assert best_cp(eng_w, chess.Board(), for_color=chess.BLACK) == -10000.0
+
+    eng_b = _PovScoreEngine(chess.engine.PovScore(chess.engine.MateGiven, chess.BLACK))
+    assert best_cp(eng_b, chess.Board(), for_color=chess.BLACK) == 10000.0
+    assert best_cp(eng_b, chess.Board(), for_color=chess.WHITE) == -10000.0
+
+
+def test_live_stockfish_checkmate_delivery_scores_positive_10000():
+    eng = open_engine()
+    if eng is None:
+        pytest.skip("Stockfish not available")
+    try:
+        # Scholar's mate: White delivers mate with h5f7.
+        board_w = chess.Board()
+        for uci in ["e2e4", "e7e5", "d1h5", "b8c6", "f1c4", "g8f6"]:
+            board_w.push_uci(uci)
+        assert eval_after_move(eng, board_w, "h5f7", depth=5) == 10000.0
+        board_w.push_uci("h5f7")
+        assert best_cp(eng, board_w, depth=5, for_color=chess.WHITE) == 10000.0
+        assert best_cp(eng, board_w, depth=5, for_color=chess.BLACK) == -10000.0
+
+        # Fool's mate: Black delivers mate with d8h4.
+        board_b = chess.Board()
+        for uci in ["f2f3", "e7e5", "g2g4"]:
+            board_b.push_uci(uci)
+        assert eval_after_move(eng, board_b, "d8h4", depth=5) == 10000.0
+        board_b.push_uci("d8h4")
+        assert best_cp(eng, board_b, depth=5, for_color=chess.BLACK) == 10000.0
+        assert best_cp(eng, board_b, depth=5, for_color=chess.WHITE) == -10000.0
+    finally:
+        close_engine(eng)

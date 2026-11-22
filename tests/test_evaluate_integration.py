@@ -346,5 +346,108 @@ def test_alternate_colors_disabled_keeps_one_color(tmp_path, monkeypatch):
     assert colors == ["white", "white"]
 
 
+def test_wilson_ci_bounds():
+    from chessfm.rl.evaluate import wilson_ci
+
+    assert wilson_ci(0, 0, 0) == (0.0, 0.0)
+
+    low, high = wilson_ci(5, 5, 0)
+    assert 0.0 < low < 0.5 < high < 1.0
+    assert math.isclose(low + high, 1.0, rel_tol=1e-6)
+
+    low_100, high_100 = wilson_ci(10, 0, 0)
+    assert 0.0 < low_100 < 1.0
+    assert math.isclose(high_100, 1.0, abs_tol=1e-9)
+
+    low_0, high_0 = wilson_ci(0, 10, 0)
+    assert math.isclose(low_0, 0.0, abs_tol=1e-9)
+    assert 0.0 < high_0 < 1.0
+
+    # Larger sample size narrows the interval.
+    lo_small, hi_small = wilson_ci(5, 5, 0)
+    lo_large, hi_large = wilson_ci(50, 50, 0)
+    assert (hi_large - lo_large) < (hi_small - lo_small)
+
+
+def test_evaluate_model_with_custom_openings_writes_valid_pgn(tmp_path, monkeypatch):
+    import chess.pgn
+
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    openings_file = tmp_path / "openings.txt"
+    fen_1 = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+    fen_2 = "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+    openings_file.write_text(f"{fen_1}\n{fen_2}\n")
+
+    class _KnightTokenizer(_FakeTokenizer):
+        def decode(self, ids, skip_special_tokens=None):
+            return "<think>develop knight to f3.</think>\ng1f3"
+
+    evaluate.evaluate_model(
+        _FakeModel(),
+        _KnightTokenizer(),
+        "fake-checkpoint",
+        num_games=2,
+        use_random_opponent=True,
+        openings=openings_file,
+        seed=7,
+    )
+
+    reports = list(tmp_path.glob("eval_*.json"))
+    assert len(reports) == 1
+    report = json.loads(reports[0].read_text())
+    assert "score_ci_95" in report
+    assert len(report["score_ci_95"]) == 2
+    assert report["decoding_mode"] == "greedy"
+
+    pgns = list((tmp_path / "pgns").glob("*.pgn"))
+    assert len(pgns) == 1
+    fens_in_pgn = []
+    with open(pgns[0]) as f:
+        while True:
+            game = chess.pgn.read_game(f)
+            if game is None:
+                break
+            assert game.headers.get("SetUp") == "1"
+            fens_in_pgn.append(game.headers.get("FEN"))
+            assert len(list(game.mainline_moves())) >= 1
+    assert fens_in_pgn == [fen_1, fen_2]
+
+
+def test_evaluate_model_writes_json_report_before_pgn(tmp_path, monkeypatch):
+    import pytest
+
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    def _boom(games, path):
+        raise RuntimeError("simulated PGN serialization failure")
+
+    monkeypatch.setattr(evaluate, "write_pgn", _boom)
+
+    with pytest.raises(RuntimeError, match="simulated PGN"):
+        evaluate.evaluate_model(
+            _FakeModel(),
+            _MoveTokenizer(),
+            "fake-checkpoint",
+            num_games=1,
+            use_random_opponent=True,
+            seed=1,
+        )
+
+    # JSON report must already exist on disk even though PGN writing failed.
+    reports = list(tmp_path.glob("eval_*.json"))
+    assert len(reports) == 1
+    report = json.loads(reports[0].read_text())
+    assert report["num_games"] == 1
+    assert report["decoding_mode"] == "greedy"
+    assert len(report["score_ci_95"]) == 2
+
+
 if __name__ == "__main__":
     unittest.main()

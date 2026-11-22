@@ -14,7 +14,7 @@ dependencies = [
     # signature drift); verified against 4.51.3.
     "transformers>=4.51.0,<4.52",
     "accelerate>=0.34.0",
-    "peft>=0.11.0",
+    "peft>=0.11.0,<0.25",
     "trl>=0.16.0,<0.17",
     "python-chess>=1.10.0",
     "datasets>=3.0.0,<6",
@@ -28,6 +28,13 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff==0.16.2",
     "pre-commit>=3.5.0",
+]
+gpu = [
+    "bitsandbytes>=0.45.0",
+]
+coach = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
 ]
 mlx = [
     "mlx>=0.0.10",

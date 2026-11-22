@@ -60,18 +60,47 @@ SAMPLE_THRESHOLD = 1000
 
 
 def fix_think_tags(reasoning: str) -> str:
-    """Ensure balanced <think>...</think> tags in a reasoning trace."""
+    """Ensure balanced, non-nested <think>...</think> tags in a reasoning trace."""
     text = reasoning.strip()
-    # Some teacher traces emit a duplicated closing tag
-    # (``</think>\n</think>``). Collapse consecutive duplicates before
-    # balancing, otherwise the balancer would prepend a spurious opener.
-    text = re.sub(r"(</think>)\s+(?=</think>)", r"\1", text)
+    if not text:
+        return ""
+    # Some teacher traces emit duplicated opening/closing tags
+    # (e.g. ``</think>\n</think>`` or ``<think><think>``). Collapse consecutive
+    # duplicates before balancing so we never emit nested tags.
+    text = re.sub(r"<think>(?:\s*<think>)+", "<think>", text)
+    text = re.sub(r"</think>(?:\s*</think>)+", "</think>", text)
     opens = text.count("<think>")
     closes = text.count("</think>")
+    if opens == 0 and closes == 0:
+        return text
+    if opens > 1 or closes > 1:
+        last_close = text.rfind("</think>")
+        if last_close != -1:
+            body = text[:last_close]
+            tail = text[last_close + len("</think>") :]
+        else:
+            body = text
+            tail = ""
+        body = body.replace("<think>", "").replace("</think>", "")
+        return f"<think>{body}</think>{tail}"
     if opens > closes:
-        text += "</think>" * (opens - closes)
+        text += "</think>"
     elif closes > opens:
-        text = "<think>" * (closes - opens) + text
+        text = "<think>" + text
+    return text
+
+
+def _strip_trailing_move(reasoning: str, move: str) -> str:
+    """Remove any trailing copy of ``move`` (or ChatML close token) from ``reasoning``."""
+    text = reasoning.rstrip()
+    if text.endswith(CHATML_ASSISTANT_CLOSE):
+        text = text[: -len(CHATML_ASSISTANT_CLOSE)].rstrip()
+    if move:
+        pattern = re.compile(rf"(?:\s+{re.escape(move)})+\s*$", re.IGNORECASE)
+        text = pattern.sub("", text).rstrip()
+        suffix = f"</think>{move}"
+        if text.lower().endswith(suffix.lower()):
+            text = text[: -len(move)].rstrip()
     return text
 
 
@@ -89,6 +118,7 @@ def convert_sample(sample: dict) -> dict:
     """Convert one sample to training format."""
     instruction = build_chat_prompt(sample["fen"])
     reasoning = fix_think_tags(sample.get("reasoning", ""))
+    reasoning = _strip_trailing_move(reasoning, sample["move"])
     # The ChatML turn-end token terminates the completion so the model learns
     # *when to stop*; without it every generation runs to the token budget.
     output = f"{reasoning}\n{sample['move']}{CHATML_ASSISTANT_CLOSE}"

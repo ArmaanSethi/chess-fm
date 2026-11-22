@@ -51,8 +51,12 @@ def close_engine(engine) -> None:
 def _cp_from_white(info, for_color: chess.Color) -> float:
     """Return a Stockfish score in centipawns from ``for_color``'s perspective."""
     score = info["score"].white()
-    cp = 10000.0 if score.is_mate() and score.mate() > 0 else -10000.0
-    if not score.is_mate():
+    if score.is_mate():
+        if score == chess.engine.MateGiven or score.mate() > 0:
+            cp = 10000.0
+        else:
+            cp = -10000.0
+    else:
         cp = float(score.score())
     return cp if for_color == chess.WHITE else -cp
 

@@ -93,11 +93,11 @@ class ChessEnv:
         self.board.push(move)
         self.move_count += 1
 
-        if self.board.is_game_over():
+        if self.board.is_game_over(claim_draw=True):
             return StepResult(
                 done=True,
                 legal=True,
-                info={"result": self.board.result(), "moves": self.move_count},
+                info={"result": self.board.result(claim_draw=True), "moves": self.move_count},
             )
 
         if self.move_count >= self.max_moves:

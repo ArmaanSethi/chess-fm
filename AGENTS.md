@@ -39,3 +39,11 @@ Installed console scripts also exist (`chessfm-convert`, `chessfm-train-sft`, `c
 - `generate_synthetic_data` requires provider API keys in env (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`); never put keys in files.
 - GRPO Stage 0 is Stockfish-free; Stages 1 and 2 fail fast if Stockfish binary is missing.
 - Evaluation runs generate JSON reports and PGN files under `results/` (gitignored). Model metrics are captured in eval reports rather than hardcoded in source.
+
+## Engineering & GitHub Standards
+
+- **Commits & Pull Requests**: Use concise, scoped conventional titles (e.g. `fix(rl): ...`, `feat(coach): ...`) with clear technical rationale, design tradeoffs, and exact verification commands/results (`ruff`, `pytest --cov`).
+- **Repository Hygiene**: Never commit conversational notes, scratch/teamwork artifacts (`.agents/teamwork/`), model checkpoints, raw eval outputs, or secrets/API keys.
+- **Code Quality**: Maintain clean type annotations, purposeful docstrings explaining design intent, deterministic unit/integration tests, `ruff check` + `ruff format` cleanliness, and `>= 80%` test coverage.
+- **Reproducibility**: Every claimed metric in documentation must be backed by a reproducible CLI command and eval manifest.
+

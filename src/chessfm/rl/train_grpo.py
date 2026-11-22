@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import random
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -47,6 +48,34 @@ logger = logging.getLogger("chessfm.train_grpo")
 # worse than stopping training.
 _MAX_ENGINE_FAILURE_RATE = 0.05
 _MIN_FAILURE_SAMPLE = 20
+
+
+def validate_grpo_batch_divisibility(
+    per_device_batch_size: int,
+    num_generations: int,
+    world_size: int = 1,
+) -> None:
+    """Validate that ``(per_device_batch_size * world_size)`` is divisible by ``num_generations``.
+
+    TRL's ``GRPOTrainer`` requires the global generation batch size to be a
+    multiple of ``num_generations``; failing fast here prevents crashing after
+    model loading on the GPU.
+    """
+    if per_device_batch_size <= 0:
+        raise ValueError(f"per_device_batch_size must be positive, got {per_device_batch_size}")
+    if num_generations <= 0:
+        raise ValueError(f"num_generations must be positive, got {num_generations}")
+    if world_size <= 0:
+        raise ValueError(f"world_size must be positive, got {world_size}")
+    global_batch = per_device_batch_size * world_size
+    if global_batch % num_generations != 0:
+        raise ValueError(
+            f"GRPO requires (per_device_batch_size * world_size) to be divisible by "
+            f"num_generations, got ({per_device_batch_size} * {world_size}) = {global_batch} "
+            f"and num_generations = {num_generations}. "
+            f"Set --per-device-batch-size to a multiple of {num_generations} "
+            f"(e.g. {num_generations})."
+        )
 
 
 def make_reward_func(stage: int, engine=None):
@@ -104,8 +133,14 @@ def make_reward_func(stage: int, engine=None):
     return chess_reward_fn
 
 
-def load_positions(filepath: Path, max_positions: int = 1000, seed: int = 42) -> list[dict]:
-    """Load positions into ChatML-formatted prompt dataset.
+def load_positions(
+    filepath: Path,
+    max_positions: int = 1000,
+    seed: int = 42,
+    tokenizer=None,
+    include_ascii: bool = False,
+) -> list[dict]:
+    """Load positions into chat-formatted prompt dataset.
 
     When the pool has more FENs than ``max_positions``, a seeded random sample
     is taken instead of the file head, so the training set is not biased toward
@@ -123,7 +158,10 @@ def load_positions(filepath: Path, max_positions: int = 1000, seed: int = 42) ->
     fens = read_fens(filepath)
     if len(fens) > max_positions:
         fens = random.Random(seed).sample(fens, max_positions)
-    positions = [{"prompt": build_chat_prompt(fen)} for fen in fens]
+    positions = [
+        {"prompt": build_chat_prompt(fen, tokenizer=tokenizer, include_ascii=include_ascii)}
+        for fen in fens
+    ]
     if not positions:
         raise SystemExit(f"Positions file contains no positions: {filepath}")
     return positions
@@ -137,6 +175,13 @@ def build_grpo_config(args) -> GRPOConfig:
     training script passes are exercised by tests (guards against TRL API
     drift).
     """
+    world_size = getattr(args, "world_size", int(os.environ.get("WORLD_SIZE", "1")))
+    validate_grpo_batch_divisibility(
+        args.per_device_batch_size,
+        args.num_generations,
+        world_size=world_size,
+    )
+
     import torch
     from trl import GRPOConfig
 
@@ -179,7 +224,10 @@ def main():
         help="Completions sampled per prompt (GRPO group size)",
     )
     parser.add_argument(
-        "--per-device-batch-size", type=int, default=4, help="Per-device training batch size"
+        "--per-device-batch-size",
+        type=int,
+        default=GRPO_NUM_GENERATIONS,
+        help="Per-device training batch size (must satisfy batch*world_size %% num_generations == 0)",
     )
     parser.add_argument("--grad-accum", type=int, default=2, help="Gradient accumulation steps")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
@@ -213,10 +261,22 @@ def main():
         action="store_true",
         help="Resume from the latest checkpoint in --output if one exists",
     )
+    parser.add_argument(
+        "--include-ascii",
+        action="store_true",
+        help="Include an ASCII board rendering in position prompts",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    validate_grpo_batch_divisibility(
+        args.per_device_batch_size,
+        args.num_generations,
+        world_size=world_size,
+    )
 
     print("=" * 60)
     print("ChessFM RL Training (GRPO via TRL)")
@@ -225,6 +285,7 @@ def main():
     print(f"Model:            {args.model}")
     print(f"Max Steps:        {args.steps}")
     print(f"Generations/grp:  {args.num_generations}")
+    print(f"Batch size/dev:   {args.per_device_batch_size}")
     print(f"Temperature:      {args.temperature}")
     print(f"Beta (KL):        {args.beta}")
     print(f"Checkpoint every: {args.checkpoint_every}")
@@ -239,13 +300,19 @@ def main():
 
     torch.manual_seed(args.seed)
 
-    raw_positions = load_positions(args.positions, args.max_positions, seed=args.seed)
-    dataset = Dataset.from_list(raw_positions)
-    print(f"Loaded {len(dataset)} prompts/positions for training")
-
-    model, tokenizer = load_model(args.model)
+    model, tokenizer = load_model(args.model, merge_peft=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    raw_positions = load_positions(
+        args.positions,
+        args.max_positions,
+        seed=args.seed,
+        tokenizer=tokenizer,
+        include_ascii=args.include_ascii,
+    )
+    dataset = Dataset.from_list(raw_positions)
+    print(f"Loaded {len(dataset)} prompts/positions for training")
 
     engine = None
     if args.stage >= 1:
