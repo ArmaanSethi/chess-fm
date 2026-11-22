@@ -33,7 +33,6 @@ from chessfm.eval.suite import (
     summarize_paired_match,
 )
 from chessfm.fens import read_jsonl
-from chessfm.rl.chess_env import ChessEnv
 from chessfm.rl.engine import close_engine, open_engine
 
 SAMPLE_PGNS = [
@@ -91,25 +90,21 @@ def _run_paired_stockfish_match(
     records = []
     for idx in range(games):
         model_color = "white" if idx % 2 == 0 else "black"
-        env = ChessEnv()
+        board = chess.Board()
         plies = 0
-        while not env.board.is_game_over(claim_draw=True) and plies < max_plies:
-            turn_color = "white" if env.board.turn == chess.WHITE else "black"
+        while not board.is_game_over(claim_draw=True) and plies < max_plies:
+            turn_color = "white" if board.turn == chess.WHITE else "black"
             if turn_color == model_color:
                 pred = fast_sidecar.predict_human_moves(
-                    env.get_fen(), student_elo=student_elo, top_k=1
+                    board.fen(), student_elo=student_elo, top_k=1
                 )
                 move = pred["top_moves"][0][0]
             else:
-                res = engine.play(env.board, chess.engine.Limit(depth=opponent_depth))
+                res = engine.play(board, chess.engine.Limit(depth=opponent_depth))
                 move = res.move.uci()
-            env.step(move)
+            board.push_uci(move)
             plies += 1
-        result = (
-            env.board.result(claim_draw=True)
-            if env.board.is_game_over(claim_draw=True)
-            else "1/2-1/2"
-        )
+        result = board.result(claim_draw=True) if board.is_game_over(claim_draw=True) else "1/2-1/2"
         records.append({"model_color": model_color, "result": result, "plies": plies})
     return summarize_paired_match(
         records,
