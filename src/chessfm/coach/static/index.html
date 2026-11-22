@@ -1244,7 +1244,10 @@ Make a move on the board, request a spoiler-free Socratic hint, or ask "Why not 
             .join("");
         }
       } catch (err) {
-        $("review-stats").innerHTML = `<div class="muted">Review error: ${err.message}</div>`;
+        const msg = document.createElement("div");
+        msg.className = "muted";
+        msg.textContent = `Review error: ${err.message}`;
+        $("review-stats").replaceChildren(msg);
       }
     }
 
