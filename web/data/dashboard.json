@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T07:10:00Z",
+  "updated_utc": "2026-11-23T09:00:00Z",
   "overall_progress_pct": 63,
   "budget": {
     "cap_usd": 30,
-    "spent_usd_est": 11.1,
+    "spent_usd_est": 14.79,
     "currency": "USD",
-    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke (~$0.49) + M3 Base Eval (~$4.37) + M3 EXP-004 SFT & evals (~$0.85) + M3 EXP-005 Staged GRPO S0->S1->S2 & 6 evals ($1.77) + M3 EXP-006 Final Dual-Mode + N=50 SF-L1 evals & Maia 120m timeout ($3.62) = $11.10 verified cumulative spend."
+    "notes": "Modal Starter $30/mo free credits; Phase I (M1 + M3 + M4 distillation/evals) $13.50 + Phase II Gate 1 E1a SFT & 3 batched evals ($0.65) + zero-shot Piece-List control & fast-fail ($0.64) = $14.79 verified cumulative spend."
   },
   "test_summary": {
-    "python_tests_note": "609 unit/integration tests passing (94.25% coverage, CI gate >= 80%)",
+    "python_tests_note": "766 unit/integration tests passing (94.53% coverage, CI gate >= 80%)",
     "js_tests_passed": 50,
     "js_tests_files": 9
   },
@@ -104,7 +104,8 @@
         "GRPO S2 Think ON: 32.0% strict / 100.0% constr., 277.2 / 325.9 ACPL, 25.0% strict MAR",
         "Think ON vs OFF causal lift: -317.6 cp strict / -125.9 cp constrained ACPL",
         "N=50 Paired SF-L1 Constr.: 0-38-12 (12.0% score, 553.9 Est. Elo, 95% CI [0.056, 0.238])",
-        "Tier 2 ChessQA: 41.7% (piece_on_square 12.5% -> 34.0%); private HF checkpoint uploaded"
+        "Tier 2 ChessQA: 41.7% (piece_on_square 12.5% -> 34.0%); private HF checkpoint uploaded",
+        "Phase II Gate 1 E1a SFT (EXP-007, Piece List + lr=2e-4): 63.5% strict legal (3.0x), 330.2 cp constr. ACPL, 80.5% piece_on_square, 66.6% legal / 4.7% solved on 900 Puzzles"
       ]
     },
     {
@@ -173,15 +174,15 @@
         "notes": "200-FEN benchmark + 20g SF L1 (EXP-003); 100% exhaust 512-tok budget before </think>"
       },
       {
-        "stage": "Completion-Masked SFT",
-        "model": "Qwen/Qwen3-4B + LoRA SFT",
+        "stage": "Completion-Masked SFT (E0 -> Phase II E1a)",
+        "model": "Qwen/Qwen3-4B + LoRA r=16 SFT",
         "status": "measured",
-        "strict_legal_pct": 21.0,
+        "strict_legal_pct": 63.5,
         "constrained_legal_pct": 100.0,
-        "acpl": "345.1 (strict) / 380.1 (constr.)",
-        "stockfish_score": "0.00 (0-20 L1 strict)",
-        "maia_score": "N/A (SFT)",
-        "notes": "200-FEN benchmark + 20g SF L1 (EXP-004); 100% format, 6.5% exact match (constr.), Tier 2 piece_on_square 12.5% -> 33.5%"
+        "acpl": "421.3 (strict) / 330.2 (constr.)",
+        "stockfish_score": "0.00 (E0 0-20 L1 strict); E1a BT pending",
+        "maia_score": "Pending (Phase II E4 BT)",
+        "notes": "Phase II E1a (EXP-007, Piece List + lr=2e-4) vs E0 SFT (EXP-004, 21.0% strict legal / 380.1 constr. ACPL / 33.5% piece_on_sq): 63.5% strict legal (3.0x), 80.5% piece_on_square (+47pp), 27.0% constr. MAR, 11.0% exact, 66.6% legal / 4.7% solved on 900 Puzzles, 64.0% V2 CoT accuracy"
       },
       {
         "stage": "GRPO Stage 0 (Format/Legality)",

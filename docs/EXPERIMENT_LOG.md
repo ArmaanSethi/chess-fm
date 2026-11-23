@@ -267,5 +267,64 @@ Every metric in this log is backed by a reproducible CLI command and recorded ma
    - Moves: `10. Bb5 axb5 11. Qd2 b4 12. Qd3 Be7 13. Qd2 Na5 14. Qd3 Nc6 15. Qd2 Qb8 16. Qd3 1/2-1/2`
    - **Honest Diagnosis:** Constrained decoding eliminates illegal-move forfeits and earns **12 draws in 50 games (`12.0%` score, `estimated_elo: 553.9`)**, compared to `0-50-0` in strict mode. Inspecting the PGN reveals that deterministic greedy decoding (`do_sample=False`) can settle into threefold-repetition loops (`Qd2-Qd3-Qd2-Qd3`) when Stockfish L1 also shuffles, highlighting why temperature/repetition-penalty tuning and longer GRPO horizons are the next levers for P1.
 
+---
+
+### EXP-007 — Phase II Gate 1 (`E1a`): Piece-by-Square Coordinate List + All-Linear LoRA (`r=16`, `lr=2e-4`) SFT
+- **Date:** 2026-11-23
+- **Hypothesis:** Replacing the 8×8 ASCII grid with a lossless **Piece-by-Square coordinate listing** (`--include-piece-list`, eliminating column-miscounting in tokenized ASCII grids) and raising All-Linear LoRA learning rate 10× from `2e-5` to `2e-4` (*LoRA Without Regret*) on the **exact same 2,500-row SFT corpus** (`sft_bestline_2500.jsonl`) will substantially improve board-state perception (`piece_on_square`), strict move legality, and constrained move quality without adding any new training data.
+- **Training Configuration (`ap-ReAUHgCgbkYDOsMx7ltJNR`, Modal L4):**
+  - Command: `modal run --detach scripts/modal_train.py --task sft --track v1 --gpu l4 --data /vol/data/sft_bestline_2500.jsonl --include-piece-list --lora-r 16 --all-linear --lr 2e-4 --epochs 3 --batch-size 2 --grad-accum 8 --output-subdir sft_e1a_piece_list`
+  - Merged checkpoint: `/vol/checkpoints/sft_e1a_piece_list/final_merged` (`dataset_sha256: 399b0883442d...bfb00`, `seed=42`)
+  - Training metrics: `train_runtime=1,759.96s` (`wall_clock_seconds=1,760.26s`, **`3.622 rows/sec`**, `0.225 steps/sec`), `train_loss=0.5547`, `eval_loss=0.4302`, **`eval_mean_token_accuracy=85.84%`** (`0.8584`).
+
+#### 1. Apples-to-Apples 200-FEN + Tier 2 Board-Probing Comparison (`E0 SFT` vs `E0 GRPO S2` vs `E1a SFT`)
+
+| Metric (`eval_benchmark_200.jsonl`, Think ON) | Base + Piece List *(Zero-Shot)* | E0 SFT (`EXP-004`, ASCII, `2e-5`) | E0 GRPO S2 (`EXP-006`, ASCII) | **E1a SFT (`EXP-007`, Piece List, `2e-4`)** | **Delta (`E1a` vs `E0 SFT`)** |
+|---|---:|---:|---:|---:|---:|
+| **Strict Legal Rate** | `0.0%` (`0/200`) | `21.0%` (`42/200`) | `32.0%` (`64/200`) | **`63.5%` (`127/200`)** | **`+42.5 pp` (`3.0×`)** |
+| **Strict Format Adherence** | `0.0%` | `100.0%` | `100.0%` | **`100.0%`** | `0.0 pp` |
+| **Strict ACPL** *(legal moves only)* | `—` | `345.07 cp` | `277.16 cp` | `421.31 cp` *(see note)* | `+76.24 cp` *(3× harder set)* |
+| **Strict MAR (`≤50 cp`, legal)** | `0.0%` | `16.7%` | `25.0%` | **`29.1%` (`29.13%`)** | **`+12.4 pp`** |
+| **Strict Exact Match** | `0.0%` | `3.5%` | `7.0%` | **`8.0%`** | **`+4.5 pp`** |
+| **Constrained Legal Rate** | `0.0%` *(512-tok budget)* | `100.0%` | `100.0%` | **`100.0%`** | `0.0 pp` |
+| **Constrained ACPL** *(all 200)* | `—` | `380.10 cp` | `325.88 cp` | **`330.18 cp`** | **`-49.92 cp`** |
+| **Constrained MAR (`≤50 cp`)** | `0.0%` | `16.5%` | `20.5%` | **`27.0%`** | **`+10.5 pp`** |
+| **Constrained Exact Match** | `0.0%` | `6.5%` | `8.5%` | **`11.0%`** | **`+4.5 pp`** |
+| **Tier 2 Overall ChessQA (1,000)** | `44.8%` (`448/1000`) | `36.3%` | `41.7%` | **`57.5%` (`575/1000`)** | **`+21.2 pp`** |
+| **Tier 2 `piece_on_square` (200)** | **`40.0%` (`80/200`)** | `33.5%` | `34.0%` | **`80.5%` (`161/200`)** | **`+47.0 pp`** |
+| **Tier 2 `side_to_move` (200)** | `79.0%` (`158/200`) | `72.5%` | `79.0%` | **`97.0%` (`194/200`)** | **`+24.5 pp`** |
+| **Tier 2 `move_legality` (400)** | `52.5%` (`210/400`) | `37.0%` | `45.5%` | **`55.0%` (`220/400`)** | **`+18.0 pp`** |
+| **CoT Claim Accuracy (Verifier V2)** | `88.89%` (`840/945`) | *N/A* | *N/A* | **`64.02%` (`895/1,398`)** | *(Phase II baseline)* |
+| **Eval Wall-Clock (`batch_size=16`)** | `889.7s` / `620.2s` | `~684s` (`bs=1`) | `~860s` (`bs=1`) | **`197.8s` strict / `82.3s` constr.** | **~5–8× faster** |
+
+- **Note on Strict ACPL Selection Effect (Simpson's Paradox):** Strict ACPL is averaged solely over legal predictions. Because `E1a` outputs **3.0× more legal moves** (`127/200` vs `42/200` for `E0 SFT`), its strict set includes 85 harder middlegame/endgame positions where `E0 SFT` emitted illegal moves and was excluded from the mean. On the full 200/200 **Constrained** benchmark (identical denominator), `E1a` cuts ACPL by **`-49.92 cp`** (`380.10 -> 330.18 cp`), boosts MAR by **`+10.5 pp`** (`16.5% -> 27.0%`), and boosts Exact Match by **`+4.5 pp`** (`6.5% -> 11.0%`), matching `E0 GRPO S2` (`325.88 cp`) with SFT alone.
+- **Zero-Shot Piece-List Control Finding:** Simply adding `--include-piece-list` to unmodified Base `Qwen/Qwen3-4B` (before any SFT) raised Tier 2 `piece_on_square` from **`12.5%` -> `40.0%`** (`+27.5 pp`) and overall Tier 2 ChessQA from `41.3%` -> `44.8%`. Fine-tuning on 2.5K piece-list rows then doubled `piece_on_square` again to **`80.5%`** (`161/200`).
+
+#### 2. Phase II Frozen Benchmark Baselines (`E1a`, Strict Mode, `--batch-size 16`)
+Manifest: `results/phase2/e1a/e1a_puzzles_chessqa.json` (`ap-A62f0C3az1hMPClafEPwXt`, `wall_clock_seconds=609.72s`).
+- **Frozen 900 Lichess Puzzles (`test_puzzles_900.jsonl`):**
+  - Format adherence: **`100.0%`**, Strict legal rate: **`66.56%`** (`599/900`), Tactical solve accuracy: **`4.67%`** (`42/900`: theme split `5.2%` `26/500`, difficulty split `4.0%` `16/400`; top themes: `smotheredMate 20%`, `mateIn1 12%`, `attraction 12%`, `zugzwang 12%`).
+  - CoT Faithfulness (Verifier V2): **`61.82%`** (`3,882 / 6,280` claims verified, `18.0%` zero-violation rate, `6.98` claims/trace).
+- **Frozen 1,000 ChessQA (`test_chessqa_1000.jsonl`, zero-shot — 0 ChessQA rows in 2.5K SFT):**
+  - Overall: **`11.9%`** (`119/1,000`): `Position Judgment 35.5%` (`71/200`), `Structural 24.0%` (`48/200`, including `piece_lookup 62.0%`), `Motifs / Short Tactics / Semantic 0.0%` (clean pre-scaling baseline for `E1b` 80K mixed corpus).
+
+#### 3. Engineering Quirks Caught & Fixed During Gate 1
+- **QUIRK-010 (`_suite_supports_flag` in-process `sys.path`):** `_ensure_installed()` installs `chess-fm` editable in a subprocess, so the already-running Python interpreter did not see the new `.pth` entry when `_suite_supports_flag()` imported `chessfm.eval.suite`, causing 3 fast-fail eval runs (~15s each). Fixed in `35accf5` by inserting `REMOTE_REPO/src` onto `sys.path`.
+- **QUIRK-011 (`resolve_track_model` precedence):** `resolve_track_model()` checked `if track:` before `if model:`, so combining `--track v1 --model /vol/checkpoints/...` silently evaluated Base `Qwen/Qwen3-4B` instead of the checkpoint (producing the zero-shot Base + Piece-List control above). Fixed & unit-tested in `63cdfb8` so explicit `--model` always takes precedence over `--track`.
+
+#### 4. Exact Gate 1 Modal L4 GPU Accounting (`$0.80/hr`)
+| Modal App ID | Task | Active Work (s) | Est. Billed (s) | Cost (USD) |
+|---|---|---:|---:|---:|
+| `ap-ReAUHgCgbkYDOsMx7ltJNR` | `E1a` SFT (`2.5K` + Piece List, `r=16`, `lr=2e-4`, 3 ep) | `1,760.26` | `1,860` | `$0.413` |
+| `ap-nUstchzm2g2B0F7SY1DYHO` | `E1a` 200-FEN Strict + Tier 2 Probes + CoT (`bs=16`) | `197.82` | `260` | `$0.058` |
+| `ap-V4hDVBdmZxNMTV5svyXfJn` | `E1a` 200-FEN Constrained (`bs=16`) | `82.33` | `145` | `$0.032` |
+| `ap-A62f0C3az1hMPClafEPwXt` | `E1a` 900 Puzzles + 1,000 ChessQA (`bs=16`) | `609.72` | `680` | `$0.151` |
+| `ap-cuh9rqdXn5lrc7Jv33LQB1` | Base + Piece-List 200-FEN Strict + Probes (control) | `889.73` | `940` | `$0.209` |
+| `ap-10a6MAzBm42m37Yw3eYN2x` | Base + Piece-List 200-FEN Constrained (control) | `620.21` | `670` | `$0.149` |
+| `ap-FderhGVBKKAOdPjKxxvyCs` | Base + Piece-List Puzzles+ChessQA (stopped early) | `1,200.00` | `1,200` | `$0.267` |
+| `ap-ie5yRmvK…` / `ap-u1hG…` / `ap-CWRn…` | 3 fast-fail `sys.path` apps (~15s each) | `45.00` | `45` | `$0.010` |
+| **Pure `E1a` (SFT + 3 Evals)** | | **`2,650.13`** | **`2,945`** | **`$0.654`** |
+| **Gate 1 Total (All Apps)** | | **`5,405.07`** | **`5,800`** | **`$1.289`** |
+
 
 
