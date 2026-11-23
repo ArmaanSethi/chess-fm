@@ -417,6 +417,10 @@ def _exec_eval(
     opponent_depth: int = 0,
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    batch_size: int = 0,
+    stockfish_elo: int = 0,
+    manifest_output: str = "",
+    seed: int = -1,
 ) -> None:
     _ensure_installed()
     cmd = [
@@ -447,6 +451,14 @@ def _exec_eval(
         cmd.extend(["--maia-elo", str(maia_elo)])
     if opponent_depth > 0:
         cmd.extend(["--opponent-depth", str(opponent_depth)])
+    if batch_size > 0:
+        cmd.extend(["--batch-size", str(batch_size)])
+    if stockfish_elo > 0:
+        cmd.extend(["--stockfish-elo", str(stockfish_elo)])
+    if manifest_output:
+        cmd.extend(["--manifest-output", manifest_output])
+    if seed >= 0:
+        cmd.extend(["--seed", str(seed)])
     _run(cmd)
     _run(["cp", "-r", "results/.", f"{VOL_MOUNT}/results/"])
     volume.commit()
@@ -473,23 +485,29 @@ def _exec_static_eval(
     output_name: str,
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    batch_size: int = 0,
+    puzzles: str = "",
+    chessqa: str = "",
+    english_forgetting: str = "",
+    depth: int = 0,
+    coaching_jsonl: str = "",
 ) -> str:
     _ensure_installed()
-    out_path = f"{VOL_MOUNT}/results/{output_name}"
+    out_path = output_name if output_name.startswith("/") else f"{VOL_MOUNT}/results/{output_name}"
     cmd = [
         "python",
         "-m",
         "chessfm.eval.suite",
         "--model",
         model,
-        "--benchmark",
-        benchmark,
         "--decoding-mode",
         decoding_mode,
         "--enable-thinking" if enable_thinking else "--no-enable-thinking",
         "--output",
         out_path,
     ]
+    if benchmark:
+        cmd.extend(["--benchmark", benchmark])
     if include_ascii:
         cmd.append("--include-ascii")
     if include_piece_list:
@@ -510,6 +528,18 @@ def _exec_static_eval(
         cmd.extend(["--max-positions", str(max_positions)])
     if skip_probes:
         cmd.append("--skip-probes")
+    if batch_size > 0:
+        cmd.extend(["--batch-size", str(batch_size)])
+    if puzzles:
+        cmd.extend(["--puzzles", puzzles])
+    if chessqa:
+        cmd.extend(["--chessqa", chessqa])
+    if english_forgetting:
+        cmd.extend(["--english-forgetting", english_forgetting])
+    if depth > 0:
+        cmd.extend(["--depth", str(depth)])
+    if coaching_jsonl:
+        cmd.extend(["--coaching-jsonl", coaching_jsonl])
     _run(cmd)
     volume.commit()
     return out_path
@@ -918,6 +948,10 @@ def run_eval(
     opponent_depth: int = 0,
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    batch_size: int = 0,
+    stockfish_elo: int = 0,
+    manifest_output: str = "",
+    seed: int = -1,
 ) -> None:
     _exec_eval(
         model,
@@ -932,6 +966,10 @@ def run_eval(
         opponent_depth=opponent_depth,
         include_piece_list=include_piece_list,
         include_legal_moves=include_legal_moves,
+        batch_size=batch_size,
+        stockfish_elo=stockfish_elo,
+        manifest_output=manifest_output,
+        seed=seed,
     )
 
 
@@ -955,6 +993,10 @@ def run_eval_modern(
     opponent_depth: int = 0,
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    batch_size: int = 0,
+    stockfish_elo: int = 0,
+    manifest_output: str = "",
+    seed: int = -1,
 ) -> None:
     _exec_eval(
         model,
@@ -969,6 +1011,10 @@ def run_eval_modern(
         opponent_depth=opponent_depth,
         include_piece_list=include_piece_list,
         include_legal_moves=include_legal_moves,
+        batch_size=batch_size,
+        stockfish_elo=stockfish_elo,
+        manifest_output=manifest_output,
+        seed=seed,
     )
 
 
@@ -989,6 +1035,12 @@ def run_static_eval(
     output_name: str = "eval_manifest.json",
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    batch_size: int = 0,
+    puzzles: str = "",
+    chessqa: str = "",
+    english_forgetting: str = "",
+    depth: int = 0,
+    coaching_jsonl: str = "",
 ) -> str:
     return _exec_static_eval(
         model,
@@ -1001,6 +1053,12 @@ def run_static_eval(
         output_name,
         include_piece_list=include_piece_list,
         include_legal_moves=include_legal_moves,
+        batch_size=batch_size,
+        puzzles=puzzles,
+        chessqa=chessqa,
+        english_forgetting=english_forgetting,
+        depth=depth,
+        coaching_jsonl=coaching_jsonl,
     )
 
 
@@ -1022,6 +1080,12 @@ def run_static_eval_modern(
     output_name: str = "eval_manifest.json",
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    batch_size: int = 0,
+    puzzles: str = "",
+    chessqa: str = "",
+    english_forgetting: str = "",
+    depth: int = 0,
+    coaching_jsonl: str = "",
 ) -> str:
     return _exec_static_eval(
         model,
@@ -1034,6 +1098,12 @@ def run_static_eval_modern(
         output_name,
         include_piece_list=include_piece_list,
         include_legal_moves=include_legal_moves,
+        batch_size=batch_size,
+        puzzles=puzzles,
+        chessqa=chessqa,
+        english_forgetting=english_forgetting,
+        depth=depth,
+        coaching_jsonl=coaching_jsonl,
     )
 
 
@@ -1493,6 +1563,15 @@ def main(
     loss_type: str = "",
     scale_rewards: bool = True,
     filter_zero_variance: bool = False,
+    puzzles: str = "",
+    chessqa: str = "",
+    english_forgetting: str = "",
+    depth: int = 0,
+    coaching_jsonl: str = "",
+    output: str = "",
+    stockfish_elo: int = 0,
+    manifest_output: str = "",
+    seed: int = -1,
 ) -> None:
     gpu_tier = gpu.strip().lower()
     if gpu_tier not in {"l4", "a100", "h100"}:
@@ -1631,6 +1710,10 @@ def main(
             openings=openings,
             maia_elo=maia_elo,
             opponent_depth=opponent_depth,
+            batch_size=batch_size,
+            stockfish_elo=stockfish_elo,
+            manifest_output=manifest_output,
+            seed=seed,
         )
         print(
             "Evaluation complete. Download reports with: modal volume get chessfm-artifacts results ./results"
@@ -1646,7 +1729,13 @@ def main(
             enable_thinking=enable_thinking,
             max_positions=max_positions,
             skip_probes=skip_probes,
-            output_name=output_subdir or "eval_manifest.json",
+            output_name=output or output_subdir or "eval_manifest.json",
+            batch_size=batch_size,
+            puzzles=puzzles,
+            chessqa=chessqa,
+            english_forgetting=english_forgetting,
+            depth=depth,
+            coaching_jsonl=coaching_jsonl,
         )
         print(f"Static 4-tier eval manifest saved to Modal volume: {out_path}")
     elif task == "upload-hf":

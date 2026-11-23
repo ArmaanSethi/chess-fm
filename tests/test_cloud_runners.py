@@ -494,6 +494,139 @@ class TestModalTrainRouting:
         assert "--include-piece-list" in ran[0]
         assert "--include-legal-moves" in ran[0]
 
+    def test_exec_static_eval_forwards_phase2_flags_and_omits_empty_benchmark(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        mt = self._load_modal_train()
+        ran: list[list[str]] = []
+        committed: list[bool] = []
+        monkeypatch.setattr(mt, "_ensure_installed", lambda: None)
+        monkeypatch.setattr(mt, "_run", lambda cmd: ran.append(cmd))
+        monkeypatch.setattr(mt.volume, "commit", lambda: committed.append(True))
+        monkeypatch.setattr(mt, "_suite_supports_flag", lambda _flag: True)
+
+        out = mt._exec_static_eval(
+            model="/vol/checkpoints/sft_e1a/final_merged",
+            benchmark="",
+            decoding_mode="strict",
+            include_ascii=False,
+            enable_thinking=True,
+            max_positions=0,
+            skip_probes=True,
+            output_name="/vol/results/phase2/e1a_puzzles_chessqa.json",
+            include_piece_list=True,
+            include_legal_moves=False,
+            batch_size=16,
+            puzzles="/vol/data/phase2/test_puzzles_900.jsonl",
+            chessqa="/vol/data/phase2/test_chessqa_1000.jsonl",
+            english_forgetting="/vol/data/phase2/test_english_100.jsonl",
+            depth=12,
+            coaching_jsonl="/vol/data/phase2/test_coach_300.jsonl",
+        )
+        assert out == "/vol/results/phase2/e1a_puzzles_chessqa.json"
+        assert committed == [True]
+        assert len(ran) == 1
+        cmd = ran[0]
+        assert "--benchmark" not in cmd
+        assert cmd[cmd.index("--output") + 1] == "/vol/results/phase2/e1a_puzzles_chessqa.json"
+        assert cmd[cmd.index("--batch-size") + 1] == "16"
+        assert cmd[cmd.index("--puzzles") + 1] == "/vol/data/phase2/test_puzzles_900.jsonl"
+        assert cmd[cmd.index("--chessqa") + 1] == "/vol/data/phase2/test_chessqa_1000.jsonl"
+        assert (
+            cmd[cmd.index("--english-forgetting") + 1] == "/vol/data/phase2/test_english_100.jsonl"
+        )
+        assert cmd[cmd.index("--depth") + 1] == "12"
+        assert cmd[cmd.index("--coaching-jsonl") + 1] == "/vol/data/phase2/test_coach_300.jsonl"
+        assert "--include-piece-list" in cmd
+
+    def test_exec_eval_forwards_phase2_flags(self, monkeypatch: pytest.MonkeyPatch):
+        mt = self._load_modal_train()
+        ran: list[list[str]] = []
+        committed: list[bool] = []
+        monkeypatch.setattr(mt, "_ensure_installed", lambda: None)
+        monkeypatch.setattr(mt, "_run", lambda cmd: ran.append(cmd))
+        monkeypatch.setattr(mt.volume, "commit", lambda: committed.append(True))
+
+        mt._exec_eval(
+            model="/vol/checkpoints/sft_e1a/final_merged",
+            games=40,
+            stockfish_level=1,
+            random_opponent=False,
+            decoding_mode="constrained",
+            include_piece_list=True,
+            batch_size=16,
+            stockfish_elo=1320,
+            manifest_output="/vol/results/phase2/e1a_sf1320.json",
+            seed=123,
+        )
+        assert committed == [True]
+        assert len(ran) == 2  # evaluate cmd + cp results
+        cmd = ran[0]
+        assert cmd[cmd.index("--batch-size") + 1] == "16"
+        assert cmd[cmd.index("--stockfish-elo") + 1] == "1320"
+        assert cmd[cmd.index("--manifest-output") + 1] == "/vol/results/phase2/e1a_sf1320.json"
+        assert cmd[cmd.index("--seed") + 1] == "123"
+        assert "--include-piece-list" in cmd
+
+    def test_main_forwards_phase2_eval_and_static_eval_flags(self, monkeypatch: pytest.MonkeyPatch):
+        mt = self._load_modal_train()
+        static_calls: list[dict] = []
+        eval_calls: list[dict] = []
+
+        class _FakeStatic:
+            def remote(self, **kwargs):
+                static_calls.append(kwargs)
+                return "/vol/results/phase2/out.json"
+
+        class _FakeEval:
+            def remote(self, **kwargs):
+                eval_calls.append(kwargs)
+
+        monkeypatch.setattr(mt, "run_static_eval", _FakeStatic())
+        monkeypatch.setattr(mt, "run_eval", _FakeEval())
+
+        mt.main(
+            task="static-eval",
+            track="v1",
+            benchmark="",
+            batch_size=16,
+            puzzles="/vol/data/phase2/test_puzzles_900.jsonl",
+            chessqa="/vol/data/phase2/test_chessqa_1000.jsonl",
+            english_forgetting="builtin",
+            depth=10,
+            coaching_jsonl="/vol/data/phase2/test_coach_300.jsonl",
+            output="/vol/results/phase2/out.json",
+            include_piece_list=True,
+        )
+        assert len(static_calls) == 1
+        sc = static_calls[0]
+        assert sc["benchmark"] == ""
+        assert sc["batch_size"] == 16
+        assert sc["puzzles"] == "/vol/data/phase2/test_puzzles_900.jsonl"
+        assert sc["chessqa"] == "/vol/data/phase2/test_chessqa_1000.jsonl"
+        assert sc["english_forgetting"] == "builtin"
+        assert sc["depth"] == 10
+        assert sc["coaching_jsonl"] == "/vol/data/phase2/test_coach_300.jsonl"
+        assert sc["output_name"] == "/vol/results/phase2/out.json"
+
+        mt.main(
+            task="eval",
+            track="v1",
+            games=40,
+            batch_size=16,
+            stockfish_elo=1320,
+            manifest_output="/vol/results/phase2/match.json",
+            seed=7,
+            include_piece_list=True,
+        )
+        assert len(eval_calls) == 1
+        ec = eval_calls[0]
+        assert ec["batch_size"] == 16
+        assert ec["stockfish_elo"] == 1320
+        assert ec["manifest_output"] == "/vol/results/phase2/match.json"
+        assert ec["seed"] == 7
+        assert ec["include_piece_list"] is True
+
 
 # ---------------------------------------------------------------------------
 # upload_hf tests
