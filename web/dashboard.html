@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChessFM — Project Progress &amp; Benchmarks Dashboard</title>
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d1117'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='44' fill='%2358a6ff'%3E%E2%99%98%3C/text%3E%3C/svg%3E"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">&#9816;</span>
+        <div>
+          <h1 class="brand-title">ChessFM Project Dashboard</h1>
+          <p class="brand-sub">Two-Track Architecture &middot; Verified Milestones &middot; Benchmarks &amp; Quirks Ledger</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <span class="pill pill-ok">Public &middot; Measured Only</span>
+        <a id="back-to-coach-link" class="btn btn-sm btn-primary" href="./index.html">&larr; Back to Coach</a>
+      </div>
+    </div>
+
+    <nav class="dash-jump-nav" aria-label="Dashboard sections">
+      <a class="dash-jump-link" href="#overview">Overview</a>
+      <a class="dash-jump-link" href="#milestones">Milestones</a>
+      <a class="dash-jump-link" href="#benchmarks">Benchmarks</a>
+      <a class="dash-jump-link" href="#quirks">Quirks</a>
+      <a class="dash-jump-link" href="#links">Links</a>
+    </nav>
+  </header>
+
+  <main class="app-main dash-main">
+    <div id="dashboard-error" class="dash-error-banner hidden" role="alert"></div>
+
+    <!-- OVERVIEW & KPI STRIP -->
+    <section id="overview" class="dash-section" aria-labelledby="overview-heading">
+      <div class="dash-section-head">
+        <h2 id="overview-heading" class="dash-section-title">Overall Progress</h2>
+        <span class="muted-text">Last updated: <strong id="kpi-updated-val">Loading&hellip;</strong></span>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="metric-card metric-highlight">
+          <span class="metric-label">Overall Progress</span>
+          <strong id="kpi-progress-val" class="metric-val">--%</strong>
+          <div class="progress-bar kpi-progress-bar" aria-hidden="true">
+            <div id="kpi-progress-fill" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">Milestones Completed</span>
+          <strong id="kpi-milestones-val" class="metric-val">-- / 8</strong>
+          <span id="kpi-milestones-sub" class="kpi-sub">Loading&hellip;</span>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">GPU Compute Budget</span>
+          <strong id="kpi-budget-val" class="metric-val">-- / $30</strong>
+          <span id="kpi-budget-sub" class="kpi-sub">Modal Starter free credits</span>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">Verified Automated Tests</span>
+          <strong id="kpi-tests-val" class="metric-val">--</strong>
+          <span id="kpi-tests-sub" class="kpi-sub">CI coverage gate &ge; 80%</span>
+        </div>
+      </div>
+
+      <div class="card dash-sub-card">
+        <h3 class="card-title">System Architecture (P1 RL LLM + P2 Static &amp; WebGPU Coach)</h3>
+        <div id="arch-grid" class="arch-grid"></div>
+      </div>
+    </section>
+
+    <!-- MILESTONE TIMELINE -->
+    <section id="milestones" class="dash-section" aria-labelledby="milestones-heading">
+      <div class="card">
+        <div class="card-head-row">
+          <h2 id="milestones-heading" class="card-title">Milestone Timeline (8 Milestones)</h2>
+          <span class="muted-text">Backed by <code>web/data/dashboard.json</code></span>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Track</th>
+                <th>Milestone &amp; Scope</th>
+                <th>Status</th>
+                <th>Commit</th>
+                <th>Verified Metrics</th>
+              </tr>
+            </thead>
+            <tbody id="milestones-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- BENCHMARKS -->
+    <section id="benchmarks" class="dash-section" aria-labelledby="benchmarks-heading">
+      <div class="dash-section-head">
+        <h2 id="benchmarks-heading" class="dash-section-title">Benchmarks (P1 &amp; P2)</h2>
+        <span class="muted-text">Pending rows remain empty until measured in M3 / M4 &mdash; zero fabricated numbers.</span>
+      </div>
+
+      <div class="card dash-sub-card">
+        <div class="card-head-row">
+          <h3 class="card-title">P1 &mdash; Chess-Playing RL LLM Progression</h3>
+          <span class="pill pill-info">Target: Qwen/Qwen3-4B (v1)</span>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Model</th>
+                <th>Status</th>
+                <th>Strict Legal %</th>
+                <th>Constrained Legal %</th>
+                <th>ACPL</th>
+                <th>Stockfish Score</th>
+                <th>Maia Score</th>
+              </tr>
+            </thead>
+            <tbody id="p1-benchmarks-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card dash-sub-card">
+        <div class="card-head-row">
+          <h3 class="card-title">P2 Layer A &mdash; Static Browser Coach (Measured Capabilities)</h3>
+          <span class="pill pill-ok">Live on GitHub Pages</span>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>Status</th>
+                <th>Measured Value</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="p2-layer-a-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card dash-sub-card">
+        <div class="card-head-row">
+          <h3 class="card-title">P2 Layer B &mdash; Open-Weight ACT-Eval Distillation (WebGPU)</h3>
+          <span class="pill pill-info">Gemma-4-26B &rarr; Qwen3.5-0.8B ONNX</span>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Model</th>
+                <th>Status</th>
+                <th>ACT-Eval Faithfulness</th>
+                <th>Spoiler Rate</th>
+                <th>WebGPU Throughput</th>
+              </tr>
+            </thead>
+            <tbody id="p2-layer-b-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ENGINEERING QUIRKS & FAILURE LEDGER -->
+    <section id="quirks" class="dash-section" aria-labelledby="quirks-heading">
+      <div class="card">
+        <div class="card-head-row">
+          <div class="quirks-title-group">
+            <h2 id="quirks-heading" class="card-title">Engineering Quirks &amp; Failure Ledger</h2>
+            <span id="quirks-count-badge" class="badge-count">0 quirks</span>
+          </div>
+          <div class="quirk-filters" role="group" aria-label="Filter quirks by track">
+            <button class="btn btn-sm quirk-filter-btn active" type="button" data-track="All" aria-pressed="true">All</button>
+            <button class="btn btn-sm quirk-filter-btn" type="button" data-track="P1" aria-pressed="false">P1</button>
+            <button class="btn btn-sm quirk-filter-btn" type="button" data-track="P2" aria-pressed="false">P2</button>
+            <button class="btn btn-sm quirk-filter-btn" type="button" data-track="Infra" aria-pressed="false">Infra</button>
+          </div>
+        </div>
+        <p class="muted-text">Real bugs, hardware limits, and ecosystem constraints surfaced during end-to-end execution.</p>
+        <div id="quirks-grid" class="quirks-grid"></div>
+      </div>
+    </section>
+
+    <!-- QUICK LINKS -->
+    <section id="links" class="dash-section" aria-labelledby="links-heading">
+      <div class="card">
+        <h2 id="links-heading" class="card-title">Quick Links &amp; Documentation</h2>
+        <div id="links-grid" class="links-grid"></div>
+        <h3 class="sub-title">Project Docs on GitHub</h3>
+        <div id="docs-links" class="btn-row"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <p>
+        <strong>ChessFM</strong> (MIT) &middot; Public Progress &amp; Benchmarks Dashboard &middot;
+        <a href="./index.html">Open Coach Studio</a>
+      </p>
+      <p class="licenses">
+        Static JSON-backed view &middot; Zero external runtime dependencies &middot; Zero tracking
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="./js/dashboard.js"></script>
+</body>
+</html>

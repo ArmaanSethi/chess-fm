@@ -46,6 +46,7 @@ venv.bak/
 *.onnx
 data/
 !data_generation/data/
+!web/data/
 datasets/
 models/
 checkpoints/

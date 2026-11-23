@@ -58,20 +58,23 @@
 
     <div id="webgpu-banner" class="status-banner hidden" role="status"></div>
 
-    <nav class="tab-bar" role="tablist" aria-label="ChessFM Coach sections">
-      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="review" id="tab-btn-review">
-        Game Import &amp; Review
-      </button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="board" id="tab-btn-board">
-        Interactive Coach Board
-      </button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="openings" id="tab-btn-openings">
-        Opening Coach <span class="badge-count" id="openings-count-badge">43</span>
-      </button>
-      <button class="tab-btn" role="tab" aria-selected="false" data-tab="drills" id="tab-btn-drills">
-        Blunder Drills (SM-2) <span class="badge-count" id="drills-due-badge">0</span>
-      </button>
-    </nav>
+    <div class="tab-bar-wrap">
+      <nav class="tab-bar" role="tablist" aria-label="ChessFM Coach sections">
+        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="review" id="tab-btn-review">
+          Game Import &amp; Review
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="board" id="tab-btn-board">
+          Interactive Coach Board
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="openings" id="tab-btn-openings">
+          Opening Coach <span class="badge-count" id="openings-count-badge">43</span>
+        </button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-tab="drills" id="tab-btn-drills">
+          Blunder Drills (SM-2) <span class="badge-count" id="drills-due-badge">0</span>
+        </button>
+      </nav>
+      <a id="nav-dashboard-link" class="tab-link" href="./dashboard.html">Benchmarks &amp; Progress &rarr;</a>
+    </div>
   </header>
 
   <main class="app-main">
@@ -330,7 +333,8 @@
   <footer class="app-footer">
     <div class="footer-inner">
       <p>
-        <strong>ChessFM Coach</strong> (MIT) &middot; Runs 100% locally in your browser with zero tracking.
+        <strong>ChessFM Coach</strong> (MIT) &middot; Runs 100% locally in your browser with zero tracking &middot;
+        <a href="./dashboard.html">Benchmarks &amp; Progress</a>
       </p>
       <p class="licenses">
         Open-source attributions:

@@ -1,0 +1,373 @@
+{
+  "schema_version": "1.0",
+  "updated_utc": "2026-11-23T01:05:00Z",
+  "overall_progress_pct": 38,
+  "budget": {
+    "cap_usd": 30,
+    "spent_usd_est": 0.4,
+    "currency": "USD",
+    "notes": "Modal Starter $30/mo free credits; only initial L4 smoke test run so far (OOM before training completed). Estimated full P1+P2 GPU budget: ~$13-$14."
+  },
+  "test_summary": {
+    "python_tests_note": "580+ unit/integration tests (CI coverage gate >= 80%)",
+    "js_tests_passed": 50,
+    "js_tests_files": 9
+  },
+  "architecture": [
+    {
+      "id": "p1-rl-llm",
+      "track": "P1",
+      "title": "Chess-Playing RL LLM (Qwen/Qwen3-4B v1)",
+      "badge": "Modal L4 · TRL GRPO",
+      "summary": "Completion-Masked SFT followed by Staged GRPO (Stage 0 format/legality -> Stage 1 Stockfish move quality -> Stage 2 opponent-reply delta), evaluated with Dual-Mode Decoding (Strict vs Prefix-Trie Constrained) and Paired Color-Balanced Matches.",
+      "highlights": [
+        "Strict vs Prefix-Trie Constrained UCI decoding",
+        "Think OFF vs Think ON reasoning ablations",
+        "Paired color-balanced matches vs Stockfish & Maia (95% Wilson CI)"
+      ]
+    },
+    {
+      "id": "p2-layer-a",
+      "track": "P2",
+      "title": "Layer A — Zero-Cost Static Browser Coach",
+      "badge": "$0 Hosting · GitHub Pages",
+      "summary": "100% client-side chess coach powered by single-threaded Stockfish-19 WASM and Maia-2 INT8 ONNX (with instant calibrated fallback), zero server backend, and zero COOP/COEP headers required.",
+      "highlights": [
+        "Direct CORS Lichess & Chess.com public username import",
+        "2 Critical Moments at Your Rating (WDL swing x Maia findability)",
+        "43-line ECO Opening Coach, SM-2 Blunder Drills, 0%-spoiler Socratic hints & JS ACT-Eval"
+      ]
+    },
+    {
+      "id": "p2-layer-b",
+      "track": "P2",
+      "title": "Layer B — Optional Local WebGPU Distillation",
+      "badge": "Zero-API Open-Weight",
+      "summary": "Open-weight rejection-sampled distillation from google/gemma-4-26B-A4B-it via vLLM on Modal A100 (100% ACT-Eval & 0%-spoiler filtered) into a quantized ONNX WebGPU student (Qwen/Qwen3.5-0.8B / Qwen3-0.6B fallback).",
+      "highlights": [
+        "100% ACT-Eval claim-verified & 0%-spoiler filtered training data",
+        "Opt-in desktop WebGPU inference directly in browser",
+        "Live ACT-Eval verification badge with automatic Layer A fallback"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "P1 Pre-Flight Fixes, Eval/HF Plumbing & L4 Smoke Re-run",
+      "track": "P1",
+      "status": "IN_PROGRESS",
+      "commit_sha": null,
+      "summary": "Modal vllm_image layer order, gradient checkpointing L4 OOM fix, Qwen3 enable_thinking prompt parity, Stockfish SIGFPE auto-restart, paired opening indexing, unified eval_manifest.json, and L4 smoke re-run.",
+      "verified_metrics": []
+    },
+    {
+      "id": "M2",
+      "name": "P2 Layer A Static GitHub Pages Coach Website",
+      "track": "P2",
+      "status": "DONE",
+      "commit_sha": "28c0590",
+      "summary": "Zero-cost browser-only Stockfish-19 WASM + Maia-2 coach with Lichess/Chess.com import, 2 Critical Moments, 43-line ECO Opening Coach, SM-2 Blunder Drills, 3-level Socratic hints, and JS ACT-Eval verifier.",
+      "verified_metrics": [
+        "39/39 JS unit tests",
+        "Chrome CDP 0 console errors",
+        "GitHub Pages enabled"
+      ]
+    },
+    {
+      "id": "M2B",
+      "name": "Public Project & Benchmarks Dashboard",
+      "track": "P2",
+      "status": "DONE",
+      "commit_sha": null,
+      "summary": "Public-facing architecture, milestone progress, measured benchmark tables, engineering quirks ledger, and W&B/HF/docs links backed by web/data/dashboard.json.",
+      "verified_metrics": [
+        "50/50 JS unit tests",
+        "Chrome CDP 0 console errors",
+        "0 horizontal overflow (1280x800 & 390x844)"
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "P1 Corpus, Base Eval, SFT & Staged GRPO + Final Eval",
+      "track": "P1",
+      "status": "PLANNED",
+      "commit_sha": null,
+      "summary": "Phase-balanced corpus & disjoint 200-FEN benchmark, Base Eval (Think OFF vs ON), Completion-Masked SFT, Staged GRPO (Stages 0->1->2) on Modal L4, Dual-Mode Eval, and HF winsonly upload.",
+      "verified_metrics": []
+    },
+    {
+      "id": "M4",
+      "name": "P2 Layer B Open-Weight Distillation, Student SFT & ONNX Export",
+      "track": "P2",
+      "status": "PLANNED",
+      "commit_sha": null,
+      "summary": "Distillation pipeline concurrency & schema fixes, Gemma-4-26B-A4B-it teacher generation on Modal A100 (100% ACT-Eval & 0%-spoiler filtered), Student SFT, and quantized ONNX WebGPU export.",
+      "verified_metrics": []
+    },
+    {
+      "id": "M5",
+      "name": "Layer B WebGPU Toggle Integration, CI Web Job & Final Blog Log",
+      "track": "P2",
+      "status": "PLANNED",
+      "commit_sha": null,
+      "summary": "Wire HF winsonly ONNX student into web/js/webgpu_coach.js with live ACT-Eval verification and Layer A fallback, add web-test CI job, and publish final docs/EXPERIMENT_LOG.md & docs/BENCHMARKS.md.",
+      "verified_metrics": []
+    },
+    {
+      "id": "M6",
+      "name": "Final E2E Verification (Tiers 1-4) & Tier 5 Adversarial Hardening",
+      "track": "E2E",
+      "status": "PLANNED",
+      "commit_sha": null,
+      "summary": "100% pass across opaque-box E2E Tiers 1-4 and white-box Tier 5 adversarial hardening loop across P1 CLI/manifests and P2 static web app.",
+      "verified_metrics": []
+    },
+    {
+      "id": "E2E",
+      "name": "Independent Opaque-Box E2E Test Suite (Tiers 1-4)",
+      "track": "E2E",
+      "status": "DONE",
+      "commit_sha": null,
+      "summary": "Requirement-driven E2E suite covering P1 CLI/eval/manifest contracts, P2 static site (Node + Playwright Chrome), and distillation contract.",
+      "verified_metrics": [
+        "TEST_READY.md published",
+        "67+3 E2E tests",
+        "5/5 unanimous gate"
+      ]
+    }
+  ],
+  "benchmarks": {
+    "p1_models": [
+      {
+        "stage": "Base (Think OFF)",
+        "model": "Qwen/Qwen3-4B",
+        "status": "pending",
+        "strict_legal_pct": null,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": null,
+        "maia_score": null,
+        "notes": "Pending (M3)"
+      },
+      {
+        "stage": "Base (Think ON)",
+        "model": "Qwen/Qwen3-4B",
+        "status": "pending",
+        "strict_legal_pct": null,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": null,
+        "maia_score": null,
+        "notes": "Pending (M3)"
+      },
+      {
+        "stage": "Completion-Masked SFT",
+        "model": "Qwen/Qwen3-4B + LoRA SFT",
+        "status": "pending",
+        "strict_legal_pct": null,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": null,
+        "maia_score": null,
+        "notes": "Pending (M3)"
+      },
+      {
+        "stage": "GRPO Stage 0 (Format/Legality)",
+        "model": "Qwen/Qwen3-4B + GRPO-S0",
+        "status": "pending",
+        "strict_legal_pct": null,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": null,
+        "maia_score": null,
+        "notes": "Pending (M3)"
+      },
+      {
+        "stage": "GRPO Stage 1 (Stockfish Quality)",
+        "model": "Qwen/Qwen3-4B + GRPO-S1",
+        "status": "pending",
+        "strict_legal_pct": null,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": null,
+        "maia_score": null,
+        "notes": "Pending (M3)"
+      },
+      {
+        "stage": "GRPO Stage 2 (Opponent-Reply Delta)",
+        "model": "Qwen/Qwen3-4B + GRPO-S2",
+        "status": "pending",
+        "strict_legal_pct": null,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": null,
+        "maia_score": null,
+        "notes": "Pending (M3)"
+      }
+    ],
+    "p2_layer_a": [
+      {
+        "capability": "Stockfish-19 WASM Single-Thread Worker",
+        "status": "measured",
+        "value": "Verified (0 COOP/COEP headers)",
+        "notes": "Vendored stockfish-19-lite-single.{js,wasm} runs cleanly on GitHub Pages"
+      },
+      {
+        "capability": "Maia-2 ONNX + Instant Calibrated Fallback",
+        "status": "measured",
+        "value": "Instant heuristic + optional INT8 ONNX",
+        "notes": "MIT-licensed maia_rapid.onnx cached in IndexedDB on user opt-in"
+      },
+      {
+        "capability": "ECO Opening Book",
+        "status": "measured",
+        "value": "43 curated lines",
+        "notes": "Transposition-aware 4-field FEN lookup + repertoire deviation detector"
+      },
+      {
+        "capability": "JavaScript Unit Test Suite",
+        "status": "measured",
+        "value": "50/50 passing (9 files)",
+        "notes": "Zero-dependency node:test suite run automatically on Pages deploy"
+      },
+      {
+        "capability": "Cross-Viewport Chrome CDP Smoke Check",
+        "status": "measured",
+        "value": "0 console errors, 0 overflow",
+        "notes": "Verified at desktop 1280x800 and mobile 390x844 on Coach & Dashboard"
+      }
+    ],
+    "p2_layer_b": [
+      {
+        "stage": "Base Student (Qwen3.5-0.8B)",
+        "model": "Qwen/Qwen3.5-0.8B",
+        "status": "pending",
+        "act_eval_faithfulness_pct": null,
+        "spoiler_rate_pct": null,
+        "webgpu_tok_s": null,
+        "notes": "Pending (M4)"
+      },
+      {
+        "stage": "Distilled Student (ACT-Eval Filtered)",
+        "model": "ChessFM-Coach-0.8B-ONNX",
+        "status": "pending",
+        "act_eval_faithfulness_pct": null,
+        "spoiler_rate_pct": null,
+        "webgpu_tok_s": null,
+        "notes": "Pending (M4)"
+      },
+      {
+        "stage": "Open-Weight Teacher (Gemma-4-26B-A4B-it)",
+        "model": "google/gemma-4-26B-A4B-it",
+        "status": "pending",
+        "act_eval_faithfulness_pct": null,
+        "spoiler_rate_pct": null,
+        "webgpu_tok_s": null,
+        "notes": "Pending (M4)"
+      }
+    ]
+  },
+  "quirks_ledger": [
+    {
+      "id": "QUIRK-001",
+      "track": "Infra",
+      "subsystem": "Modal / Image Build",
+      "title": "vllm_image add_local_dir() layer-order violation",
+      "impact": "Modal image builds fail when run_commands/pip_install steps appear after add_local_dir() in the chain.",
+      "resolution": "Move add_local_dir() to the final step of vllm_image in scripts/modal_train.py.",
+      "status": "In Progress"
+    },
+    {
+      "id": "QUIRK-002",
+      "track": "P1",
+      "subsystem": "Training / L4 VRAM",
+      "title": "L4 22 GiB OOM during SFT forward pass without gradient checkpointing",
+      "impact": "Initial L4 smoke test hit torch.OutOfMemoryError (44 MiB allocation over 22.08 GiB) at batch_size=4 with ASCII boards.",
+      "resolution": "Enable gradient_checkpointing=True (use_reentrant=False), use_cache=False, and PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True.",
+      "status": "In Progress"
+    },
+    {
+      "id": "QUIRK-003",
+      "track": "P1",
+      "subsystem": "Prompting / Qwen3",
+      "title": "Qwen3 enable_thinking=False default causes doubled <think> tokens",
+      "impact": "Mismatched chat template defaults between SFT, GRPO, and eval produce broken reasoning prefixes.",
+      "resolution": "Pass explicit enable_thinking flag consistently across SFT, GRPO, and evaluate.py with matching require_think_close.",
+      "status": "In Progress"
+    },
+    {
+      "id": "QUIRK-004",
+      "track": "Infra",
+      "subsystem": "Engine / Stockfish 16",
+      "title": "Stockfish 16 SIGFPE (exit -8) crash under repeated search reuse",
+      "impact": "Long-running evaluation and pytest suites intermittently crash when reusing a single Stockfish process.",
+      "resolution": "Add automatic process health check and transparent restart resilience in src/chessfm/rl/engine.py.",
+      "status": "In Progress"
+    },
+    {
+      "id": "QUIRK-005",
+      "track": "P1",
+      "subsystem": "Eval / Match Pairing",
+      "title": "evaluate.py unpaired opening indexing breaks color-balanced pairing",
+      "impact": "Using g % len(opening_fens) gives White and Black different openings instead of paired color swaps.",
+      "resolution": "Index openings with (g // 2) % len(opening_fens) and report White/Black splits separately.",
+      "status": "In Progress"
+    },
+    {
+      "id": "QUIRK-006",
+      "track": "P2",
+      "subsystem": "Web / WASM CDN",
+      "title": "jsDelivr returns HTTP 403 on stockfish@19.0.1 package paths",
+      "impact": "Remote CDN loading of Stockfish 19 WASM fails in browsers with 403 Forbidden.",
+      "resolution": "Vendor and pin single-threaded stockfish-19-lite-single.{js,wasm} locally in web/vendor/stockfish/ with GPL-3.0 attribution.",
+      "status": "Fixed"
+    },
+    {
+      "id": "QUIRK-007",
+      "track": "P2",
+      "subsystem": "Licensing / Maia-2",
+      "title": "Maia-3 weights are AGPL-licensed",
+      "impact": "Bundling or referencing AGPL weights conflicts with clean MIT open-source distribution of the static coach.",
+      "resolution": "Pin MIT-licensed Maia-2 commit (maia_rapid.onnx) with explicit MAIA2_LICENSE.txt attribution.",
+      "status": "Fixed"
+    },
+    {
+      "id": "QUIRK-008",
+      "track": "Infra",
+      "subsystem": "Git / Ignore Rules",
+      "title": "Root .gitignore data/ rule ignored web/data/*.json",
+      "impact": "Dashboard and opening JSON files under web/data/ were silently excluded from git status and commits.",
+      "resolution": "Add !web/data/ exception immediately after !data_generation/data/ in .gitignore.",
+      "status": "Fixed"
+    }
+  ],
+  "links": {
+    "github_repo": "https://github.com/ArmaanSethi/chess-fm",
+    "live_coach": "./index.html",
+    "wandb_project": "https://forge.coreweave.com/wandb/armaan-sethi-personal/chess-fm",
+    "huggingface": "https://huggingface.co/winsonly",
+    "docs": [
+      {
+        "label": "Architecture",
+        "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/ARCHITECTURE.md"
+      },
+      {
+        "label": "ADRs & Design Decisions",
+        "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/DESIGN_DECISIONS.md"
+      },
+      {
+        "label": "Training Guide",
+        "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/TRAINING_GUIDE.md"
+      },
+      {
+        "label": "Benchmarks",
+        "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/BENCHMARKS.md"
+      },
+      {
+        "label": "Experiment Log",
+        "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/EXPERIMENT_LOG.md"
+      }
+    ]
+  }
+}
