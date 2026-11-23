@@ -75,11 +75,15 @@ def build_sft_config(args) -> SFTConfig:
 
     use_gpu = torch.cuda.is_available()
     report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
+    grad_accum = getattr(args, "grad_accum", 2)
+    extra_kwargs: dict = {}
+    if use_gpu:
+        extra_kwargs["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
     return SFTConfig(
         output_dir=str(args.output),
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=2,
+        gradient_accumulation_steps=grad_accum,
         learning_rate=args.lr,
         weight_decay=0.01,
         warmup_ratio=0.1,
@@ -92,9 +96,11 @@ def build_sft_config(args) -> SFTConfig:
         # fp16 is only a fallback for pre-Ampere hardware.
         bf16=use_gpu and torch.cuda.is_bf16_supported(),
         fp16=use_gpu and not torch.cuda.is_bf16_supported(),
+        gradient_checkpointing=use_gpu,
         optim="adamw_8bit" if use_gpu else "adamw_torch",
         seed=args.seed,
         max_length=MAX_SEQ_LENGTH,
+        **extra_kwargs,
     )
 
 
@@ -117,6 +123,7 @@ def main():
     )
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="Per-device batch size")
+    parser.add_argument("--grad-accum", type=int, default=4, help="Gradient accumulation steps")
     parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
     parser.add_argument("--dry-run", action="store_true", help="Just validate data, don't train")
     parser.add_argument(
@@ -140,6 +147,7 @@ def main():
     print(f"Data:       {args.data}")
     print(f"Epochs:     {args.epochs}")
     print(f"Batch size: {args.batch_size}")
+    print(f"Grad accum: {args.grad_accum}")
     print(f"Seed:       {args.seed}")
     print(f"LoRA rank:  {LORA_R}")
     print()
@@ -197,6 +205,7 @@ def main():
                 sample["fen"],
                 tokenizer=tokenizer,
                 include_ascii=True,
+                enable_thinking=True,
             )
         else:
             prompt = sample["prompt"]
@@ -212,6 +221,9 @@ def main():
 
     print("\nStarting training...")
     args.output.mkdir(parents=True, exist_ok=True)
+
+    if hasattr(model, "config"):
+        model.config.use_cache = False
 
     training_args = build_sft_config(args)
     data_collator = build_completion_collator(tokenizer, model_name=args.model)
@@ -252,6 +264,7 @@ def main():
         hyperparameters={
             "epochs": args.epochs,
             "batch_size": args.batch_size,
+            "grad_accum": args.grad_accum,
             "lr": args.lr,
             "include_ascii": args.include_ascii,
             "merge_and_save": args.merge_and_save,

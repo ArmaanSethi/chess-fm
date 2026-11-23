@@ -7,21 +7,116 @@ Error-handling contract: engine/infrastructure failures are converted to
 so a bug in calling code is never silently masked as "engine unavailable".
 """
 
+import logging
+
 import chess
 import chess.engine
 
 from chessfm.config import STOCKFISH_PATHS
 
+logger = logging.getLogger("chessfm.engine")
+
 _ENGINE_ERRORS = (chess.engine.EngineError, OSError)
+_CRASH_ERRORS = (chess.engine.EngineTerminatedError, BrokenPipeError)
 
 
-def open_engine(threads: int = 1, hash_mb: int = 16) -> chess.engine.SimpleEngine | None:
+class ResilientEngine:
+    """Thin wrapper around ``chess.engine.SimpleEngine`` with bounded auto-restart.
+
+    Stockfish 16 on Linux can occasionally terminate with ``SIGFPE`` (exit code
+    ``-8``) during rapid shallow-depth ``analyse()`` bursts. Rather than leaving
+    a dead engine handle that fails every subsequent call, this wrapper detects
+    ``EngineTerminatedError`` / ``BrokenPipeError``, cleans up the dead process,
+    respawns Stockfish with the exact same configuration, and retries up to
+    ``max_restarts`` times per call.
+    """
+
+    def __init__(
+        self,
+        path: str,
+        engine: chess.engine.SimpleEngine,
+        *,
+        threads: int = 1,
+        hash_mb: int = 16,
+        max_restarts: int = 2,
+    ) -> None:
+        self._path = path
+        self._engine = engine
+        self._threads = threads
+        self._hash_mb = hash_mb
+        self._max_restarts = max(0, int(max_restarts))
+        self._options: dict = {"Threads": threads, "Hash": hash_mb}
+        self.restart_count = 0
+
+    def _restart(self) -> None:
+        close_engine(self._engine)
+        fresh = chess.engine.SimpleEngine.popen_uci(self._path)
+        if self._options:
+            fresh.configure(self._options)
+        self._engine = fresh
+        self.restart_count += 1
+
+    def _call_with_restart(self, method_name: str, *args, **kwargs):
+        attempt = 0
+        while True:
+            try:
+                return getattr(self._engine, method_name)(*args, **kwargs)
+            except _CRASH_ERRORS as exc:
+                if attempt >= self._max_restarts:
+                    raise
+                attempt += 1
+                logger.warning(
+                    "Stockfish process terminated during %s (%s); restarting (%d/%d).",
+                    method_name,
+                    exc,
+                    attempt,
+                    self._max_restarts,
+                )
+                self._restart()
+
+    def configure(self, options: dict) -> None:
+        self._options.update(options)
+        self._engine.configure(options)
+
+    def analyse(self, *args, **kwargs):
+        return self._call_with_restart("analyse", *args, **kwargs)
+
+    def play(self, *args, **kwargs):
+        return self._call_with_restart("play", *args, **kwargs)
+
+    def quit(self) -> None:
+        close_engine(self._engine)
+
+    def close(self) -> None:
+        close_engine(self._engine)
+
+    def __enter__(self) -> "ResilientEngine":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.quit()
+
+    def __getattr__(self, name: str):
+        return getattr(self._engine, name)
+
+
+def open_engine(
+    threads: int = 1,
+    hash_mb: int = 16,
+    max_restarts: int = 2,
+) -> ResilientEngine | None:
     """Open a Stockfish engine from the configured paths, or None if unavailable."""
     for path in STOCKFISH_PATHS:
         try:
             engine = chess.engine.SimpleEngine.popen_uci(path)
             engine.configure({"Threads": threads, "Hash": hash_mb})
-            return engine
+            return ResilientEngine(
+                path,
+                engine,
+                threads=threads,
+                hash_mb=hash_mb,
+                max_restarts=max_restarts,
+            )
         except _ENGINE_ERRORS:
             continue
     return None

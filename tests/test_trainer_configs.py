@@ -80,3 +80,85 @@ def test_grpo_config_allows_multi_gpu_divisible_batch_size():
     cfg = build_grpo_config(_fake_args(per_device_batch_size=4, num_generations=8, world_size=2))
     assert cfg.per_device_train_batch_size == 4
     assert cfg.num_generations == 8
+
+
+def test_sft_config_enables_gradient_checkpointing_on_gpu(monkeypatch):
+    import torch
+    import trl
+
+    from chessfm.training.train_sft import build_sft_config
+
+    captured: dict = {}
+    orig_sft_config = trl.SFTConfig
+
+    def _spy_sft_config(**kwargs):
+        captured.update(kwargs)
+        # Validate TRL accepts gradient_checkpointing kwargs without requiring a CUDA driver.
+        cpu_kwargs = {
+            **kwargs,
+            "bf16": False,
+            "fp16": False,
+            "use_cpu": True,
+            "optim": "adamw_torch",
+        }
+        return orig_sft_config(**cpu_kwargs)
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_bf16_supported", lambda: True)
+    monkeypatch.setattr(trl, "SFTConfig", _spy_sft_config)
+
+    cfg = build_sft_config(_fake_args(batch_size=2, grad_accum=4))
+    assert captured["per_device_train_batch_size"] == 2
+    assert captured["gradient_accumulation_steps"] == 4
+    assert captured["gradient_checkpointing"] is True
+    assert captured["gradient_checkpointing_kwargs"] == {"use_reentrant": False}
+    assert cfg.gradient_checkpointing is True
+    assert cfg.gradient_checkpointing_kwargs == {"use_reentrant": False}
+
+
+def test_grpo_config_enables_gradient_checkpointing_on_gpu(monkeypatch):
+    import torch
+    import trl
+
+    from chessfm.rl.train_grpo import build_grpo_config
+
+    captured: dict = {}
+    orig_grpo_config = trl.GRPOConfig
+
+    def _spy_grpo_config(**kwargs):
+        captured.update(kwargs)
+        cpu_kwargs = {**kwargs, "bf16": False, "fp16": False, "use_cpu": True}
+        return orig_grpo_config(**cpu_kwargs)
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_bf16_supported", lambda: True)
+    monkeypatch.setattr(trl, "GRPOConfig", _spy_grpo_config)
+
+    cfg = build_grpo_config(_fake_args(per_device_batch_size=4, num_generations=4, grad_accum=4))
+    assert captured["gradient_checkpointing"] is True
+    assert captured["gradient_checkpointing_kwargs"] == {"use_reentrant": False}
+    assert cfg.gradient_checkpointing is True
+    assert cfg.gradient_checkpointing_kwargs == {"use_reentrant": False}
+
+
+def test_grpo_load_positions_passes_enable_thinking_true(tmp_path):
+    import chess
+
+    from chessfm.rl.train_grpo import load_positions
+
+    pos_file = tmp_path / "positions.txt"
+    pos_file.write_text(chess.STARTING_FEN + "\n", encoding="utf-8")
+
+    captured_kwargs: list[dict] = []
+
+    class _ThinkingTokenizer:
+        def apply_chat_template(self, messages, **kwargs):
+            captured_kwargs.append(kwargs)
+            return f"<|im_start|>user\n{messages[0]['content']}<|im_end|>\n<|im_start|>assistant\n"
+
+    rows = load_positions(
+        pos_file, max_positions=1, tokenizer=_ThinkingTokenizer(), include_ascii=True
+    )
+    assert len(rows) == 1
+    assert captured_kwargs and captured_kwargs[0].get("enable_thinking") is True
+    assert "Board:\n" in rows[0]["prompt"]

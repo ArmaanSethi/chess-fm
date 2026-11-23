@@ -161,7 +161,14 @@ def load_positions(
     if len(fens) > max_positions:
         fens = random.Random(seed).sample(fens, max_positions)
     positions = [
-        {"prompt": build_chat_prompt(fen, tokenizer=tokenizer, include_ascii=include_ascii)}
+        {
+            "prompt": build_chat_prompt(
+                fen,
+                tokenizer=tokenizer,
+                include_ascii=include_ascii,
+                enable_thinking=True,
+            )
+        }
         for fen in fens
     ]
     if not positions:
@@ -189,6 +196,9 @@ def build_grpo_config(args) -> GRPOConfig:
 
     use_gpu = torch.cuda.is_available()
     report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
+    extra_kwargs: dict = {}
+    if use_gpu:
+        extra_kwargs["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
     return GRPOConfig(
         output_dir=str(args.output),
         learning_rate=args.lr,
@@ -207,6 +217,8 @@ def build_grpo_config(args) -> GRPOConfig:
         seed=args.seed,
         bf16=use_gpu and torch.cuda.is_bf16_supported(),
         fp16=use_gpu and not torch.cuda.is_bf16_supported(),
+        gradient_checkpointing=use_gpu,
+        **extra_kwargs,
     )
 
 
@@ -328,11 +340,39 @@ def main():
                 "apt install stockfish) or run with --stage 0."
             )
 
+    if hasattr(model, "config"):
+        model.config.use_cache = False
+
     training_args = build_grpo_config(args)
 
     reward_fn = make_reward_func(args.stage, engine=engine)
 
-    trainer = GRPOTrainer(
+    class _KVCacheGRPOTrainer(GRPOTrainer):
+        """Temporarily switch to eval + use_cache=True during rollout generation.
+
+        TRL 0.16 calls ``model.generate()`` while ``model.training`` is True,
+        causing Qwen3's forward pass to force ``use_cache=False`` whenever
+        ``gradient_checkpointing=True`` (~10-20x slower rollouts). Switching to
+        eval mode strictly inside ``_generate_and_score_completions`` restores
+        KV-cached generation while preserving gradient checkpointing and
+        ``use_cache=False`` during ``compute_loss()`` backward passes.
+        """
+
+        def _generate_and_score_completions(self, inputs):
+            was_training = self.model.training
+            prev_use_cache = getattr(self.model.config, "use_cache", False)
+            self.model.eval()
+            if hasattr(self.model, "config"):
+                self.model.config.use_cache = True
+            try:
+                return super()._generate_and_score_completions(inputs)
+            finally:
+                if hasattr(self.model, "config"):
+                    self.model.config.use_cache = prev_use_cache
+                if was_training:
+                    self.model.train()
+
+    trainer = _KVCacheGRPOTrainer(
         model=model,
         processing_class=tokenizer,
         reward_funcs=[reward_fn],

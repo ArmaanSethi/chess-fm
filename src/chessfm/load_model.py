@@ -67,6 +67,7 @@ def load_model(
     model_name: str,
     for_inference: bool = False,
     merge_peft: bool = False,
+    load_in_4bit: bool = False,
 ) -> tuple:
     """Load ``model_name`` with 4-bit LoRA (unsloth) or a PEFT fallback.
 
@@ -79,6 +80,10 @@ def load_model(
     recommended mode for SFT -> GRPO handoff), the adapter is merged into the
     base weights via ``merge_and_unload()`` before attaching any new LoRA
     adapter, avoiding silent ``lora_B`` zeroing.
+
+    When ``load_in_4bit=True`` on the PEFT fallback path (CUDA + training mode
+    without ``merge_peft``), loads the base model in NF4 4-bit quantization via
+    ``BitsAndBytesConfig`` to reduce VRAM footprint on 24 GB GPUs like L4.
     """
     is_adapter = is_peft_adapter_checkpoint(model_name)
     auth = _auth_kwargs()
@@ -125,6 +130,18 @@ def load_model(
     else:
         dtype = torch.float32
 
+    use_bnb_4bit = bool(load_in_4bit and torch.cuda.is_available() and not for_inference)
+    quant_kwargs: dict = {}
+    if use_bnb_4bit and not (is_adapter and merge_peft):
+        from transformers import BitsAndBytesConfig
+
+        quant_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=dtype,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+        )
+
     if is_adapter:
         peft_cfg = PeftConfig.from_pretrained(str(model_name))
         base_model_name = peft_cfg.base_model_name_or_path
@@ -134,12 +151,10 @@ def load_model(
         except Exception:
             tokenizer = _load_tokenizer(base_model_name, auth)
 
-        base_model = model_cls.from_pretrained(
-            base_model_name,
-            torch_dtype=dtype,
-            device_map="auto",
-            **auth,
-        )
+        base_kwargs = {"device_map": "auto", **auth, **quant_kwargs}
+        if "quantization_config" not in base_kwargs:
+            base_kwargs["torch_dtype"] = dtype
+        base_model = model_cls.from_pretrained(base_model_name, **base_kwargs)
         model = PeftModel.from_pretrained(
             base_model,
             str(model_name),
@@ -165,15 +180,17 @@ def load_model(
 
     model_cls = _get_auto_model_cls(model_name)
     tokenizer = _load_tokenizer(model_name, auth)
-    model = model_cls.from_pretrained(
-        model_name,
-        torch_dtype=dtype,
-        device_map="auto",
-        **auth,
-    )
+    load_kwargs = {"device_map": "auto", **auth, **quant_kwargs}
+    if "quantization_config" not in load_kwargs:
+        load_kwargs["torch_dtype"] = dtype
+    model = model_cls.from_pretrained(model_name, **load_kwargs)
     if for_inference:
         model = model.eval()
         return model, tokenizer
+    if "quantization_config" in load_kwargs:
+        from peft import prepare_model_for_kbit_training
+
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
     peft_config = LoraConfig(
         r=LORA_R,
         lora_alpha=LORA_ALPHA,

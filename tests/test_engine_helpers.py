@@ -186,3 +186,74 @@ def test_live_stockfish_checkmate_delivery_scores_positive_10000():
         assert best_cp(eng, board_b, depth=5, for_color=chess.WHITE) == -10000.0
     finally:
         close_engine(eng)
+
+
+def test_resilient_engine_restarts_on_sigfpe_and_reapplies_options(monkeypatch):
+    import chess.engine
+
+    from chessfm.rl.engine import ResilientEngine
+
+    configured_calls: list[dict] = []
+    quit_count = 0
+
+    class _FlakyEngine:
+        def __init__(self, should_crash: bool):
+            self.should_crash = should_crash
+
+        def configure(self, opts):
+            configured_calls.append(dict(opts))
+
+        def analyse(self, board, limit):
+            if self.should_crash:
+                raise chess.engine.EngineTerminatedError("engine process died (exit code: -8)")
+            return {"score": _FakeScore(42)}
+
+        def quit(self):
+            nonlocal quit_count
+            quit_count += 1
+
+    fresh_engine = _FlakyEngine(should_crash=False)
+    monkeypatch.setattr(chess.engine.SimpleEngine, "popen_uci", lambda _p: fresh_engine)
+
+    resilient = ResilientEngine(
+        "/usr/games/stockfish",
+        _FlakyEngine(should_crash=True),
+        threads=1,
+        hash_mb=16,
+        max_restarts=2,
+    )
+    resilient.configure({"Skill Level": 3})
+
+    cp = best_cp(resilient, chess.Board(), depth=4)
+    assert cp == 42.0
+    assert resilient.restart_count == 1
+    assert quit_count == 1
+    # Restart re-applied initial Threads/Hash plus custom Skill Level option.
+    assert configured_calls[-1] == {"Threads": 1, "Hash": 16, "Skill Level": 3}
+
+
+def test_resilient_engine_stops_after_max_restarts(monkeypatch):
+    import chess.engine
+
+    from chessfm.rl.engine import ResilientEngine
+
+    class _AlwaysCrashEngine:
+        def configure(self, opts):
+            pass
+
+        def analyse(self, board, limit):
+            raise chess.engine.EngineTerminatedError("SIGFPE")
+
+        def quit(self):
+            pass
+
+    monkeypatch.setattr(chess.engine.SimpleEngine, "popen_uci", lambda _p: _AlwaysCrashEngine())
+
+    resilient = ResilientEngine(
+        "/usr/games/stockfish",
+        _AlwaysCrashEngine(),
+        max_restarts=2,
+    )
+    # best_cp converts EngineTerminatedError (subclass of EngineError) to None after bounded retries.
+    assert best_cp(resilient, chess.Board(), depth=4) is None
+    assert resilient.restart_count == 2
