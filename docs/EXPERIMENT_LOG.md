@@ -121,3 +121,63 @@ Every metric in this log is backed by a reproducible CLI command and recorded ma
    - `rnbqkb1r/pppppp1p/5np1/8/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 3` -> predicted `e4e5` (illegal: White's e-pawn is still on `e2`; best: `c2c4`).
    - `1r6/R5pp/4rBk1/1p2bp2/4p3/6P1/1P3P1P/3R1BK1 b - - 0 30` -> predicted `a2a4` (illegal: Black to move and `a2` is empty; best: `g6f6`).
 
+---
+
+### EXP-004 — Completion-Masked SFT (`Qwen/Qwen3-4B` v1) & 4-Tier Dual-Mode Evaluation
+
+| Field | Value |
+|---|---|
+| **Date (UTC)** | 2026-11-23 |
+| **Track** | P1 (`Qwen/Qwen3-4B`, `v1`, Completion-Masked LoRA SFT merged to `bf16`) |
+| **Hardware & Est. Cost** | Modal NVIDIA L4 (`22.08 GiB`, `$0.80/hr`), **`3,844.29s`** (64.1m) active GPU time, **`$0.85`** total (`$0.8543`: `$0.41` SFT + `$0.25` Strict Eval + `$0.18` Constrained Eval + `$0.02` Match; CPU HF upload `~$0.00`) |
+| **Modal App IDs** | SFT: `ap-egLJ0aw9njHTdWXKIjpSIB` · Strict Eval + Tier 2 Probes: `ap-Nv6Fe1bteT4isDl93lJz4h` · Constrained Eval: `ap-dt9RR3dX8IBSCX5unjoatA` · 20g SF-L1 Match: `ap-uRq75UIEtw4tQat3BgpV5d` · HF Upload: `ap-tPZUjyF9BgB1utcTkc3l56` |
+| **W&B Run** | `https://forge.coreweave.com/wandb/armaan-sethi-personal/chess-fm/runs/er6dlrav` |
+| **Hugging Face Repo** | `https://huggingface.co/winsonly/chessfm-qwen3-4b-sft` *(private — cold-start SFT checkpoint prior to GRPO)* |
+| **Dataset & SHA-256** | `/vol/data/sft_bestline_2500.jsonl` (`2,125` train / `375` eval FEN-level split; SHA-256 `399b0883442d61549dc12360f97020cebb2507539657c45b1445fee2c01bfb00`) |
+| **Command** | `modal run --detach scripts/modal_train.py --task sft --track v1 --data /vol/data/sft_bestline_2500.jsonl --epochs 3 --include-ascii --output-subdir sft_qwen3_4b` |
+| **Local / Volume Manifests** | `results/m3_sft/{sft_run_manifest.json,sft_think_on_strict.json,sft_think_on_constrained.json,sft_match_sf1_20g.json}` · `/vol/checkpoints/sft_qwen3_4b/final_merged` |
+
+#### 1. Completion-Masked SFT Training Summary (`epochs=3, bs=2, grad_accum=4, lr=2e-5, seed=42`)
+
+| Metric | Value | Notes |
+|---|---:|---|
+| **Optimizer Steps / Tokens** | `795` steps / `1,572,499` tokens | `~2.13–2.32 s/it` on NVIDIA L4 (`gradient_checkpointing=True`) |
+| **Train Loss (`epoch=3.0`)** | **`0.7668`** | Final `train_loss=0.76678` (`train_runtime=1846.84s`, `3.452 samples/s`) |
+| **Eval Loss (`epoch=3.0`)** | **`0.5181`** | Final `eval_loss=0.51812` (`eval_runtime=30.56s`, `12.272 samples/s`) |
+| **Train Token Accuracy** | **`83.45%`** | `mean_token_accuracy=0.8345` |
+| **Eval Token Accuracy** | **`82.84%`** | `eval_mean_token_accuracy=0.8284` |
+| **CUDA OOMs** | **`0`** | Clean 3-epoch run + `merge_and_save` to `final_merged` (`1847.23s` wall clock) |
+
+#### 2. Base (`EXP-003`) vs Completion-Masked SFT (`EXP-004`) Evaluation Comparison
+
+*200-FEN Disjoint Static Benchmark (`include_ascii=True`), 1,000-Probe Tier 2 ChessQA, and 20-Game Paired Color-Balanced Match vs Stockfish L1 (`depth=6`):*
+
+| Metric | Base Think OFF (`EXP-003`) | Base Think ON (`EXP-003`) | SFT Think ON (`EXP-004`) | Delta vs Base |
+|---|---:|---:|---:|---|
+| **Format Adherence (`<think>...</think>` + UCI)** | `0.0%` | `0.0%` | **`100.0%`** (`200/200`) | **`+100.0 pts`** (0.0% -> 100.0%) |
+| **Strict Legal Move Rate (200-FEN static)** | `0.5%` (`1/200`) | `0.0%` (`0/200`) | **`21.0%`** (`42/200`) | **`+21.0 pts`** vs Think ON |
+| **Strict Legal Move Rate (20g SF-L1 match)** | `4.76%` (`1/21`) | `0.0%` (`0/20`) | **`25.93%`** | **`+25.93 pts`** vs Think ON |
+| **Constrained Legal Move Rate (200-FEN static)** | `100.0%` (`200/200`) | `0.0%` (`0/200`) | **`100.0%`** (`200/200`) | **`+100.0 pts`** vs Think ON (closes `</think>`!) |
+| **Strict ACPL (cp, legal moves only)** | `80.0` *(n=1)* | `—` *(n=0)* | **`345.07`** *(n=42)* | First non-trivial strict sample |
+| **Constrained ACPL (cp, `n=200`)** | `465.36` | `—` *(n=0)* | **`380.10`** | **`-85.26 cp`** (`465.36 -> 380.10`) |
+| **Constrained MAR (<=50 cp) / Mean WDL Loss** | `20.0%` / `19.66%` | `—` | **`19.5%`** / **`20.44%`** | Strict: `11.9%` MAR / `24.08%` WDL loss |
+| **Exact Stockfish Best-Move Match (Constrained)** | `2.0%` (`4/200`) | `0.0%` (`0/200`) | **`6.5%`** (`13/200`) | **`+4.5 pts`** (`3.25×` Base Think OFF; strict: `0.5%`, `1/200`) |
+| **Tier 2 ChessQA Overall (`1,000` probes)** | `41.3%` (`413/1000`) | `41.3%` (`413/1000`) | **`41.4%`** (`414/1000`) | `side_to_move` `94.0% -> 73.5%`, `move_legality` `50.0%`, `legal_move_count` `0.0%` |
+| **Tier 2 `piece_on_square` (`200` probes)** | `12.5%` (`25/200`) | `12.5%` (`25/200`) | **`33.5%`** (`67/200`) | **`+21.0 pts`** (`2.68×` board-coordinate accuracy) |
+| **Paired 20g Match vs Stockfish L1 (Strict)** | `0-20-0` | `0-20-0` | **`0-20-0`** (`W 0-10 \| B 0-10`) | `95% Wilson CI: [0.0, 0.1611]`, `estimated_elo: -299.8` |
+
+#### 3. Verbatim Qualitative Traces & Scientific Takeaways (`results/m3_sft/`)
+
+1. **Bounded `<think>` + Exact Stockfish Best Move in Strict Mode (`sft_think_on_strict.json`):**
+   - `fen`: `"rnbq1rk1/ppp1ppbp/1n4p1/8/3P4/2N2NP1/PP2PPBP/R1BQ1RK1 b - - 0 8"`
+   - `predicted_move`: `"b8c6"` | `best_move`: `"b8c6"` | `legal`: `true`, `formatted`: `true`, `cp_loss`: `0.0`, `wdl_loss`: `0.0`, `exact_match`: `true`.
+2. **Prefix-Trie Constrained Decoding Rescuing a 1-Square Coordinate Slip (`sft_think_on_strict.json` vs `sft_think_on_constrained.json`, 12 such rescues across 200 FENs):**
+   - `fen`: `"r2k3r/1bpn1pbp/p5p1/1p2p3/P3P3/2P1BP2/1PB3PP/RN3RK1 b - - 2 14"` (Black bishop on `b7`).
+   - **Strict:** `predicted_move`: `"b7c5"` (`legal`: `false`, `formatted`: `true` — off by one rank on the diagonal).
+   - **Constrained:** `predicted_move`: `"b7c6"` | `best_move`: `"b7c6"` (`legal`: `true`, `cp_loss`: `0.0`, `exact_match`: `true`). Because SFT closes `</think>` on 100% of positions, the prefix trie now activates cleanly in Think-ON mode and steers near-miss moves onto the exact Stockfish best move.
+3. **Board-State Awareness Jump vs XML Format Over-Conditioning on Tier 2 Probes (`sft_think_on_strict.json`):**
+   - `piece_on_square` jumped from **`12.5%` to `33.5%`**, showing that ASCII-grounded SFT measurably improves 2D square tracking.
+   - However, 9 `piece_on_square` misses were caused by literal tag over-conditioning: on `"r4bk1/ppq2ppp/5n2/2pn3b/2NN4/2P3PP/PP1B1PB1/R4QK1 w - - 0 18"` (`c5`), `expected`: `"black pawn"`, `predicted`: `"<color>black</color> <pawn>"` (right piece, wrapped in XML mimicking the prompt's `'<color> <piece>'` template). Similarly, `legal_move_count` (`0/200`) began prose explanations (`"to determine the number of legal moves in the given position, we analyze the board and evaluate all possible moves for white (the player to move)"`) and hit the 64-token probe cap before emitting an integer.
+- **Decision / Next Action:** SFT achieved its exact cold-start objective — **100.0% format adherence** and **21.0%–25.9% strict legality** (ensuring non-zero reward variance `reward_std > 0` for GRPO). Launch **Staged GRPO (`Stage 0 -> Stage 1 -> Stage 2`)** on Modal L4 to drive strict legality and move quality up without relying on constrained decoding.
+
+

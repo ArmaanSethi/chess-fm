@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T04:00:00Z",
+  "updated_utc": "2026-11-23T04:05:00Z",
   "overall_progress_pct": 50,
   "budget": {
     "cap_usd": 30,
-    "spent_usd_est": 4.86,
+    "spent_usd_est": 5.71,
     "currency": "USD",
-    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke (~$0.49 cumulative) + M3 Base Qwen3-4B Eval across 6 L4 runs (~$4.37 incl. 3 canceled 10m retries). Estimated full P1+P2 GPU budget: ~$13-$14."
+    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke (~$0.49) + M3 Base Qwen3-4B Eval across 6 L4 runs (~$4.37) + M3 EXP-004 Completion-Masked SFT & 3 L4 evals (~$0.85). Estimated full P1+P2 GPU budget: ~$13-$14."
   },
   "test_summary": {
     "python_tests_note": "609 unit/integration tests passing (94.25% coverage, CI gate >= 80%)",
@@ -103,7 +103,8 @@
         "Disjoint corpus: 2.5K SFT / 5K GRPO / 200 Eval (0 leakage)",
         "Base Think OFF: 0.5% strict / 100.0% constrained (465.4 ACPL)",
         "Base Think ON: 0.0% strict & constrained (exhausts 512 tok)",
-        "Tier 2 ChessQA: 41.3% (1,000 probes)"
+        "SFT Think ON: 100% format, 21.0% strict / 100.0% constr. (380.1 ACPL)",
+        "Tier 2 ChessQA: 41.4% (piece_on_square 12.5% -> 33.5%)"
       ]
     },
     {
@@ -174,13 +175,13 @@
       {
         "stage": "Completion-Masked SFT",
         "model": "Qwen/Qwen3-4B + LoRA SFT",
-        "status": "pending",
-        "strict_legal_pct": null,
-        "constrained_legal_pct": null,
-        "acpl": null,
-        "stockfish_score": null,
-        "maia_score": null,
-        "notes": "Pending (M3)"
+        "status": "measured",
+        "strict_legal_pct": 21.0,
+        "constrained_legal_pct": 100.0,
+        "acpl": "345.1 (strict) / 380.1 (constr.)",
+        "stockfish_score": "0.00 (0-20 L1 strict)",
+        "maia_score": "N/A (SFT)",
+        "notes": "200-FEN benchmark + 20g SF L1 (EXP-004); 100% format, 6.5% exact match (constr.), Tier 2 piece_on_square 12.5% -> 33.5%"
       },
       {
         "stage": "GRPO Stage 0 (Format/Legality)",
