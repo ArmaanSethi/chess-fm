@@ -326,5 +326,63 @@ Manifest: `results/phase2/e1a/e1a_puzzles_chessqa.json` (`ap-A62f0C3az1hMPClafEP
 | **Pure `E1a` (SFT + 3 Evals)** | | **`2,650.13`** | **`2,945`** | **`$0.654`** |
 | **Gate 1 Total (All Apps)** | | **`5,405.07`** | **`5,800`** | **`$1.289`** |
 
+---
+
+### EXP-008 — Phase II Gate 2 (`E1b`): 20K Mixed-Corpus SFT (2 Epochs, Piece List, All-Linear LoRA `r=16`, `lr=2e-4`) on A100-80GB
+- **Date:** 2026-11-23
+- **Hypothesis:** Scaling the piece-list SFT corpus 8× from `2.5K` game-only rows (`E1a`) to `20,000` mixed rows (`sft_phase2_20k.jsonl`: elite games + theme-balanced Lichess tactical puzzles + 5-category ChessQA board-reading tasks, 0.00% normalized-FEN overlap with all frozen test sets) for 2 epochs with All-Linear LoRA `r=16`, `lr=2e-4` on A100-80GB will substantially boost tactical puzzle solving, 5-category ChessQA accuracy, and strict move quality while preserving general-English capability (`test_english_100`).
+- **Training Configuration (`ap-LiEKeHnzaZeOg2Np5wfnhG`, Modal A100-SXM4-80GB):**
+  - Command: `modal run --detach scripts/modal_train.py --task sft --track v1 --gpu a100 --data /vol/data/phase2/sft_phase2_20k.jsonl --include-piece-list --lora-r 16 --all-linear --lr 2e-4 --epochs 2 --batch-size 8 --grad-accum 4 --output-subdir sft_e1b_20k_r16`
+  - Merged checkpoint: `/vol/checkpoints/sft_e1b_20k_r16/final_merged` (`dataset_sha256: 7b67347aa1d63d5a53d51300601e3f17e0a2cecdc5bb4c1309cd6b0537cc24d2`, `seed=42`, `optim=adamw_8bit`, `17,000` train / `3,000` FEN-disjoint val, `1,062` steps, `7,030,121` tokens, 0 OOMs).
+  - Training metrics: `train_runtime=2,685.5s` (`wall_clock_seconds=2,685.84s`, **`12.661 rows/sec`**, `0.395 steps/sec`), `train_loss=0.3982` (`mean_token_accuracy=91.17%`), **`eval_loss=0.2775`** (down `-0.1527` vs `E1a`'s `0.4302`), **`eval_mean_token_accuracy=90.27%`** (up `+4.43 pp` vs `E1a`'s `85.84%`).
+
+#### 1. Frozen Phase II Benchmark Results (`E1b` vs `E1a`, `--batch-size 16`, Think ON, Piece List)
+
+All three evaluation manifests verified `"model_id": "/vol/checkpoints/sft_e1b_20k_r16/final_merged"`.
+
+| Benchmark & Metric | `E1a` SFT (`2.5K`, `EXP-007`) | **`E1b` SFT (`20K`, `EXP-008`)** | **Delta (`E1b` vs `E1a`)** |
+|---|---:|---:|---:|
+| **Eval Loss / Token Acc (Held-Out Val)** | `0.4302` / `85.84%` | **`0.2775` / `90.27%`** | **`-0.1527` / `+4.43 pp`** |
+| **Static FENs — Strict Legal Rate** | `63.5%` *(200-FEN)* | **`64.4%` (`644/1,000`)** *(1,000-FEN)* | `+0.9 pp` *(5× larger test set)* |
+| **Static FENs — Strict Format Adherence** | `100.0%` | **`100.0%`** | `0.0 pp` |
+| **Static FENs — Strict ACPL** *(legal only)* | `421.31 cp` *(200-FEN)* | **`336.51 cp`** *(1,000-FEN)* | **`-84.80 cp`** |
+| **Static FENs — Strict MAR (`≤50 cp`, legal)** | `29.13%` *(200-FEN)* | **`31.52%`** *(1,000-FEN)* | **`+2.39 pp`** |
+| **Static FENs — Strict Mean WDL Loss / Exact** | *N/A* / `8.0%` | **`18.91%` / `7.8%`** | `-0.2 pp` |
+| **Static FENs — Constrained Legal / Format** | `100.0%` / `100.0%` | **`100.0%` / `100.0%`** | `0.0 pp` |
+| **Static FENs — Constrained ACPL / WDL Loss** | `330.18 cp` *(200-FEN)* | **`393.00 cp` / `19.99%`** *(1,000-FEN)* | *(harder 1,000-FEN distribution)* |
+| **Static FENs — Constrained MAR (`≤50 cp`)** | `27.0%` *(200-FEN)* | **`29.7%`** *(1,000-FEN)* | **`+2.7 pp`** |
+| **Static FENs — Constrained Exact Match** | `11.0%` *(200-FEN)* | **`11.6%`** *(1,000-FEN)* | **`+0.6 pp`** |
+| **Static FENs — CoT V2 Claim Accuracy** | `64.02%` *(200-FEN)* | **`60.02%` (`3,925/6,539`)** *(20.8% zero-viol)* | `-4.0 pp` |
+| **900 Frozen Puzzles — Strict Legal / Format** | `66.56%` / `100.0%` | **`67.11%` (`604/900`) / `100.0%`** | **`+0.55 pp`** |
+| **900 Frozen Puzzles — Tactical Solved** | `4.67%` (`42/900`) | **`18.33%` (`165/900`, 95% CI `[15.9%, 21.0%]`)** | **`+13.66 pp` (`3.93×`)** |
+| **900 Frozen Puzzles — Theme (500) / Diff (400)** | `5.2%` / `4.0%` | **`21.2%` (`106/500`) / `14.75%` (`59/400`)** | **`+16.0 pp` / `+10.75 pp`** |
+| **900 Frozen Puzzles — CoT V2 Claim Accuracy** | `61.82%` (`3,882/6,280`) | **`52.79%` (`3,034/5,747`)** *(12.4% zero-viol)* | `-9.03 pp` |
+| **1,000 Frozen ChessQA — Overall Accuracy** | `11.9%` (`119/1,000`) | **`38.8%` (`388/1,000`)** | **`+26.9 pp` (`3.26×`)** |
+| **ChessQA — Structural (200) / `piece_lookup` (50)** | `24.0%` / `62.0%` | **`66.0%` / `94.0%`** | **`+42.0 pp` / `+32.0 pp`** |
+| **ChessQA — Semantic (200) / Position Judgment (200)** | `0.0%` / `35.5%` | **`55.0%` (`game_phase 90%`) / `54.5%`** | **`+55.0 pp` / `+19.0 pp`** |
+| **ChessQA — Motifs (200) / Short Tactics (200)** | `0.0%` / `0.0%` | **`10.5%` / `8.0%`** | **`+10.5 pp` / `+8.0 pp`** |
+| **100-Item General English Forgetting Probe** | *Not run on E1a* | **`89.0%` (`89/100`), `0.0%` chess leakage** | *(0% catastrophic forgetting)* |
+
+#### 2. Per-Category Breakdowns & Real Trace Diagnostics
+- **900-Puzzle Theme & Difficulty Highlights:**
+  - Strongest themes: `backRankMate` **`60.0%`** (`15/25`), `skewer` **`44.0%`** (`11/25`), `promotion` **`36.0%`** (`9/25`), `interference` **`32.0%`** (`8/25`), `smotheredMate` **`32.0%`** (`8/25`), `zugzwang` `24.0%` (`6/25`). Weakest: `trappedPiece` `0.0%`, `fork` `4.0%`.
+  - Difficulty tiers: `<1200` **`29.86%`** (`86/288`), `1200-1599` `15.18%` (`34/224`), `1600-1999` `10.48%` (`22/210`), `>=2000` `12.92%` (`23/178`).
+- **1,000-ChessQA Subcategory Highlights:** `piece_lookup` **`94.0%`** (`47/50`), `game_phase` **`90.0%`** (`45/50`), `legal_moves` **`76.0%`** (`38/50`), `side_to_move` **`72.0%`** (`36/50`), `check_status` **`70.0%`** (`35/50`), `advantage_3way` `54.5%` (`109/200`), `castling_rights` `40.0%` (`20/50`), `attacks` `24.0%` (`12/50`), `material_balance` `18.0%` (`9/50`).
+- **100-Item English Forgetting Probe:** `world_knowledge` **`100.0%`** (`25/25`), `reading_comprehension` **`96.0%`** (`24/25`), `instruction_following` **`92.0%`** (`23/25`), `logical_reasoning` `68.0%` (`17/25`), chess leakage rate **`0.0%`** (`0/100`).
+- **Sample Verified vs. Illegal Traces (`e1b_test_fens_1000_strict.json`):**
+  - *Exact Match + Zero-Violation CoT (30/1,000 positions):* `r2q1rk1/pp2ppbp/2p3p1/2n1P3/5P2/2n2BPP/PPP5/R1B1QRK1 w - - 0 14` -> predicted `e1c3` (`best_move=e1c3`, `cp_loss=0.0`, `6/6` V2 CoT claims verified); `rn1qk1nr/pp3pp1/2pbp1bp/8/2BP3P/6N1/PPP1NPP1/R1BQK2R w KQkq - 0 9` -> predicted `e2f4` (`best_move=e2f4`, `cp_loss=0.0`, `6/6` V2 CoT claims verified).
+  - *Primary Remaining Failure Modes (356/1,000 illegal strict moves):* (1) **Unresolved check** — e.g., `rnbqk1nr/ppp2ppp/4p3/3p4/2PP4/P1b5/1P2PPPP/R1BQKBNR w KQkq - 0 5` where White is in check from `Bc3+`, yet `E1b` plays `g1f3` (`Nf3`) instead of capturing `b2c3`; (2) **Ray-blocking / castling hallucinations** — e.g., `r1br2k1/2q1ppbp/4n1p1/4P3/p2p4/Q1P1BN1P/P1B2PP1/1R2R1K1 w - - 0 26` playing illegal `c2b5` (`Bb5`), or proposing `O-O` (`e1g1`) in `r1bqk2r/pp1nbppp/2np4/2p1p3/2B1P3/2NP4/PPP2PPP/R1BQKN1R w KQkq - 4 8` while `Nf1` blocks the castling path.
+- **Key Scientific Takeaway (Motivating Gate 3 `E2a` `r=64` & `E2b` Full-FT):** Scaling `2.5K -> 20K` at LoRA `r=16` yielded dramatic tactical and board-reading gains (`+13.7 pp` puzzles, `+26.9 pp` ChessQA, `-84.8 cp` strict ACPL) with zero English forgetting, **yet strict legality plateaued at ~64–67%** (`63.5% -> 64.4%` FENs, `66.6% -> 67.1%` puzzles) and `attacks` / `castling_rights` stayed at `24%–40%`. Gate 3 directly tests whether increasing parameter capacity (`E2a` All-Linear LoRA `r=64` and `E2b` Full Fine-Tuning) breaks this legality and ray-geometry plateau.
+
+#### 3. Exact Gate 2 Modal GPU Accounting (`A100-80GB @ $2.50/hr`, `L4 @ $0.80/hr`)
+| Modal App ID | Task | GPU | Active (s) | Billed Wall-Clock (s) | Cost (USD) |
+|---|---|---|---:|---:|---:|
+| `ap-LiEKeHnzaZeOg2Np5wfnhG` | `E1b` SFT (`20K × 2 ep`, Piece List, `r=16`, `lr=2e-4`, `bs=8, ga=4`) | A100-80GB | `2,685.84` | `2,759` | `$1.916` |
+| `ap-5QagLYE4BiQ7gjS3OCvOQ6` | `E1b` Frozen `test_fens_1000` Strict + CoT V2 (`bs=16`) | L4 | `397.74` | `558` | `$0.124` |
+| `ap-cx1vDIx0zWEU2Xvqmmelkk` | `E1b` Frozen `test_fens_1000` Constrained (`bs=16`) | L4 | `394.81` | `533` | `$0.118` |
+| `ap-6Kp1mI5QLqRPmxSVaWyfRG` | `E1b` Frozen 900 Puzzles + 1,000 ChessQA + 100 English (`bs=16`) | L4 | `460.68` | `492` | `$0.109` |
+| `ap-r4h7ULm4S0X8r9dsMuRdqH` | Aborted zero-container app (parallel `AppCreate` throttle) | L4 | `0.00` | `0` | `$0.000` |
+| **Gate 2 (`E1b`) Total** | | **A100 + L4** | **`3,939.07`** | **`4,342`** | **`$2.267`** |
+
 
 
