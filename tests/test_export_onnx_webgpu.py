@@ -129,6 +129,42 @@ class TestExportOnnxCLI:
             )
         assert exc_info.value.code != 0
 
+    @pytest.mark.parametrize("bad_opset", ["0", "-5"])
+    def test_non_positive_opset_cli_exits_nonzero(self, tmp_path: Path, bad_opset: str):
+        with pytest.raises(SystemExit) as exc_info:
+            export_onnx.main(
+                [
+                    "--model",
+                    "Qwen/Qwen3-0.6B",
+                    "--output",
+                    str(tmp_path / "out"),
+                    "--opset",
+                    bad_opset,
+                    "--dry-run",
+                ]
+            )
+        assert exc_info.value.code != 0
+
+    @pytest.mark.parametrize("bad_block_size", ["0", "-16"])
+    def test_non_positive_block_size_cli_exits_nonzero(self, tmp_path: Path, bad_block_size: str):
+        with pytest.raises(SystemExit) as exc_info:
+            export_onnx.main(
+                [
+                    "--model",
+                    "Qwen/Qwen3-0.6B",
+                    "--output",
+                    str(tmp_path / "out"),
+                    "--block-size",
+                    bad_block_size,
+                    "--dry-run",
+                ]
+            )
+        assert exc_info.value.code != 0
+
+    def test_build_optimum_export_cmd_rejects_non_positive_opset(self):
+        with pytest.raises(ValueError, match="opset must be a positive integer"):
+            export_onnx.build_optimum_export_cmd("Qwen/Qwen3-0.6B", "/tmp/out", opset=0)
+
 
 class TestModalTrainLayerBAST:
     def test_layer_b_tasks_tracks_and_images_present(self):

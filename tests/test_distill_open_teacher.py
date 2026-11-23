@@ -107,6 +107,66 @@ class TestPromptAndVerification:
         )
         assert decision.accepted is True
 
+    @pytest.mark.parametrize("bad_fen", ["not-a-valid-fen", 123, "   "])
+    def test_verify_candidate_rejects_malformed_or_non_string_fen(self, bad_fen):
+        decision = verify_candidate(
+            bad_fen,
+            "Focus on contesting the central squares and developing pieces rapidly.",
+            task_type="postmortem",
+            best_move_uci="e2e4",
+        )
+        assert decision.accepted is False
+        assert decision.reason == "invalid_fen"
+
+    @pytest.mark.parametrize("task_type", ["socratic_l1", "socratic_l2"])
+    @pytest.mark.parametrize("bad_move", ["e2e5", "z9z9", "e4"])
+    def test_verify_candidate_rejects_illegal_or_malformed_best_move_on_socratic(
+        self, task_type: str, bad_move: str
+    ):
+        decision = verify_candidate(
+            START_FEN,
+            "Focus on contesting the central squares and developing pieces rapidly.",
+            task_type=task_type,
+            best_move_uci=bad_move,
+        )
+        assert decision.accepted is False
+        assert decision.reason == "invalid_best_move"
+
+
+class TestInputValidationHardening:
+    @pytest.mark.parametrize("workers", [1, 4])
+    def test_distill_rows_handles_invalid_fen_and_best_move_without_crashing(self, workers: int):
+        calls: list[str] = []
+
+        def fake_teacher(_sys: str, user_prompt: str) -> str:
+            calls.append(user_prompt)
+            return "Focus on contesting the central squares and activating your minor pieces."
+
+        rows = [
+            {"fen": "not-a-valid-fen", "task_type": "postmortem", "best_move": "e2e4"},
+            {"fen": 123, "task_type": "postmortem", "best_move": "e2e4"},
+            {"fen": START_FEN, "task_type": "socratic_l1", "best_move": "e2e5"},
+            {"fen": START_FEN, "task_type": "socratic_l2", "best_move": "z9z9"},
+            {"fen": START_FEN, "task_type": "socratic_l1", "best_move": "e4"},
+            {"fen": START_FEN, "task_type": "postmortem", "best_move": "e2e4", "student_elo": 1200},
+            {
+                "fen": START_FEN,
+                "task_type": "socratic_l1",
+                "best_move": "e2e4",
+                "student_elo": 1400,
+            },
+        ]
+
+        accepted, audit = distill_rows(rows, fake_teacher, workers=workers, max_attempts=2)
+
+        assert len(accepted) == 2
+        assert [r["student_elo"] for r in accepted] == [1200, 1400]
+        assert len(calls) == 2
+        assert audit["input_rows"] == 2
+        assert audit["accepted_rows"] == 2
+        assert audit["rejection_counts"]["invalid_fen"] == 2
+        assert audit["rejection_counts"]["invalid_best_move"] == 3
+
 
 class TestDistillRowsAndClient:
     def test_distill_rows_retries_on_violation_and_error(self):

@@ -115,6 +115,8 @@ def build_optimum_export_cmd(
     """Build the ``optimum-cli export onnx`` command for causal LM export with KV cache."""
     if dtype not in ("fp16", "fp32"):
         raise ValueError(f"Unsupported export dtype {dtype!r}. Choose 'fp16' or 'fp32'.")
+    if opset <= 0:
+        raise ValueError(f"opset must be a positive integer (got {opset}).")
     cmd = [
         "optimum-cli",
         "export",
@@ -337,7 +339,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Validate arguments and print planned commands/artifacts without writing any files",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.opset <= 0:
+        parser.error(f"--opset must be a positive integer (got {args.opset})")
+    if args.block_size <= 0:
+        parser.error(f"--block-size must be a positive integer (got {args.block_size})")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:

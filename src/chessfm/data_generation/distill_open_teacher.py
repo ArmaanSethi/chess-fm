@@ -95,16 +95,39 @@ def _git_head_sha() -> str:
     return "unknown"
 
 
+def _is_valid_fen(fen: Any) -> bool:
+    """Return True if ``fen`` is a non-empty string representing a valid chess FEN."""
+    if not isinstance(fen, str) or not fen.strip():
+        return False
+    try:
+        chess.Board(fen)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_valid_legal_uci(fen: str, move_uci: Any) -> bool:
+    """Return True if ``move_uci`` is a valid legal UCI move on ``fen``."""
+    if not isinstance(move_uci, str) or not move_uci.strip():
+        return False
+    try:
+        board = chess.Board(fen)
+        move = chess.Move.from_uci(move_uci.strip())
+        return move in board.legal_moves
+    except (ValueError, TypeError, AttributeError, chess.InvalidMoveError):
+        return False
+
+
 def _uci_to_san(fen: str, move_str: str) -> str:
     """Convert a legal UCI move string to SAN on ``fen``; return ``''`` if invalid."""
-    if not fen or not move_str:
+    if not isinstance(fen, str) or not fen or not isinstance(move_str, str) or not move_str:
         return ""
     try:
         board = chess.Board(fen)
         move = chess.Move.from_uci(move_str.strip())
         if move in board.legal_moves:
             return board.san(move)
-    except ValueError:
+    except (ValueError, TypeError, AttributeError, chess.InvalidMoveError):
         return ""
     return ""
 
@@ -304,10 +327,16 @@ def verify_candidate(
 ) -> VerificationDecision:
     """Deterministically verify one teacher completion before accepting it."""
     cleaned = strip_reasoning_blocks(raw_text)
+    if not _is_valid_fen(fen):
+        return VerificationDecision(accepted=False, cleaned_text=cleaned, reason="invalid_fen")
+
     if len(cleaned) < min_chars:
         return VerificationDecision(accepted=False, cleaned_text=cleaned, reason="empty_or_short")
 
-    report = verify_claims(fen, cleaned)
+    try:
+        report = verify_claims(fen, cleaned)
+    except (ValueError, TypeError, AttributeError):
+        return VerificationDecision(accepted=False, cleaned_text=cleaned, reason="invalid_fen")
     if not report["passed"]:
         return VerificationDecision(
             accepted=False,
@@ -317,7 +346,15 @@ def verify_candidate(
         )
 
     if task_type in ("socratic_l1", "socratic_l2") and best_move_uci:
-        if contains_move_spoiler(cleaned, best_move_uci, fen):
+        try:
+            has_spoiler = contains_move_spoiler(cleaned, best_move_uci, fen)
+        except (ValueError, TypeError, AttributeError, chess.InvalidMoveError):
+            return VerificationDecision(
+                accepted=False,
+                cleaned_text=cleaned,
+                reason="invalid_best_move",
+            )
+        if has_spoiler:
             return VerificationDecision(
                 accepted=False,
                 cleaned_text=cleaned,
@@ -383,6 +420,8 @@ def _distill_single_row(
             return record, attempts, local_rejections
 
         local_rejections[decision.reason] = local_rejections.get(decision.reason, 0) + 1
+        if decision.reason in ("invalid_fen", "invalid_best_move"):
+            break
 
     return None, attempts, local_rejections
 
@@ -405,20 +444,34 @@ def distill_rows(
     effective_workers = max(1, workers)
     skipped_non_coaching = 0
     eligible_rows: list[dict[str, Any]] = []
-    for row in rows:
-        if not row.get("fen"):
-            continue
-        if coaching_only and _is_non_coaching_row(row):
-            skipped_non_coaching += 1
-            continue
-        eligible_rows.append(row)
-
     rejection_counts: dict[str, int] = {
         "empty_or_short": 0,
         "claim_violation": 0,
         "spoiler_leak": 0,
         "backend_error": 0,
+        "invalid_fen": 0,
+        "invalid_best_move": 0,
     }
+    for row in rows:
+        if "fen" not in row or row.get("fen") is None or row.get("fen") == "":
+            continue
+        if coaching_only and _is_non_coaching_row(row):
+            skipped_non_coaching += 1
+            continue
+        fen = row["fen"]
+        if not _is_valid_fen(fen):
+            rejection_counts["invalid_fen"] += 1
+            continue
+        task_type = infer_task_type(row)
+        best_move_uci = str(row.get("best_move_uci") or row.get("best_move") or "")
+        if (
+            task_type in ("socratic_l1", "socratic_l2")
+            and best_move_uci
+            and not _is_valid_legal_uci(fen, best_move_uci)
+        ):
+            rejection_counts["invalid_best_move"] += 1
+            continue
+        eligible_rows.append(row)
     per_task_type: dict[str, int] = {}
     total_attempts = 0
     accepted_rows: list[dict[str, Any]] = []
@@ -522,7 +575,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         valid = [
-            r for r in rows if r.get("fen") and (not coaching_only or not _is_non_coaching_row(r))
+            r
+            for r in rows
+            if _is_valid_fen(r.get("fen")) and (not coaching_only or not _is_non_coaching_row(r))
         ]
         print(
             f"[dry-run] Loaded {len(valid)}/{len(rows)} coaching rows with FENs from {args.input}"
