@@ -27,6 +27,7 @@ import argparse
 import hashlib
 import json
 import re
+import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,9 +39,19 @@ import chess.engine
 from chessfm.coach.classifier import win_prob_from_cp
 from chessfm.coach.socratic import contains_move_spoiler, generate_socratic_hint
 from chessfm.coach.verifier import verify_claims
-from chessfm.config import DEFAULT_STOCKFISH_DEPTH
-from chessfm.rl.evaluate import estimated_elo, git_revision, wilson_ci
+from chessfm.config import (
+    CHATML_ASSISTANT_OPEN,
+    CHATML_USER_CLOSE,
+    CHATML_USER_OPEN,
+    DEFAULT_STOCKFISH_DEPTH,
+    build_chat_prompt,
+    render_ascii_board,
+)
+from chessfm.fens import read_jsonl
+from chessfm.rl.engine import close_engine, open_engine
+from chessfm.rl.evaluate import estimated_elo, generate_completion, git_revision, wilson_ci
 from chessfm.rl.move_utils import parse_move_from_output
+from chessfm.training.manifest import _get_git_sha
 
 _MATE_SCORE_CP = 10000
 _MAR_CP_THRESHOLD = 50.0
@@ -741,6 +752,168 @@ def run_demo_suite() -> dict[str, Any]:
     }
 
 
+def _detect_hardware() -> str:
+    """Return CUDA device name if available, otherwise ``'cpu'``."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return str(torch.cuda.get_device_name(0))
+    except Exception:
+        pass
+    return "cpu"
+
+
+def build_eval_manifest(
+    *,
+    model_id: str,
+    decoding_mode: str = "strict",
+    enable_thinking: bool = True,
+    include_ascii: bool = False,
+    hardware: str | None = None,
+    wall_clock_seconds: float = 0.0,
+    tier1_static: dict[str, Any] | None = None,
+    tier2_probes: dict[str, Any] | None = None,
+    tier3_act_eval: dict[str, Any] | None = None,
+    tier4_match: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construct the standardized ``eval_manifest.json`` (schema v1.0) envelope."""
+    return {
+        "schema_version": "1.0",
+        "git_sha": _get_git_sha(),
+        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "model_id": model_id,
+        "decoding_mode": decoding_mode,
+        "enable_thinking": bool(enable_thinking),
+        "include_ascii": bool(include_ascii),
+        "hardware": hardware if hardware is not None else _detect_hardware(),
+        "wall_clock_seconds": round(float(wall_clock_seconds), 2),
+        "tiers": {
+            "tier1_static": tier1_static or {},
+            "tier2_probes": tier2_probes or {},
+            "tier3_act_eval": tier3_act_eval or {},
+            "tier4_match": tier4_match or {},
+        },
+    }
+
+
+def _build_probe_prompt(
+    probe: dict[str, Any],
+    tokenizer: Any = None,
+    include_ascii: bool = False,
+    enable_thinking: bool = False,
+) -> str:
+    """Format a Tier 2 ChessQA board probe as a chat prompt."""
+    fen = probe["fen"]
+    board_block = f"Board:\n{render_ascii_board(fen)}\n\n" if include_ascii else ""
+    raw = f"Position (FEN): {fen}\n{board_block}Question: {probe['question']}\nAnswer concisely."
+    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        messages = [{"role": "user", "content": raw}]
+        try:
+            try:
+                return tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=enable_thinking,
+                )
+            except TypeError:
+                return tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+        except (ValueError, AttributeError, NotImplementedError):
+            pass
+    return f"{CHATML_USER_OPEN}{raw}{CHATML_USER_CLOSE}{CHATML_ASSISTANT_OPEN}"
+
+
+def _extract_probe_answer(raw_completion: str) -> str:
+    """Strip any ``<think>...</think>`` block and return the concise probe answer."""
+    text = raw_completion or ""
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[-1]
+    return text.strip().splitlines()[0].strip() if text.strip() else ""
+
+
+def evaluate_model_suite(
+    model: Any,
+    tokenizer: Any,
+    *,
+    model_id: str,
+    positions: list[dict[str, Any]],
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    depth: int = DEFAULT_STOCKFISH_DEPTH,
+    engine: Any | None = None,
+    run_probes: bool = True,
+    coaching_cases: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Run Tier 1 (+ optional Tier 2 and Tier 3) evaluation on a loaded model."""
+    start = time.monotonic()
+
+    def _predict(fen: str) -> str:
+        prompt = build_chat_prompt(
+            fen,
+            tokenizer=tokenizer,
+            include_ascii=include_ascii,
+            enable_thinking=enable_thinking,
+        )
+        return generate_completion(
+            model,
+            tokenizer,
+            prompt,
+            decoding_mode=decoding_mode,
+            fen=fen,
+            require_think_close=enable_thinking,
+        )
+
+    tier1 = evaluate_static_positions(positions, _predict, engine=engine, depth=depth)
+
+    tier2: dict[str, Any] = {}
+    if run_probes and positions:
+        fens = [p["fen"] for p in positions]
+
+        def _answer_probe(probe: dict[str, Any]) -> str:
+            probe_prompt = _build_probe_prompt(
+                probe,
+                tokenizer=tokenizer,
+                include_ascii=include_ascii,
+                enable_thinking=False,
+            )
+            raw = generate_completion(
+                model,
+                tokenizer,
+                probe_prompt,
+                max_new_tokens=64,
+                decoding_mode="strict",
+            )
+            return _extract_probe_answer(raw)
+
+        tier2 = evaluate_board_probes(fens, _answer_probe)
+
+    tier3: dict[str, Any] = {}
+    if coaching_cases:
+        tier3 = evaluate_coaching_faithfulness(
+            coaching_cases,
+            lambda case: _extract_coach_text(case),
+            engine=engine,
+        )
+
+    elapsed = time.monotonic() - start
+    return build_eval_manifest(
+        model_id=model_id,
+        decoding_mode=decoding_mode,
+        enable_thinking=enable_thinking,
+        include_ascii=include_ascii,
+        wall_clock_seconds=elapsed,
+        tier1_static=tier1,
+        tier2_probes=tier2,
+        tier3_act_eval=tier3,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point for the 4-Tier ChessFM Evaluation Suite."""
     parser = argparse.ArgumentParser(description="ChessFM 4-Tier Evaluation Suite")
@@ -750,17 +923,119 @@ def main(argv: list[str] | None = None) -> int:
         help="Run a fast deterministic offline demo across all 4 tiers",
     )
     parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Hugging Face model ID or local checkpoint path for real Tier 1/2 evaluation",
+    )
+    parser.add_argument(
+        "--benchmark",
+        type=Path,
+        default=Path("data_generation/eval_benchmark.jsonl"),
+        help="Path to JSONL benchmark positions (with 'fen' and optional 'best_move')",
+    )
+    parser.add_argument(
+        "--max-positions",
+        type=int,
+        default=0,
+        help="Optional cap on benchmark positions to evaluate (0 = all)",
+    )
+    parser.add_argument(
+        "--depth",
+        type=int,
+        default=DEFAULT_STOCKFISH_DEPTH,
+        help="Stockfish search depth for Tier 1 ACPL/MAR/WDL analysis",
+    )
+    parser.add_argument(
+        "--include-ascii",
+        action="store_true",
+        help="Include ASCII board rendering in prompts (must match training prompt format)",
+    )
+    parser.add_argument(
+        "--enable-thinking",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable <think> reasoning prompt mode (--no-enable-thinking for Think-OFF ablation)",
+    )
+    parser.add_argument(
+        "--decoding-mode",
+        type=str,
+        default="strict",
+        choices=["strict", "constrained"],
+        help="Decoding mode for Tier 1: 'strict' or 'constrained'",
+    )
+    parser.add_argument(
+        "--skip-probes",
+        action="store_true",
+        help="Skip Tier 2 ChessQA board-state probes when running --model",
+    )
+    parser.add_argument(
+        "--coaching-jsonl",
+        type=Path,
+        default=None,
+        help="JSONL of coaching responses to audit with Tier 3 ACT-Eval faithfulness/spoiler checks",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=None,
-        help="Optional path to write the JSON summary report",
+        help="Optional path to write the JSON summary / eval_manifest.json report",
     )
     args = parser.parse_args(argv)
 
-    if not args.demo:
-        parser.error("Pass --demo to run the deterministic offline 4-tier evaluation demo.")
+    if not args.demo and not args.model and args.coaching_jsonl is None:
+        parser.error(
+            "Pass --demo for the offline demo, --model for real Tier 1/2 evaluation, "
+            "or --coaching-jsonl for Tier 3 ACT-Eval auditing."
+        )
 
-    report = run_demo_suite()
+    if args.demo:
+        report: dict[str, Any] = run_demo_suite()
+    else:
+        coaching_cases = read_jsonl(args.coaching_jsonl) if args.coaching_jsonl else None
+        engine = open_engine()
+        try:
+            if args.model:
+                from chessfm.load_model import load_model
+
+                positions = read_jsonl(args.benchmark)
+                if args.max_positions > 0:
+                    positions = positions[: args.max_positions]
+                model, tokenizer = load_model(args.model, for_inference=True)
+                report = evaluate_model_suite(
+                    model,
+                    tokenizer,
+                    model_id=args.model,
+                    positions=positions,
+                    decoding_mode=args.decoding_mode,
+                    include_ascii=args.include_ascii,
+                    enable_thinking=args.enable_thinking,
+                    depth=args.depth,
+                    engine=engine,
+                    run_probes=not args.skip_probes,
+                    coaching_cases=coaching_cases,
+                )
+            else:
+                assert coaching_cases is not None
+                start = time.monotonic()
+                tier3 = evaluate_coaching_faithfulness(
+                    coaching_cases,
+                    lambda case: _extract_coach_text(
+                        case.get("completion", case.get("response", case))
+                    ),
+                    engine=engine,
+                )
+                report = build_eval_manifest(
+                    model_id=str(args.coaching_jsonl),
+                    decoding_mode=args.decoding_mode,
+                    enable_thinking=args.enable_thinking,
+                    include_ascii=args.include_ascii,
+                    wall_clock_seconds=time.monotonic() - start,
+                    tier3_act_eval=tier3,
+                )
+        finally:
+            close_engine(engine)
+
     serialized = json.dumps(report, indent=2)
     print(serialized)
     if args.output is not None:

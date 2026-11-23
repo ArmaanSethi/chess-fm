@@ -22,13 +22,15 @@ import logging
 import math
 import random
 import subprocess
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import chess
 import chess.engine
 import chess.pgn
 
+from chessfm.coach.maia_sidecar import MaiaSidecar
 from chessfm.config import (
     DEFAULT_BASE_MODEL,
     DEFAULT_MAX_NEW_TOKENS,
@@ -42,6 +44,7 @@ from chessfm.fens import read_fens
 from chessfm.load_model import load_model
 from chessfm.rl.chess_env import ChessEnv
 from chessfm.rl.move_utils import parse_move_from_output
+from chessfm.training.manifest import _get_git_sha
 
 logger = logging.getLogger("chessfm.evaluate")
 
@@ -104,6 +107,7 @@ def generate_completion(
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
     decoding_mode: str = "strict",
     fen: str | None = None,
+    require_think_close: bool = True,
 ) -> str:
     """Generate a completion for ``prompt`` and return ONLY the newly generated text.
 
@@ -113,7 +117,8 @@ def generate_completion(
 
     When ``decoding_mode == "constrained"``, attaches a
     :class:`~chessfm.rl.constrained_decoding.LegalMoveLogitsProcessor` for ``fen``
-    so only legal UCI moves can be emitted after ``</think>``.
+    so only legal UCI moves can be emitted after ``</think>`` (or immediately
+    when ``require_think_close=False`` for Think-OFF ablations).
     """
     if decoding_mode not in ("strict", "constrained"):
         raise ValueError(
@@ -130,7 +135,12 @@ def generate_completion(
             raise ValueError("fen must be provided when decoding_mode='constrained'.")
         from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
 
-        proc = LegalMoveLogitsProcessor(fen, tokenizer, prompt_length=input_len)
+        proc = LegalMoveLogitsProcessor(
+            fen,
+            tokenizer,
+            prompt_length=input_len,
+            require_think_close=require_think_close,
+        )
         try:
             from transformers import LogitsProcessorList
 
@@ -158,6 +168,22 @@ def _count_result(stats: dict, result: str, model_color: str) -> None:
         stats["draws"] += 1
 
 
+def _sample_maia_move(
+    maia_sidecar: MaiaSidecar,
+    fen: str,
+    maia_elo: int,
+    fallback_legal: list[str],
+) -> str:
+    """Sample a legal opponent move from ``maia_sidecar`` at ``maia_elo``."""
+    pred = maia_sidecar.predict_human_moves(fen, student_elo=maia_elo)
+    move_probs: dict[str, float] = pred.get("move_probs", {})
+    if move_probs:
+        moves = list(move_probs.keys())
+        weights = list(move_probs.values())
+        return random.choices(moves, weights=weights, k=1)[0]
+    return random.choice(fallback_legal)
+
+
 def play_game(
     model,
     tokenizer,
@@ -166,6 +192,10 @@ def play_game(
     use_random_opponent: bool = False,
     opponent_depth: int = DEFAULT_OPPONENT_DEPTH,
     decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    maia_sidecar: MaiaSidecar | None = None,
+    maia_elo: int | None = None,
 ) -> tuple:
     """Play one game between the model and the opponent in ``env``.
 
@@ -174,7 +204,9 @@ def play_game(
     per-game counters. Win/loss/draw are always from the model's perspective.
 
     The Stockfish opponent searches to a fixed depth (not wall-clock time) so
-    its strength is reproducible across runs and machines.
+    its strength is reproducible across runs and machines. When ``maia_sidecar``
+    and ``maia_elo`` are supplied, the opponent samples moves from Maia's
+    Elo-calibrated move distribution.
 
     A model forfeit on an illegal move is recorded truthfully in ``stats``.
     """
@@ -199,12 +231,19 @@ def play_game(
         # actual current board, never a stale one.
         fen = env.get_fen()
         if env.get_turn() == model_color:
+            prompt = build_chat_prompt(
+                fen,
+                tokenizer=tokenizer,
+                include_ascii=include_ascii,
+                enable_thinking=enable_thinking,
+            )
             completion = generate_completion(
                 model,
                 tokenizer,
-                build_chat_prompt(fen),
+                prompt,
                 decoding_mode=decoding_mode,
                 fen=fen,
+                require_think_close=enable_thinking,
             )
             move_uci = parse_move_from_output(completion) or "xxxx"
             stats["total_moves"] += 1
@@ -229,8 +268,10 @@ def play_game(
                 stats["result"] = step_res.info.get("result", "")
                 _count_result(stats, stats["result"], model_color)
         else:
-            # Opponent (Stockfish or random).
-            if env.engine and not use_random_opponent:
+            # Opponent: Maia sidecar, Stockfish, or random.
+            if maia_sidecar is not None and maia_elo is not None:
+                move_uci = _sample_maia_move(maia_sidecar, fen, maia_elo, env.get_legal_moves())
+            elif env.engine and not use_random_opponent:
                 result = env.engine.play(env.board, chess.engine.Limit(depth=opponent_depth))
                 move_uci = result.move.uci()
             else:
@@ -262,6 +303,31 @@ def write_report(results: dict, path: Path) -> None:
         json.dump(results, f, indent=2)
 
 
+def _color_split_summary(bucket: dict[str, int]) -> dict:
+    """Format a per-color W-D-L bucket with score."""
+    games = bucket["wins"] + bucket["losses"] + bucket["draws"]
+    score = (bucket["wins"] + 0.5 * bucket["draws"]) / games if games > 0 else 0.0
+    return {
+        "games": games,
+        "wins": bucket["wins"],
+        "draws": bucket["draws"],
+        "losses": bucket["losses"],
+        "score": round(score, 4),
+    }
+
+
+def _detect_hardware() -> str:
+    """Return CUDA device name if available, otherwise ``'cpu'``."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return str(torch.cuda.get_device_name(0))
+    except Exception:
+        pass
+    return "cpu"
+
+
 def evaluate_model(
     model,
     tokenizer,
@@ -275,7 +341,11 @@ def evaluate_model(
     seed: int = 42,
     openings: Path | None = None,
     decoding_mode: str = "strict",
-):
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    maia_elo: int | None = None,
+    manifest_output: Path | None = None,
+) -> dict:
     """Run ``num_games`` games of ``model`` (with ``tokenizer``) and write reports.
 
     The model is expected to already be loaded (see ``main``); keeping the
@@ -283,46 +353,54 @@ def evaluate_model(
     with lightweight fakes. ``model_name`` is only used for metadata/headers.
 
     Colors alternate between games by default so the win/loss/Elo estimates do
-    not over-weight a single color. Pass ``alternate_colors=False`` to pin the
-    model to ``model_color`` for every game.
+    not over-weight a single color. When ``openings`` is supplied with
+    ``alternate_colors=True``, each opening FEN is played twice in a row (once
+    as White, once as Black) via ``opening_fens[(g // 2) % len(opening_fens)]``.
 
-    The Stockfish skill level MUST be applied successfully: a silently
-    unapplied skill level would make every reported number meaningless, so a
-    configuration failure aborts the run.
+    The Stockfish skill level MUST be applied successfully when playing
+    Stockfish: a silently unapplied skill level would make every reported number
+    meaningless, so a configuration failure aborts the run.
     """
     if decoding_mode not in ("strict", "constrained"):
         raise ValueError(
             f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
         )
 
-    print("=" * 60)
-    opponent = (
-        "Random bot"
-        if use_random_opponent
-        else (f"Stockfish L{stockfish_level} (depth {opponent_depth})")
-    )
-    print(f"ChessFM Evaluation: {model_name} vs {opponent}")
-    color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
-    print(f"Model color: {color_desc}")
-    print(f"Decoding mode: {decoding_mode}")
-    print(f"Seed: {seed}")
-    print("=" * 60)
-
+    eval_start = time.monotonic()
     random.seed(seed)
 
     env = ChessEnv()
-    if not use_random_opponent:
+    maia_sidecar: MaiaSidecar | None = None
+    if maia_elo is not None:
+        maia_sidecar = MaiaSidecar(use_neural=True, engine=env.engine)
+        opponent_backend = maia_sidecar.backend
+        opponent = f"Maia-{maia_elo} ({opponent_backend})"
+    elif use_random_opponent:
+        opponent_backend = "random"
+        opponent = "Random bot"
+    else:
+        opponent_backend = "stockfish"
+        opponent = f"Stockfish L{stockfish_level} (depth {opponent_depth})"
         if env.engine is None:
             env.close()
             raise SystemExit(
                 "Stockfish engine not found; it is required for evaluation "
-                "unless --random-opponent is passed."
+                "unless --random-opponent or --maia-elo is passed."
             )
         try:
             env.engine.configure({"Skill Level": stockfish_level})
         except chess.engine.EngineError as e:
             env.close()
             raise SystemExit(f"Stockfish rejected Skill Level {stockfish_level}: {e}") from e
+
+    print("=" * 60)
+    print(f"ChessFM Evaluation: {model_name} vs {opponent}")
+    color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
+    print(f"Model color: {color_desc}")
+    print(f"Decoding mode: {decoding_mode}")
+    print(f"Include ASCII: {include_ascii} | Enable thinking: {enable_thinking}")
+    print(f"Seed: {seed}")
+    print("=" * 60)
 
     opening_fens = load_openings(openings)
     if opening_fens:
@@ -335,6 +413,10 @@ def evaluate_model(
     losses = 0
     draws = 0
     illegal_by_model = 0
+    color_buckets = {
+        "white": {"wins": 0, "losses": 0, "draws": 0},
+        "black": {"wins": 0, "losses": 0, "draws": 0},
+    }
     games_list = []
 
     for g in range(num_games):
@@ -343,7 +425,10 @@ def evaluate_model(
         else:
             game_color = model_color
         if opening_fens:
-            env.reset(opening_fens[g % len(opening_fens)])
+            opening_idx = (
+                (g // 2) % len(opening_fens) if alternate_colors else g % len(opening_fens)
+            )
+            env.reset(opening_fens[opening_idx])
         else:
             env.reset()
         print(f"\nGame {g + 1}/{num_games} ({game_color})")
@@ -356,6 +441,10 @@ def evaluate_model(
             use_random_opponent=use_random_opponent,
             opponent_depth=opponent_depth,
             decoding_mode=decoding_mode,
+            include_ascii=include_ascii,
+            enable_thinking=enable_thinking,
+            maia_sidecar=maia_sidecar,
+            maia_elo=maia_elo,
         )
 
         game.headers["Event"] = f"ChessFM Eval game {g + 1}"
@@ -373,19 +462,28 @@ def evaluate_model(
         losses += stats["losses"]
         draws += stats["draws"]
         illegal_by_model += stats["illegal_by_model"]
+        color_buckets[game_color]["wins"] += stats["wins"]
+        color_buckets[game_color]["losses"] += stats["losses"]
+        color_buckets[game_color]["draws"] += stats["draws"]
 
         if stats["illegal_by_model"]:
             print(f"   (model forfeited via illegal move: {stats['result']})")
 
     env.close()
+    wall_clock_seconds = round(time.monotonic() - eval_start, 2)
 
-    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    now_utc = datetime.now(timezone.utc)
+    run_ts = now_utc.strftime("%Y%m%d_%H%M%S")
+    timestamp_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     pgn_path = PGNS_DIR / f"eval_{run_ts}.pgn"
     out_path = RESULTS_DIR / f"eval_{run_ts}.json"
 
     legal_rate = 100 * legal_moves / max(1, total_moves)
     format_rate = 100 * formatted_outputs / max(1, total_moves)
     ci_low, ci_high = wilson_ci(wins, losses, draws)
+    white_split = _color_split_summary(color_buckets["white"])
+    black_split = _color_split_summary(color_buckets["black"])
+    color_balanced = num_games > 0 and white_split["games"] == black_split["games"]
 
     print("\n" + "=" * 60)
     print("Evaluation Results Summary")
@@ -394,10 +492,19 @@ def evaluate_model(
     print(f"Legal Move Rate:      {legal_moves}/{total_moves} ({legal_rate:.1f}%)")
     print(f"Format Adherence:     {formatted_outputs}/{total_moves} ({format_rate:.1f}%)")
     print(f"Record (W-L-D):       {wins}-{losses}-{draws}")
+    print(
+        f"White / Black split:  W {white_split['wins']}-{white_split['losses']}-{white_split['draws']}"
+        f" | B {black_split['wins']}-{black_split['losses']}-{black_split['draws']}"
+    )
     print(f"Score 95% Wilson CI:  [{ci_low:.3f}, {ci_high:.3f}]")
     print(f"Illegal moves by AI:  {illegal_by_model}")
+
     elo = None
-    if not use_random_opponent:
+    opponent_elo = None
+    if maia_elo is not None:
+        opponent_elo = int(maia_elo)
+        elo = estimated_elo(wins, losses, draws, opponent_elo)
+    elif not use_random_opponent:
         opponent_elo = STOCKFISH_LEVEL_ELO.get(stockfish_level, 1000)
         elo = estimated_elo(wins, losses, draws, opponent_elo)
         print(
@@ -407,6 +514,7 @@ def evaluate_model(
             "Treat W-D-L and legal-move rate as the primary metrics."
         )
 
+    git_sha = _get_git_sha()
     results = {
         "model": model_name,
         "num_games": num_games,
@@ -415,10 +523,17 @@ def evaluate_model(
         "wins": wins,
         "losses": losses,
         "draws": draws,
+        "white": white_split,
+        "black": black_split,
+        "color_balanced": color_balanced,
         "score_ci_95": [round(ci_low, 4), round(ci_high, 4)],
         "decoding_mode": decoding_mode,
+        "include_ascii": include_ascii,
+        "enable_thinking": enable_thinking,
         "estimated_elo": None if elo is None else round(elo, 1),
         "opponent": opponent,
+        "opponent_backend": opponent_backend,
+        "maia_elo": maia_elo,
         "stockfish_level": stockfish_level,
         "opponent_depth": opponent_depth,
         "model_color": model_color,
@@ -427,13 +542,53 @@ def evaluate_model(
         "openings": str(openings) if openings else None,
         "pgn_file": str(pgn_path),
         "git_revision": git_revision(),
-        "timestamp": datetime.now().isoformat(),
+        "git_sha": git_sha,
+        "timestamp": now_utc.isoformat(),
+        "timestamp_utc": timestamp_utc,
+        "wall_clock_seconds": wall_clock_seconds,
     }
     write_report(results, out_path)
     print(f"\nResults saved to {out_path}")
 
+    if manifest_output is not None:
+        manifest = {
+            "schema_version": "1.0",
+            "git_sha": git_sha,
+            "timestamp_utc": timestamp_utc,
+            "model_id": model_name,
+            "decoding_mode": decoding_mode,
+            "enable_thinking": bool(enable_thinking),
+            "include_ascii": bool(include_ascii),
+            "hardware": _detect_hardware(),
+            "wall_clock_seconds": wall_clock_seconds,
+            "tiers": {
+                "tier1_static": {},
+                "tier2_probes": {},
+                "tier3_act_eval": {},
+                "tier4_match": {
+                    "opponent_name": opponent,
+                    "opponent_backend": opponent_backend,
+                    "opponent_elo": opponent_elo,
+                    "overall": _color_split_summary(
+                        {"wins": wins, "losses": losses, "draws": draws}
+                    ),
+                    "white": white_split,
+                    "black": black_split,
+                    "color_balanced": color_balanced,
+                    "wilson_ci_95": [round(ci_low, 4), round(ci_high, 4)],
+                    "estimated_elo": None if elo is None else round(elo, 1),
+                    "legal_rate": round(legal_rate, 2),
+                    "format_rate": round(format_rate, 2),
+                },
+            },
+        }
+        manifest_output.parent.mkdir(parents=True, exist_ok=True)
+        manifest_output.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        print(f"Eval manifest saved to {manifest_output}")
+
     write_pgn(games_list, pgn_path)
     print(f"Games saved to {pgn_path}")
+    return results
 
 
 def main():
@@ -470,6 +625,12 @@ def main():
         help="Play against a random mover instead of Stockfish",
     )
     parser.add_argument(
+        "--maia-elo",
+        type=int,
+        default=None,
+        help="Play against MaiaSidecar at the specified Elo rating instead of Stockfish",
+    )
+    parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for opponent + color assignment"
     )
     parser.add_argument(
@@ -484,6 +645,23 @@ def main():
         default="strict",
         choices=["strict", "constrained"],
         help="Decoding mode: 'strict' (unconstrained Pass@1) or 'constrained' (100%%-legal trie)",
+    )
+    parser.add_argument(
+        "--include-ascii",
+        action="store_true",
+        help="Include an ASCII board rendering in prompts (must match training prompt format)",
+    )
+    parser.add_argument(
+        "--enable-thinking",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable <think> reasoning prompt mode (pass --no-enable-thinking for Think-OFF ablation)",
+    )
+    parser.add_argument(
+        "--manifest-output",
+        type=Path,
+        default=None,
+        help="Optional path to write standardized eval_manifest.json (schema_version 1.0)",
     )
     args = parser.parse_args()
 
@@ -504,6 +682,10 @@ def main():
         seed=args.seed,
         openings=args.openings,
         decoding_mode=args.decoding_mode,
+        include_ascii=args.include_ascii,
+        enable_thinking=args.enable_thinking,
+        maia_elo=args.maia_elo,
+        manifest_output=args.manifest_output,
     )
 
 

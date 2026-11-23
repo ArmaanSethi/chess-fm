@@ -433,3 +433,144 @@ def test_cli_demo_stdout_and_file_output(capsys, tmp_path):
 def test_cli_requires_demo_flag():
     with pytest.raises(SystemExit):
         main([])
+
+
+def test_build_eval_manifest_schema_v1():
+    from chessfm.eval.suite import build_eval_manifest
+
+    manifest = build_eval_manifest(
+        model_id="Qwen/Qwen3-4B",
+        decoding_mode="constrained",
+        enable_thinking=False,
+        include_ascii=True,
+        hardware="cpu",
+        wall_clock_seconds=1.25,
+        tier1_static={"legal_rate": 1.0},
+    )
+    assert manifest["schema_version"] == "1.0"
+    assert manifest["model_id"] == "Qwen/Qwen3-4B"
+    assert manifest["decoding_mode"] == "constrained"
+    assert manifest["enable_thinking"] is False
+    assert manifest["include_ascii"] is True
+    assert manifest["hardware"] == "cpu"
+    assert manifest["wall_clock_seconds"] == 1.25
+    assert manifest["timestamp_utc"].endswith("Z")
+    assert isinstance(manifest["git_sha"], str) and len(manifest["git_sha"]) > 0
+    assert set(manifest["tiers"].keys()) == {
+        "tier1_static",
+        "tier2_probes",
+        "tier3_act_eval",
+        "tier4_match",
+    }
+    assert manifest["tiers"]["tier1_static"] == {"legal_rate": 1.0}
+
+
+def test_cli_coaching_jsonl_mode(tmp_path, capsys):
+    coaching_file = tmp_path / "coaching.jsonl"
+    rows = [
+        {
+            "fen": SCHOLARS_MATE_FEN,
+            "best_move": "h5f7",
+            "level": 1,
+            "response": generate_socratic_hint(SCHOLARS_MATE_FEN, "h5f7", level=1)["hint"],
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "level": 3,
+            "completion": "Develop a knight toward the center with Nf3.",
+        },
+    ]
+    coaching_file.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    out_file = tmp_path / "eval_manifest.json"
+
+    rc = main(["--coaching-jsonl", str(coaching_file), "--output", str(out_file)])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["schema_version"] == "1.0"
+    assert payload["tiers"]["tier3_act_eval"]["total_cases"] == 2
+    assert payload["tiers"]["tier3_act_eval"]["spoiler_rate"] == 0.0
+    assert out_file.is_file()
+
+
+def test_cli_model_mode_with_fakes(tmp_path, monkeypatch, capsys):
+    import chessfm.load_model as load_model_mod
+
+    bench_file = tmp_path / "bench.jsonl"
+    bench_file.write_text(
+        json.dumps({"fen": chess.STARTING_FEN, "best_move": "e2e4"}) + "\n",
+        encoding="utf-8",
+    )
+    out_file = tmp_path / "model_manifest.json"
+
+    class _FakeTensor:
+        def __init__(self, vals):
+            self._vals = vals
+
+        @property
+        def shape(self):
+            return [1, len(self._vals)]
+
+        def __getitem__(self, item):
+            return self._vals if isinstance(item, int) else self._vals[item]
+
+    class _FakeInputs:
+        def __init__(self, vals):
+            self.input_ids = _FakeTensor(vals)
+
+        def to(self, _device):
+            return self
+
+        def keys(self):
+            return ["input_ids"]
+
+        def __getitem__(self, key):
+            return getattr(self, key)
+
+    class _FakeModel:
+        device = "cpu"
+
+        def generate(self, **kwargs):
+            return _FakeTensor(kwargs["input_ids"]._vals + [1, 2])
+
+    class _FakeTok:
+        eos_token_id = 0
+
+        def __call__(self, prompt, return_tensors=None):
+            return _FakeInputs(list(range(len(prompt.split()) + 1)))
+
+        def encode(self, text, add_special_tokens=False):
+            return [ord(c) for c in text]
+
+        def decode(self, _ids, skip_special_tokens=True):
+            return "<think>Control the center.</think>\ne2e4"
+
+    monkeypatch.setattr(
+        load_model_mod, "load_model", lambda _m, for_inference=True: (_FakeModel(), _FakeTok())
+    )
+    monkeypatch.setattr("chessfm.eval.suite.open_engine", lambda: None)
+
+    rc = main(
+        [
+            "--model",
+            "fake/qwen3-4b",
+            "--benchmark",
+            str(bench_file),
+            "--include-ascii",
+            "--no-enable-thinking",
+            "--decoding-mode",
+            "constrained",
+            "--skip-probes",
+            "--output",
+            str(out_file),
+        ]
+    )
+    assert rc == 0
+    manifest = json.loads(capsys.readouterr().out)
+    assert manifest["schema_version"] == "1.0"
+    assert manifest["model_id"] == "fake/qwen3-4b"
+    assert manifest["decoding_mode"] == "constrained"
+    assert manifest["enable_thinking"] is False
+    assert manifest["include_ascii"] is True
+    assert manifest["tiers"]["tier1_static"]["legal_rate"] == 1.0
+    assert manifest["tiers"]["tier1_static"]["puzzle_accuracy"] == 1.0
+    assert out_file.is_file()

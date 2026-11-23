@@ -397,7 +397,7 @@ def test_evaluate_model_with_custom_openings_writes_valid_pgn(tmp_path, monkeypa
         _FakeModel(),
         _KnightTokenizer(),
         "fake-checkpoint",
-        num_games=2,
+        num_games=4,
         use_random_opponent=True,
         openings=openings_file,
         seed=7,
@@ -409,10 +409,14 @@ def test_evaluate_model_with_custom_openings_writes_valid_pgn(tmp_path, monkeypa
     assert "score_ci_95" in report
     assert len(report["score_ci_95"]) == 2
     assert report["decoding_mode"] == "strict"
+    assert report["color_balanced"] is True
+    assert report["white"]["games"] == 2
+    assert report["black"]["games"] == 2
 
     pgns = list((tmp_path / "pgns").glob("*.pgn"))
     assert len(pgns) == 1
     fens_in_pgn = []
+    colors_in_pgn = []
     with open(pgns[0]) as f:
         while True:
             game = chess.pgn.read_game(f)
@@ -420,8 +424,11 @@ def test_evaluate_model_with_custom_openings_writes_valid_pgn(tmp_path, monkeypa
                 break
             assert game.headers.get("SetUp") == "1"
             fens_in_pgn.append(game.headers.get("FEN"))
+            colors_in_pgn.append(game.headers.get("ModelColor"))
             assert len(list(game.mainline_moves())) >= 1
-    assert fens_in_pgn == [fen_1, fen_2]
+    # Each opening is played as both White and Black (paired opening indexing).
+    assert fens_in_pgn == [fen_1, fen_1, fen_2, fen_2]
+    assert colors_in_pgn == ["white", "black", "white", "black"]
 
 
 def test_evaluate_model_writes_json_report_before_pgn(tmp_path, monkeypatch):
@@ -540,6 +547,76 @@ def test_evaluate_model_records_constrained_decoding_mode(tmp_path, monkeypatch)
             use_random_opponent=True,
             decoding_mode="invalid",
         )
+
+
+def test_generate_completion_passes_require_think_close_false():
+    import chess
+
+    from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
+    from chessfm.rl.evaluate import generate_completion
+
+    model = _FakeModel()
+    tok = _FakeTokenizer()
+    generate_completion(
+        model,
+        tok,
+        "prompt",
+        decoding_mode="constrained",
+        fen=chess.STARTING_FEN,
+        require_think_close=False,
+    )
+    proc = model.generate_calls[0]["logits_processor"][0]
+    assert isinstance(proc, LegalMoveLogitsProcessor)
+    assert proc.require_think_close is False
+
+
+def test_evaluate_model_maia_opponent_prompt_parity_and_manifest(tmp_path, monkeypatch):
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    template_calls: list[dict] = []
+
+    class _ChatMoveTokenizer(_MoveTokenizer):
+        def apply_chat_template(self, messages, **kwargs):
+            template_calls.append({"messages": messages, "kwargs": kwargs})
+            return f"<|im_start|>user\n{messages[0]['content']}<|im_end|>\n<|im_start|>assistant\n"
+
+    manifest_path = tmp_path / "manifests" / "eval_manifest.json"
+    results = evaluate.evaluate_model(
+        _FakeModel(),
+        _ChatMoveTokenizer(),
+        "Qwen/Qwen3-4B",
+        num_games=2,
+        maia_elo=1200,
+        include_ascii=True,
+        enable_thinking=False,
+        seed=11,
+        manifest_output=manifest_path,
+    )
+
+    assert results["opponent_backend"] in ("calibrated_fallback", "maia2")
+    assert results["maia_elo"] == 1200
+    assert results["include_ascii"] is True
+    assert results["enable_thinking"] is False
+    assert results["color_balanced"] is True
+    assert results["white"]["games"] == 1
+    assert results["black"]["games"] == 1
+    assert results["timestamp_utc"].endswith("Z")
+    assert results["git_sha"]
+    assert template_calls
+    assert template_calls[0]["kwargs"]["enable_thinking"] is False
+    assert "Board:\n" in template_calls[0]["messages"][0]["content"]
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "1.0"
+    assert manifest["model_id"] == "Qwen/Qwen3-4B"
+    assert manifest["enable_thinking"] is False
+    assert manifest["include_ascii"] is True
+    assert manifest["timestamp_utc"].endswith("Z")
+    assert manifest["tiers"]["tier4_match"]["opponent_elo"] == 1200
+    assert manifest["tiers"]["tier4_match"]["color_balanced"] is True
 
 
 if __name__ == "__main__":

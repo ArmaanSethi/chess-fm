@@ -82,9 +82,11 @@ VALID_TASKS = (
     "sft",
     "grpo",
     "eval",
+    "static-eval",
     "coach-eval",
     "distill-teacher",
     "export-gguf",
+    "upload-hf",
 )
 
 
@@ -145,6 +147,7 @@ _BASE_ENV = {
     "PATH": "/usr/games:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "HF_HOME": f"{VOL_MOUNT}/hf_cache",
     "TOKENIZERS_PARALLELISM": "false",
+    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
 }
 
 # Stable image for v0 (Qwen2.5-3B) and v1 (Qwen3-4B) verified against TRL 0.16.
@@ -168,8 +171,8 @@ image = (
     .add_local_dir(str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE)
 )
 
-# Modern image for Qwen3.5 and Gemma 4 fine-tuning / RL.
-modern_image = (
+# Modern base image for Qwen3.5 and Gemma 4 fine-tuning / RL (local repo mounted last).
+_modern_base_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("git", "stockfish")
     .env(_BASE_ENV)
@@ -187,11 +190,16 @@ modern_image = (
         "wandb>=0.19.0",
         "huggingface-hub>=0.28.0",
     )
-    .add_local_dir(str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE)
+)
+
+modern_image = _modern_base_image.add_local_dir(
+    str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE
 )
 
 # vLLM image for high-throughput open-weight teacher distillation (zero external APIs).
-vllm_image = modern_image.pip_install("vllm")
+vllm_image = _modern_base_image.pip_install("vllm").add_local_dir(
+    str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE
+)
 
 app = modal.App(APP_NAME, image=image)
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
@@ -217,6 +225,7 @@ def _exec_sft(
     output_subdir: str,
     epochs: int,
     batch_size: int,
+    grad_accum: int,
     lr: float,
     include_ascii: bool,
     merge_and_save: bool,
@@ -237,6 +246,8 @@ def _exec_sft(
         str(epochs),
         "--batch-size",
         str(batch_size),
+        "--grad-accum",
+        str(grad_accum),
         "--lr",
         str(lr),
         "--merge-and-save" if merge_and_save else "--no-merge-and-save",
@@ -300,6 +311,12 @@ def _exec_eval(
     games: int,
     stockfish_level: int,
     random_opponent: bool,
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    openings: str = "",
+    maia_elo: int = 0,
+    opponent_depth: int = 0,
 ) -> None:
     _ensure_installed()
     cmd = [
@@ -312,12 +329,60 @@ def _exec_eval(
         str(games),
         "--stockfish-level",
         str(stockfish_level),
+        "--decoding-mode",
+        decoding_mode,
+        "--enable-thinking" if enable_thinking else "--no-enable-thinking",
     ]
     if random_opponent:
         cmd.append("--random-opponent")
+    if include_ascii:
+        cmd.append("--include-ascii")
+    if openings:
+        cmd.extend(["--openings", openings])
+    if maia_elo > 0:
+        cmd.extend(["--maia-elo", str(maia_elo)])
+    if opponent_depth > 0:
+        cmd.extend(["--opponent-depth", str(opponent_depth)])
     _run(cmd)
     _run(["cp", "-r", "results/.", f"{VOL_MOUNT}/results/"])
     volume.commit()
+
+
+def _exec_static_eval(
+    model: str,
+    benchmark: str,
+    decoding_mode: str,
+    include_ascii: bool,
+    enable_thinking: bool,
+    max_positions: int,
+    skip_probes: bool,
+    output_name: str,
+) -> str:
+    _ensure_installed()
+    out_path = f"{VOL_MOUNT}/results/{output_name}"
+    cmd = [
+        "python",
+        "-m",
+        "chessfm.eval.suite",
+        "--model",
+        model,
+        "--benchmark",
+        benchmark,
+        "--decoding-mode",
+        decoding_mode,
+        "--enable-thinking" if enable_thinking else "--no-enable-thinking",
+        "--output",
+        out_path,
+    ]
+    if include_ascii:
+        cmd.append("--include-ascii")
+    if max_positions > 0:
+        cmd.extend(["--max-positions", str(max_positions)])
+    if skip_probes:
+        cmd.append("--skip-probes")
+    _run(cmd)
+    volume.commit()
+    return out_path
 
 
 @app.function(
@@ -331,13 +396,22 @@ def run_sft(
     data: str = "data_generation/sft_train.jsonl",
     output_subdir: str = "sft_qwen3_4b",
     epochs: int = 3,
-    batch_size: int = 4,
+    batch_size: int = 2,
+    grad_accum: int = 4,
     lr: float = 2e-5,
     include_ascii: bool = False,
     merge_and_save: bool = True,
 ) -> str:
     return _exec_sft(
-        model, data, output_subdir, epochs, batch_size, lr, include_ascii, merge_and_save
+        model,
+        data,
+        output_subdir,
+        epochs,
+        batch_size,
+        grad_accum,
+        lr,
+        include_ascii,
+        merge_and_save,
     )
 
 
@@ -354,12 +428,21 @@ def run_sft_modern(
     output_subdir: str = "sft_modern",
     epochs: int = 3,
     batch_size: int = 4,
+    grad_accum: int = 2,
     lr: float = 2e-5,
     include_ascii: bool = False,
     merge_and_save: bool = True,
 ) -> str:
     return _exec_sft(
-        model, data, output_subdir, epochs, batch_size, lr, include_ascii, merge_and_save
+        model,
+        data,
+        output_subdir,
+        epochs,
+        batch_size,
+        grad_accum,
+        lr,
+        include_ascii,
+        merge_and_save,
     )
 
 
@@ -374,8 +457,8 @@ def run_grpo(
     stage: int = 0,
     steps: int = 500,
     output_subdir: str = "grpo_stage0",
-    num_generations: int = 8,
-    per_device_batch_size: int = 8,
+    num_generations: int = 4,
+    per_device_batch_size: int = 4,
     grad_accum: int = 2,
     max_positions: int = 1000,
     checkpoint_every: int = 100,
@@ -443,8 +526,25 @@ def run_eval(
     games: int = 20,
     stockfish_level: int = 1,
     random_opponent: bool = False,
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    openings: str = "",
+    maia_elo: int = 0,
+    opponent_depth: int = 0,
 ) -> None:
-    _exec_eval(model, games, stockfish_level, random_opponent)
+    _exec_eval(
+        model,
+        games,
+        stockfish_level,
+        random_opponent,
+        decoding_mode=decoding_mode,
+        include_ascii=include_ascii,
+        enable_thinking=enable_thinking,
+        openings=openings,
+        maia_elo=maia_elo,
+        opponent_depth=opponent_depth,
+    )
 
 
 @app.function(
@@ -459,8 +559,116 @@ def run_eval_modern(
     games: int = 20,
     stockfish_level: int = 1,
     random_opponent: bool = False,
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    openings: str = "",
+    maia_elo: int = 0,
+    opponent_depth: int = 0,
 ) -> None:
-    _exec_eval(model, games, stockfish_level, random_opponent)
+    _exec_eval(
+        model,
+        games,
+        stockfish_level,
+        random_opponent,
+        decoding_mode=decoding_mode,
+        include_ascii=include_ascii,
+        enable_thinking=enable_thinking,
+        openings=openings,
+        maia_elo=maia_elo,
+        opponent_depth=opponent_depth,
+    )
+
+
+@app.function(
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_static_eval(
+    model: str = DEFAULT_V1_MODEL,
+    benchmark: str = "data_generation/eval_benchmark.jsonl",
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    max_positions: int = 0,
+    skip_probes: bool = False,
+    output_name: str = "eval_manifest.json",
+) -> str:
+    return _exec_static_eval(
+        model,
+        benchmark,
+        decoding_mode,
+        include_ascii,
+        enable_thinking,
+        max_positions,
+        skip_probes,
+        output_name,
+    )
+
+
+@app.function(
+    image=modern_image,
+    gpu="A100-40GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_static_eval_modern(
+    model: str = DEFAULT_V1_5_MODEL,
+    benchmark: str = "data_generation/eval_benchmark.jsonl",
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    max_positions: int = 0,
+    skip_probes: bool = False,
+    output_name: str = "eval_manifest.json",
+) -> str:
+    return _exec_static_eval(
+        model,
+        benchmark,
+        decoding_mode,
+        include_ascii,
+        enable_thinking,
+        max_positions,
+        skip_probes,
+        output_name,
+    )
+
+
+@app.function(
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 30,
+)
+def run_upload_hf(
+    local_dir: str,
+    repo_id: str,
+    repo_type: str = "model",
+    path_in_repo: str = "",
+    commit_message: str = "Upload ChessFM artifacts",
+    dry_run: bool = False,
+) -> str:
+    _ensure_installed()
+    cmd = [
+        "python",
+        "scripts/upload_hf.py",
+        "--local-dir",
+        local_dir,
+        "--repo-id",
+        repo_id,
+        "--repo-type",
+        repo_type,
+        "--commit-message",
+        commit_message,
+    ]
+    if path_in_repo:
+        cmd.extend(["--path-in-repo", path_in_repo])
+    if dry_run:
+        cmd.append("--dry-run")
+    _run(cmd)
+    return repo_id
 
 
 @app.function(
@@ -600,11 +808,25 @@ def main(
     stockfish_level: int = 1,
     random_opponent: bool = False,
     include_ascii: bool = False,
+    enable_thinking: bool = True,
+    decoding_mode: str = "strict",
+    openings: str = "",
+    maia_elo: int = 0,
+    opponent_depth: int = 0,
+    benchmark: str = "data_generation/eval_benchmark.jsonl",
+    max_positions: int = 0,
+    skip_probes: bool = False,
     quant: str = "q4_k_m",
     family: str = "gemma4",
     output_subdir: str = "",
     limit: int = 0,
     max_attempts: int = 3,
+    local_dir: str = "",
+    repo_id: str = "",
+    repo_type: str = "model",
+    path_in_repo: str = "",
+    commit_message: str = "Upload ChessFM artifacts",
+    dry_run: bool = False,
 ) -> None:
     resolved_model = resolve_track_model(
         model=model, track=track, use_official_gemma=use_official_gemma
@@ -613,6 +835,7 @@ def main(
     sft_fn = run_sft_modern if use_modern else run_sft
     grpo_fn = run_grpo_modern if use_modern else run_grpo
     eval_fn = run_eval_modern if use_modern else run_eval
+    static_eval_fn = run_static_eval_modern if use_modern else run_static_eval
 
     if task == "sft":
         ckpt = sft_fn.remote(
@@ -639,10 +862,40 @@ def main(
             games=games,
             stockfish_level=stockfish_level,
             random_opponent=random_opponent,
+            decoding_mode=decoding_mode,
+            include_ascii=include_ascii,
+            enable_thinking=enable_thinking,
+            openings=openings,
+            maia_elo=maia_elo,
+            opponent_depth=opponent_depth,
         )
         print(
             "Evaluation complete. Download reports with: modal volume get chessfm-artifacts results ./results"
         )
+    elif task == "static-eval":
+        out_path = static_eval_fn.remote(
+            model=resolved_model,
+            benchmark=benchmark,
+            decoding_mode=decoding_mode,
+            include_ascii=include_ascii,
+            enable_thinking=enable_thinking,
+            max_positions=max_positions,
+            skip_probes=skip_probes,
+            output_name=output_subdir or "eval_manifest.json",
+        )
+        print(f"Static 4-tier eval manifest saved to Modal volume: {out_path}")
+    elif task == "upload-hf":
+        if not local_dir or not repo_id:
+            raise ValueError("upload-hf requires --local-dir and --repo-id")
+        uploaded = run_upload_hf.remote(
+            local_dir=local_dir,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            path_in_repo=path_in_repo,
+            commit_message=commit_message,
+            dry_run=dry_run,
+        )
+        print(f"Hugging Face Hub upload complete: {uploaded}")
     elif task == "distill-teacher":
         out_path = run_distill_teacher.remote(
             model=resolved_model,
@@ -699,6 +952,12 @@ def main(
             games=games,
             stockfish_level=stockfish_level,
             random_opponent=random_opponent,
+            decoding_mode=decoding_mode,
+            include_ascii=include_ascii,
+            enable_thinking=enable_thinking,
+            openings=openings,
+            maia_elo=maia_elo,
+            opponent_depth=opponent_depth,
         )
         print(
             "Pipeline complete! Fetch reports: modal volume get chessfm-artifacts results ./results"

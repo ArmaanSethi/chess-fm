@@ -257,6 +257,9 @@ class TestModalTrainAST:
             "run_grpo_modern",
             "run_eval",
             "run_eval_modern",
+            "run_static_eval",
+            "run_static_eval_modern",
+            "run_upload_hf",
             "run_distill_teacher",
             "run_coach_eval",
             "run_export_gguf",
@@ -276,9 +279,11 @@ class TestModalTrainAST:
             "sft",
             "grpo",
             "eval",
+            "static-eval",
             "coach-eval",
             "distill-teacher",
             "export-gguf",
+            "upload-hf",
         ):
             assert task in string_literals, f"Task {task!r} not found in scripts/modal_train.py"
 
@@ -295,9 +300,69 @@ class TestModalTrainAST:
         ):
             assert model_id in string_literals, f"Track model {model_id!r} missing"
 
+        assert "PYTORCH_CUDA_ALLOC_CONF" in string_literals
+        assert "expandable_segments:True" in string_literals
         assert "--include-ascii" in string_literals
         assert "--merge-and-save" in string_literals
+        assert "--decoding-mode" in string_literals
+        assert "--enable-thinking" in string_literals
+        assert "--maia-elo" in string_literals
         assert "final_merged" in source
         assert "scripts/export_gguf.py" in string_literals
+        assert "scripts/upload_hf.py" in string_literals
         assert "chessfm.eval.suite" in string_literals
         assert "chessfm.data_generation.distill_open_teacher" in string_literals
+
+
+# ---------------------------------------------------------------------------
+# upload_hf tests
+# ---------------------------------------------------------------------------
+
+
+upload_hf = _load_script_module("upload_hf", "upload_hf.py")
+
+
+class TestUploadHF:
+    def test_dry_run_validates_and_never_prints_token(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        artifact_dir = tmp_path / "ckpt"
+        artifact_dir.mkdir()
+        (artifact_dir / "config.json").write_text("{}", encoding="utf-8")
+
+        secret_val = "hf_super_secret_test_token_12345"
+        monkeypatch.setenv("HF_TOKEN", secret_val)
+
+        rc = upload_hf.main(
+            [
+                "--local-dir",
+                str(artifact_dir),
+                "--repo-id",
+                "winsonly/chessfm-test",
+                "--dry-run",
+            ]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "[dry-run]" in out
+        assert "winsonly/chessfm-test" in out
+        assert secret_val not in out
+
+    def test_missing_local_dir_raises(self, tmp_path: Path):
+        with pytest.raises(FileNotFoundError, match="Local path does not exist"):
+            upload_hf.upload_to_hub(
+                local_dir=tmp_path / "nonexistent",
+                repo_id="winsonly/chessfm-test",
+                dry_run=True,
+            )
+
+    def test_missing_hf_token_exits_cleanly(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        artifact_dir = tmp_path / "ckpt"
+        artifact_dir.mkdir()
+        monkeypatch.delenv("HF_TOKEN", raising=False)
+        with pytest.raises(SystemExit, match="HF_TOKEN"):
+            upload_hf.upload_to_hub(
+                local_dir=artifact_dir,
+                repo_id="winsonly/chessfm-test",
+                dry_run=False,
+            )
