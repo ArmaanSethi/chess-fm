@@ -17,14 +17,18 @@ USAGE:
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import math
 import random
 import subprocess
 import time
+from collections import deque
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import chess
 import chess.engine
@@ -35,6 +39,7 @@ from chessfm.config import (
     DEFAULT_BASE_MODEL,
     DEFAULT_MAX_NEW_TOKENS,
     DEFAULT_OPPONENT_DEPTH,
+    MAX_GAME_MOVES,
     PGNS_DIR,
     RESULTS_DIR,
     STOCKFISH_LEVEL_ELO,
@@ -47,6 +52,9 @@ from chessfm.rl.move_utils import parse_move_from_output
 from chessfm.training.manifest import _get_git_sha
 
 logger = logging.getLogger("chessfm.evaluate")
+
+MIN_STOCKFISH_ELO = 1320
+MATCH_ENGINE_MAX_RESTARTS = 12
 
 
 def git_revision() -> str:
@@ -152,6 +160,164 @@ def generate_completion(
     return tokenizer.decode(generated, skip_special_tokens=True)
 
 
+class BatchedLegalMoveLogitsProcessor:
+    """Per-row legal-move logits processor for left-padded batched generation.
+
+    Composes one :class:`~chessfm.rl.constrained_decoding.LegalMoveLogitsProcessor`
+    per row in ``fens`` and masks each row independently so there is zero
+    cross-game leakage and NaN-free EOS fallback when rows finish at different
+    steps.
+    """
+
+    def __init__(
+        self,
+        fens: list[str],
+        tokenizer,
+        prompt_length: int = 0,
+        require_think_close: bool = True,
+    ) -> None:
+        from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
+
+        self.fens = list(fens)
+        self.prompt_length = prompt_length
+        self.require_think_close = require_think_close
+        self.processors = [
+            LegalMoveLogitsProcessor(
+                fen,
+                tokenizer,
+                prompt_length=prompt_length,
+                require_think_close=require_think_close,
+            )
+            for fen in self.fens
+        ]
+
+    def __call__(self, input_ids, scores):
+        batch_size = scores.shape[0]
+        if batch_size != len(self.processors):
+            raise ValueError(
+                f"Batch size mismatch: scores has {batch_size} rows, "
+                f"expected {len(self.processors)}."
+            )
+        masked_scores = scores.clone()
+        for row, proc in enumerate(self.processors):
+            row_out = proc(input_ids[row : row + 1], scores[row : row + 1])
+            masked_scores[row] = row_out[0]
+        return masked_scores
+
+
+def generate_completions_batched(
+    model,
+    tokenizer,
+    prompts: list[str],
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
+    decoding_mode: str = "strict",
+    fens: list[str] | None = None,
+    require_think_close: bool = True,
+) -> list[str]:
+    """Generate completions for a batch of prompts using left-padded decoding.
+
+    Saves and restores ``tokenizer.padding_side``, ``tokenizer.pad_token_id``,
+    and ``tokenizer.pad_token`` in a ``try ... finally`` block so caller state
+    is never mutated. When ``decoding_mode == "constrained"``, attaches a
+    :class:`BatchedLegalMoveLogitsProcessor` aligned to ``padded_prompt_len``.
+    """
+    if decoding_mode not in ("strict", "constrained"):
+        raise ValueError(
+            f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
+        )
+    if not prompts:
+        return []
+    if decoding_mode == "constrained":
+        if fens is None or len(fens) != len(prompts):
+            raise ValueError(
+                "fens must be provided with the same length as prompts when "
+                "decoding_mode='constrained'."
+            )
+
+    has_padding_side = hasattr(tokenizer, "padding_side")
+    orig_padding_side = getattr(tokenizer, "padding_side", None)
+    has_pad_token_id = hasattr(tokenizer, "pad_token_id")
+    orig_pad_token_id = getattr(tokenizer, "pad_token_id", None)
+    has_pad_token = hasattr(tokenizer, "pad_token")
+    orig_pad_token = getattr(tokenizer, "pad_token", None)
+
+    try:
+        tokenizer.padding_side = "left"
+        if getattr(tokenizer, "pad_token_id", None) is None:
+            eos_id = getattr(tokenizer, "eos_token_id", None)
+            if eos_id is not None:
+                tokenizer.pad_token_id = eos_id
+            eos_tok = getattr(tokenizer, "eos_token", None)
+            if getattr(tokenizer, "pad_token", None) is None and eos_tok is not None:
+                tokenizer.pad_token = eos_tok
+
+        inputs = tokenizer(prompts, return_tensors="pt", padding=True)
+        device = getattr(model, "device", None)
+        if device is not None and hasattr(inputs, "to"):
+            inputs = inputs.to(device)
+
+        input_ids = (
+            inputs["input_ids"]
+            if isinstance(inputs, dict) or hasattr(inputs, "__getitem__")
+            else inputs.input_ids
+        )
+        padded_prompt_len = int(input_ids.shape[1])
+
+        gen_kwargs: dict[str, Any] = {
+            "max_new_tokens": max_new_tokens,
+            "do_sample": False,
+        }
+        pad_id = getattr(tokenizer, "pad_token_id", None)
+        if pad_id is not None:
+            gen_kwargs["pad_token_id"] = pad_id
+
+        if decoding_mode == "constrained":
+            assert fens is not None
+            proc = BatchedLegalMoveLogitsProcessor(
+                fens,
+                tokenizer,
+                prompt_length=padded_prompt_len,
+                require_think_close=require_think_close,
+            )
+            try:
+                from transformers import LogitsProcessorList
+
+                gen_kwargs["logits_processor"] = LogitsProcessorList([proc])
+            except ImportError:
+                gen_kwargs["logits_processor"] = [proc]
+
+        try:
+            import torch
+
+            no_grad_ctx = torch.no_grad()
+        except ImportError:
+            no_grad_ctx = contextlib.nullcontext()
+
+        with no_grad_ctx:
+            outputs = model.generate(**inputs, **gen_kwargs)
+
+        completions: list[str] = []
+        for row in range(len(prompts)):
+            generated = outputs[row][padded_prompt_len:]
+            completions.append(tokenizer.decode(generated, skip_special_tokens=True))
+        return completions
+    finally:
+        if has_padding_side:
+            tokenizer.padding_side = orig_padding_side
+        elif hasattr(tokenizer, "padding_side"):
+            delattr(tokenizer, "padding_side")
+
+        if has_pad_token_id:
+            tokenizer.pad_token_id = orig_pad_token_id
+        elif hasattr(tokenizer, "pad_token_id"):
+            delattr(tokenizer, "pad_token_id")
+
+        if has_pad_token:
+            tokenizer.pad_token = orig_pad_token
+        elif hasattr(tokenizer, "pad_token"):
+            delattr(tokenizer, "pad_token")
+
+
 def _count_result(stats: dict, result: str, model_color: str) -> None:
     """Tally a finished game from the model's perspective, regardless of color."""
     if result == "1-0":
@@ -184,6 +350,42 @@ def _sample_maia_move(
     return random.choice(fallback_legal)
 
 
+def _play_engine_move(
+    engine,
+    board: chess.Board,
+    opponent_depth: int,
+    max_retries: int = MATCH_ENGINE_MAX_RESTARTS,
+) -> str:
+    """Request an opponent move from ``engine`` with bounded crash recovery.
+
+    Stockfish 16 on Linux can occasionally terminate with ``SIGFPE`` (exit code
+    ``-8``) in consecutive bursts under ``UCI_LimitStrength`` / ``UCI_Elo``.
+    ``ResilientEngine.play`` handles restarts internally up to
+    ``_max_restarts``; this helper provides a bounded safety net for callers
+    that invoke :func:`play_game` or :func:`play_games_batched` directly with
+    an engine whose restart budget has not been raised.
+    """
+    retries = max(0, int(max_retries))
+    attempt = 0
+    while True:
+        try:
+            result = engine.play(board, chess.engine.Limit(depth=opponent_depth))
+            return result.move.uci()
+        except (chess.engine.EngineTerminatedError, BrokenPipeError) as exc:
+            if attempt >= retries:
+                raise
+            attempt += 1
+            logger.warning(
+                "Opponent engine terminated during play (%s); retrying (%d/%d).",
+                exc,
+                attempt,
+                retries,
+            )
+            restart_fn = getattr(engine, "_restart", None)
+            if callable(restart_fn):
+                restart_fn()
+
+
 def play_game(
     model,
     tokenizer,
@@ -196,6 +398,8 @@ def play_game(
     enable_thinking: bool = True,
     maia_sidecar: MaiaSidecar | None = None,
     maia_elo: int | None = None,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> tuple:
     """Play one game between the model and the opponent in ``env``.
 
@@ -236,6 +440,8 @@ def play_game(
                 tokenizer=tokenizer,
                 include_ascii=include_ascii,
                 enable_thinking=enable_thinking,
+                include_piece_list=include_piece_list,
+                include_legal_moves=include_legal_moves,
             )
             completion = generate_completion(
                 model,
@@ -272,8 +478,7 @@ def play_game(
             if maia_sidecar is not None and maia_elo is not None:
                 move_uci = _sample_maia_move(maia_sidecar, fen, maia_elo, env.get_legal_moves())
             elif env.engine and not use_random_opponent:
-                result = env.engine.play(env.board, chess.engine.Limit(depth=opponent_depth))
-                move_uci = result.move.uci()
+                move_uci = _play_engine_move(env.engine, env.board, opponent_depth)
             else:
                 move_uci = random.choice(env.get_legal_moves())
 
@@ -286,6 +491,242 @@ def play_game(
                 _count_result(stats, stats["result"], model_color)
 
     return game, stats
+
+
+@dataclass
+class _BatchedGameState:
+    """Per-game mutable state for rolling batched match evaluation."""
+
+    index: int
+    model_color: str
+    board: chess.Board
+    game: chess.pgn.Game
+    node: Any
+    stats: dict
+    move_count: int = 0
+    max_moves: int = MAX_GAME_MOVES
+    done: bool = False
+
+
+def _new_game_stats() -> dict:
+    """Return a fresh per-game statistics dictionary."""
+    return {
+        "total_moves": 0,
+        "legal_moves": 0,
+        "formatted_outputs": 0,
+        "illegal_by_model": 0,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "result": "*",
+    }
+
+
+def _step_board(state: _BatchedGameState, move_uci: str) -> tuple[bool, bool, dict]:
+    """Advance ``state.board`` by ``move_uci`` mirroring :meth:`ChessEnv.step`."""
+    try:
+        move = chess.Move.from_uci(move_uci)
+    except ValueError:
+        return False, True, {"error": "invalid_uci", "move": move_uci}
+
+    if move not in state.board.legal_moves:
+        return False, True, {"error": "illegal_move", "move": move_uci}
+
+    state.board.push(move)
+    state.move_count += 1
+
+    if state.board.is_game_over(claim_draw=True):
+        return (
+            True,
+            True,
+            {"result": state.board.result(claim_draw=True), "moves": state.move_count},
+        )
+
+    if state.move_count >= state.max_moves:
+        return True, True, {"result": "max_moves", "moves": state.move_count}
+
+    return True, False, {"moves": state.move_count}
+
+
+def _play_opponent_turn(
+    state: _BatchedGameState,
+    *,
+    engine,
+    use_random_opponent: bool,
+    opponent_depth: int,
+    maia_sidecar: MaiaSidecar | None,
+    maia_elo: int | None,
+) -> None:
+    """Execute one opponent ply on ``state`` using Maia, Stockfish, or Random."""
+    fen = state.board.fen()
+    legal_ucis = [m.uci() for m in state.board.legal_moves]
+    if maia_sidecar is not None and maia_elo is not None:
+        move_uci = _sample_maia_move(maia_sidecar, fen, maia_elo, legal_ucis)
+    elif engine is not None and not use_random_opponent:
+        move_uci = _play_engine_move(engine, state.board, opponent_depth)
+    else:
+        move_uci = random.choice(legal_ucis)
+
+    legal, done, info = _step_board(state, move_uci)
+    if legal:
+        state.node = state.node.add_variation(chess.Move.from_uci(move_uci))
+    if done:
+        state.done = True
+        state.stats["result"] = info.get("result", "")
+        _count_result(state.stats, state.stats["result"], state.model_color)
+
+
+def play_games_batched(
+    model,
+    tokenizer,
+    game_specs: list[tuple[int, str, str | None]],
+    engine,
+    batch_size: int = 16,
+    use_random_opponent: bool = False,
+    opponent_depth: int = DEFAULT_OPPONENT_DEPTH,
+    decoding_mode: str = "strict",
+    include_ascii: bool = False,
+    enable_thinking: bool = True,
+    maia_sidecar: MaiaSidecar | None = None,
+    maia_elo: int | None = None,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+) -> list[tuple[chess.pgn.Game, dict]]:
+    """Play multiple games concurrently using a rolling active pool.
+
+    Maintains up to ``batch_size`` active games sharing a single ``engine``
+    instance. As soon as any game finishes, a pending game refills its slot,
+    opponent turns advance on CPU, and all active model-turn boards are
+    evaluated in a single :func:`generate_completions_batched` call.
+
+    Returns ``[(game, stats), ...]`` ordered strictly by the original game
+    indices ``0..len(game_specs) - 1``.
+    """
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+
+    total_games = len(game_specs)
+    pending: deque[tuple[int, str, str | None]] = deque(game_specs)
+    active: list[_BatchedGameState] = []
+    completed: dict[int, tuple[chess.pgn.Game, dict]] = {}
+
+    def _finalize(state: _BatchedGameState) -> None:
+        completed[state.index] = (state.game, state.stats)
+        forfeit_note = (
+            f" (model forfeited via illegal move: {state.stats['result']})"
+            if state.stats["illegal_by_model"]
+            else ""
+        )
+        print(
+            f"Completed game {state.index + 1}/{total_games} ({state.model_color}): "
+            f"{state.stats['result']}{forfeit_note}",
+            flush=True,
+        )
+
+    while active or pending:
+        # Refill the active pool and advance all opponent-turn boards until
+        # every active board is waiting on the model.
+        while True:
+            while len(active) < batch_size and pending:
+                idx, g_color, start_fen = pending.popleft()
+                board = chess.Board(start_fen) if start_fen else chess.Board()
+                game = chess.pgn.Game()
+                if board.fen() != chess.STARTING_FEN:
+                    game.setup(board.copy())
+                state = _BatchedGameState(
+                    index=idx,
+                    model_color=g_color,
+                    board=board,
+                    game=game,
+                    node=game,
+                    stats=_new_game_stats(),
+                )
+                if board.is_game_over(claim_draw=True):
+                    state.done = True
+                    state.stats["result"] = board.result(claim_draw=True)
+                    _count_result(state.stats, state.stats["result"], state.model_color)
+                    _finalize(state)
+                else:
+                    active.append(state)
+
+            still_active: list[_BatchedGameState] = []
+            finished_any = False
+            for state in active:
+                while not state.done:
+                    turn_color = "white" if state.board.turn == chess.WHITE else "black"
+                    if turn_color == state.model_color:
+                        break
+                    _play_opponent_turn(
+                        state,
+                        engine=engine,
+                        use_random_opponent=use_random_opponent,
+                        opponent_depth=opponent_depth,
+                        maia_sidecar=maia_sidecar,
+                        maia_elo=maia_elo,
+                    )
+                if state.done:
+                    _finalize(state)
+                    finished_any = True
+                else:
+                    still_active.append(state)
+
+            active = still_active
+            if not finished_any or not pending:
+                break
+
+        if not active:
+            break
+
+        fens = [state.board.fen() for state in active]
+        prompts = [
+            build_chat_prompt(
+                fen,
+                tokenizer=tokenizer,
+                include_ascii=include_ascii,
+                enable_thinking=enable_thinking,
+                include_piece_list=include_piece_list,
+                include_legal_moves=include_legal_moves,
+            )
+            for fen in fens
+        ]
+        completions = generate_completions_batched(
+            model,
+            tokenizer,
+            prompts,
+            decoding_mode=decoding_mode,
+            fens=fens if decoding_mode == "constrained" else None,
+            require_think_close=enable_thinking,
+        )
+
+        next_active: list[_BatchedGameState] = []
+        for state, completion in zip(active, completions, strict=True):
+            move_uci = parse_move_from_output(completion) or "xxxx"
+            state.stats["total_moves"] += 1
+            if "<think>" in completion and "</think>" in completion:
+                state.stats["formatted_outputs"] += 1
+
+            legal, done, info = _step_board(state, move_uci)
+            if legal:
+                state.stats["legal_moves"] += 1
+                state.node = state.node.add_variation(chess.Move.from_uci(move_uci))
+                if done:
+                    state.done = True
+                    state.stats["result"] = info.get("result", "")
+                    _count_result(state.stats, state.stats["result"], state.model_color)
+            else:
+                state.stats["illegal_by_model"] += 1
+                state.stats["losses"] += 1
+                state.stats["result"] = "0-1" if state.model_color == "white" else "1-0"
+                state.done = True
+
+            if state.done:
+                _finalize(state)
+            else:
+                next_active.append(state)
+
+        active = next_active
+
+    return [completed[idx] for idx, _, _ in game_specs]
 
 
 def write_pgn(games: list, path: Path) -> None:
@@ -345,6 +786,10 @@ def evaluate_model(
     enable_thinking: bool = True,
     maia_elo: int | None = None,
     manifest_output: Path | None = None,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    stockfish_elo: int | None = None,
+    batch_size: int = 1,
 ) -> dict:
     """Run ``num_games`` games of ``model`` (with ``tokenizer``) and write reports.
 
@@ -357,21 +802,44 @@ def evaluate_model(
     ``alternate_colors=True``, each opening FEN is played twice in a row (once
     as White, once as Black) via ``opening_fens[(g // 2) % len(opening_fens)]``.
 
-    The Stockfish skill level MUST be applied successfully when playing
-    Stockfish: a silently unapplied skill level would make every reported number
-    meaningless, so a configuration failure aborts the run.
+    The Stockfish strength setting (``UCI_Elo`` or ``Skill Level``) MUST be
+    applied successfully when playing Stockfish: a silently unapplied strength
+    setting would make every reported number meaningless, so a configuration
+    failure aborts the run.
     """
     if decoding_mode not in ("strict", "constrained"):
         raise ValueError(
             f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
         )
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
     if maia_elo is not None and maia_elo <= 0:
         raise ValueError(f"maia_elo must be a positive integer, got {maia_elo}")
+    if stockfish_elo is not None and stockfish_elo < MIN_STOCKFISH_ELO:
+        raise ValueError(
+            f"stockfish_elo must be >= {MIN_STOCKFISH_ELO} "
+            f"(Stockfish 16 UCI_Elo minimum), got {stockfish_elo}"
+        )
+    explicit_opponents = sum(
+        [maia_elo is not None, bool(use_random_opponent), stockfish_elo is not None]
+    )
+    if explicit_opponents > 1:
+        raise ValueError(
+            "Specify at most one opponent override among maia_elo, "
+            "use_random_opponent, and stockfish_elo."
+        )
 
     eval_start = time.monotonic()
     random.seed(seed)
 
     env = ChessEnv()
+    if (
+        env.engine is not None
+        and hasattr(env.engine, "_max_restarts")
+        and isinstance(env.engine._max_restarts, int)
+        and not isinstance(env.engine._max_restarts, bool)
+    ):
+        env.engine._max_restarts = max(env.engine._max_restarts, MATCH_ENGINE_MAX_RESTARTS)
     try:
         maia_sidecar: MaiaSidecar | None = None
         if maia_elo is not None:
@@ -381,6 +849,18 @@ def evaluate_model(
         elif use_random_opponent:
             opponent_backend = "random"
             opponent = "Random bot"
+        elif stockfish_elo is not None:
+            opponent_backend = "stockfish"
+            opponent = f"Stockfish Elo {stockfish_elo} (depth {opponent_depth})"
+            if env.engine is None:
+                raise SystemExit(
+                    "Stockfish engine not found; it is required for evaluation "
+                    "unless --random-opponent or --maia-elo is passed."
+                )
+            try:
+                env.engine.configure({"UCI_LimitStrength": True, "UCI_Elo": int(stockfish_elo)})
+            except chess.engine.EngineError as e:
+                raise SystemExit(f"Stockfish rejected UCI_Elo {stockfish_elo}: {e}") from e
         else:
             opponent_backend = "stockfish"
             opponent = f"Stockfish L{stockfish_level} (depth {opponent_depth})"
@@ -394,18 +874,22 @@ def evaluate_model(
             except chess.engine.EngineError as e:
                 raise SystemExit(f"Stockfish rejected Skill Level {stockfish_level}: {e}") from e
 
-        print("=" * 60)
-        print(f"ChessFM Evaluation: {model_name} vs {opponent}")
+        print("=" * 60, flush=True)
+        print(f"ChessFM Evaluation: {model_name} vs {opponent}", flush=True)
         color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
-        print(f"Model color: {color_desc}")
-        print(f"Decoding mode: {decoding_mode}")
-        print(f"Include ASCII: {include_ascii} | Enable thinking: {enable_thinking}")
-        print(f"Seed: {seed}")
-        print("=" * 60)
+        print(f"Model color: {color_desc}", flush=True)
+        print(f"Decoding mode: {decoding_mode} | Batch size: {batch_size}", flush=True)
+        print(
+            f"Include ASCII: {include_ascii} | Piece list: {include_piece_list} | "
+            f"Legal moves: {include_legal_moves} | Enable thinking: {enable_thinking}",
+            flush=True,
+        )
+        print(f"Seed: {seed}", flush=True)
+        print("=" * 60, flush=True)
 
         opening_fens = load_openings(openings)
         if opening_fens:
-            print(f"Using {len(opening_fens)} opening positions from {openings}")
+            print(f"Using {len(opening_fens)} opening positions from {openings}", flush=True)
 
         total_moves = 0
         legal_moves = 0
@@ -421,6 +905,7 @@ def evaluate_model(
         games_list = []
 
         other_color = "black" if model_color == "white" else "white"
+        game_specs: list[tuple[int, str, str | None]] = []
         for g in range(num_games):
             if alternate_colors:
                 game_color = model_color if g % 2 == 0 else other_color
@@ -430,16 +915,48 @@ def evaluate_model(
                 opening_idx = (
                     (g // 2) % len(opening_fens) if alternate_colors else g % len(opening_fens)
                 )
-                env.reset(opening_fens[opening_idx])
+                start_fen: str | None = opening_fens[opening_idx]
             else:
-                env.reset()
-            print(f"\nGame {g + 1}/{num_games} ({game_color})")
+                start_fen = None
+            game_specs.append((g, game_color, start_fen))
 
-            game, stats = play_game(
+        if batch_size == 1:
+            played_games: list[tuple[chess.pgn.Game, dict]] = []
+            for g, game_color, start_fen in game_specs:
+                if start_fen is not None:
+                    env.reset(start_fen)
+                else:
+                    env.reset()
+                print(f"\nGame {g + 1}/{num_games} ({game_color})", flush=True)
+
+                game, stats = play_game(
+                    model,
+                    tokenizer,
+                    env,
+                    game_color,
+                    use_random_opponent=use_random_opponent,
+                    opponent_depth=opponent_depth,
+                    decoding_mode=decoding_mode,
+                    include_ascii=include_ascii,
+                    enable_thinking=enable_thinking,
+                    maia_sidecar=maia_sidecar,
+                    maia_elo=maia_elo,
+                    include_piece_list=include_piece_list,
+                    include_legal_moves=include_legal_moves,
+                )
+                if stats["illegal_by_model"]:
+                    print(
+                        f"   (model forfeited via illegal move: {stats['result']})",
+                        flush=True,
+                    )
+                played_games.append((game, stats))
+        else:
+            played_games = play_games_batched(
                 model,
                 tokenizer,
-                env,
-                game_color,
+                game_specs,
+                engine=env.engine,
+                batch_size=batch_size,
                 use_random_opponent=use_random_opponent,
                 opponent_depth=opponent_depth,
                 decoding_mode=decoding_mode,
@@ -447,8 +964,11 @@ def evaluate_model(
                 enable_thinking=enable_thinking,
                 maia_sidecar=maia_sidecar,
                 maia_elo=maia_elo,
+                include_piece_list=include_piece_list,
+                include_legal_moves=include_legal_moves,
             )
 
+        for (g, game_color, _), (game, stats) in zip(game_specs, played_games, strict=True):
             game.headers["Event"] = f"ChessFM Eval game {g + 1}"
             game.headers["Model"] = model_name
             game.headers["Opponent"] = opponent
@@ -467,9 +987,6 @@ def evaluate_model(
             color_buckets[game_color]["wins"] += stats["wins"]
             color_buckets[game_color]["losses"] += stats["losses"]
             color_buckets[game_color]["draws"] += stats["draws"]
-
-            if stats["illegal_by_model"]:
-                print(f"   (model forfeited via illegal move: {stats['result']})")
     finally:
         env.close()
     wall_clock_seconds = round(time.monotonic() - eval_start, 2)
@@ -487,25 +1004,36 @@ def evaluate_model(
     black_split = _color_split_summary(color_buckets["black"])
     color_balanced = num_games > 0 and white_split["games"] == black_split["games"]
 
-    print("\n" + "=" * 60)
-    print("Evaluation Results Summary")
-    print("=" * 60)
-    print(f"Total Games Played:   {num_games}")
-    print(f"Legal Move Rate:      {legal_moves}/{total_moves} ({legal_rate:.1f}%)")
-    print(f"Format Adherence:     {formatted_outputs}/{total_moves} ({format_rate:.1f}%)")
-    print(f"Record (W-L-D):       {wins}-{losses}-{draws}")
+    print("\n" + "=" * 60, flush=True)
+    print("Evaluation Results Summary", flush=True)
+    print("=" * 60, flush=True)
+    print(f"Total Games Played:   {num_games}", flush=True)
+    print(f"Legal Move Rate:      {legal_moves}/{total_moves} ({legal_rate:.1f}%)", flush=True)
+    print(
+        f"Format Adherence:     {formatted_outputs}/{total_moves} ({format_rate:.1f}%)", flush=True
+    )
+    print(f"Record (W-L-D):       {wins}-{losses}-{draws}", flush=True)
     print(
         f"White / Black split:  W {white_split['wins']}-{white_split['losses']}-{white_split['draws']}"
-        f" | B {black_split['wins']}-{black_split['losses']}-{black_split['draws']}"
+        f" | B {black_split['wins']}-{black_split['losses']}-{black_split['draws']}",
+        flush=True,
     )
-    print(f"Score 95% Wilson CI:  [{ci_low:.3f}, {ci_high:.3f}]")
-    print(f"Illegal moves by AI:  {illegal_by_model}")
+    print(f"Score 95% Wilson CI:  [{ci_low:.3f}, {ci_high:.3f}]", flush=True)
+    print(f"Illegal moves by AI:  {illegal_by_model}", flush=True)
 
     elo = None
     opponent_elo = None
     if maia_elo is not None:
         opponent_elo = int(maia_elo)
         elo = estimated_elo(wins, losses, draws, opponent_elo)
+    elif stockfish_elo is not None:
+        opponent_elo = int(stockfish_elo)
+        elo = estimated_elo(wins, losses, draws, opponent_elo)
+        print(
+            f"Elo (rough indicator): ~{elo:.0f} vs Stockfish UCI_Elo={stockfish_elo} "
+            f"(depth {opponent_depth}, {num_games} games).",
+            flush=True,
+        )
     elif not use_random_opponent:
         opponent_elo = STOCKFISH_LEVEL_ELO.get(stockfish_level, 1000)
         elo = estimated_elo(wins, losses, draws, opponent_elo)
@@ -513,7 +1041,8 @@ def evaluate_model(
             f"Elo (rough indicator): ~{elo:.0f} — NOT a rating. Derived from a "
             f"{num_games}-game sample vs Stockfish L{stockfish_level} searching to a fixed "
             "depth; the skill-level Elo table is an informal community calibration. "
-            "Treat W-D-L and legal-move rate as the primary metrics."
+            "Treat W-D-L and legal-move rate as the primary metrics.",
+            flush=True,
         )
 
     git_sha = _get_git_sha()
@@ -531,12 +1060,16 @@ def evaluate_model(
         "score_ci_95": [round(ci_low, 4), round(ci_high, 4)],
         "decoding_mode": decoding_mode,
         "include_ascii": include_ascii,
+        "include_piece_list": include_piece_list,
+        "include_legal_moves": include_legal_moves,
         "enable_thinking": enable_thinking,
         "estimated_elo": None if elo is None else round(elo, 1),
         "opponent": opponent,
         "opponent_backend": opponent_backend,
         "maia_elo": maia_elo,
         "stockfish_level": stockfish_level,
+        "stockfish_elo": stockfish_elo,
+        "batch_size": batch_size,
         "opponent_depth": opponent_depth,
         "model_color": model_color,
         "alternate_colors": alternate_colors,
@@ -550,7 +1083,7 @@ def evaluate_model(
         "wall_clock_seconds": wall_clock_seconds,
     }
     write_report(results, out_path)
-    print(f"\nResults saved to {out_path}")
+    print(f"\nResults saved to {out_path}", flush=True)
 
     if manifest_output is not None:
         manifest = {
@@ -561,6 +1094,8 @@ def evaluate_model(
             "decoding_mode": decoding_mode,
             "enable_thinking": bool(enable_thinking),
             "include_ascii": bool(include_ascii),
+            "include_piece_list": bool(include_piece_list),
+            "include_legal_moves": bool(include_legal_moves),
             "hardware": _detect_hardware(),
             "wall_clock_seconds": wall_clock_seconds,
             "tiers": {
@@ -571,6 +1106,7 @@ def evaluate_model(
                     "opponent_name": opponent,
                     "opponent_backend": opponent_backend,
                     "opponent_elo": opponent_elo,
+                    "stockfish_elo": stockfish_elo,
                     "overall": _color_split_summary(
                         {"wins": wins, "losses": losses, "draws": draws}
                     ),
@@ -586,10 +1122,10 @@ def evaluate_model(
         }
         manifest_output.parent.mkdir(parents=True, exist_ok=True)
         manifest_output.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-        print(f"Eval manifest saved to {manifest_output}")
+        print(f"Eval manifest saved to {manifest_output}", flush=True)
 
     write_pgn(games_list, pgn_path)
-    print(f"Games saved to {pgn_path}")
+    print(f"Games saved to {pgn_path}", flush=True)
     return results
 
 
@@ -601,6 +1137,21 @@ def main():
     parser.add_argument("--games", type=int, default=10, help="Number of evaluation games")
     parser.add_argument(
         "--stockfish-level", type=int, default=1, help="Stockfish skill level (0-20)"
+    )
+    parser.add_argument(
+        "--stockfish-elo",
+        type=int,
+        default=None,
+        help=(
+            f"Play against Stockfish with UCI_LimitStrength=True and UCI_Elo=N "
+            f"(>= {MIN_STOCKFISH_ELO}; overrides --stockfish-level)"
+        ),
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=1,
+        help="Concurrent games evaluated per batched model.generate() call (default: 1)",
     )
     parser.add_argument(
         "--color",
@@ -654,6 +1205,16 @@ def main():
         help="Include an ASCII board rendering in prompts (must match training prompt format)",
     )
     parser.add_argument(
+        "--include-piece-list",
+        action="store_true",
+        help="Include a lossless piece-by-square listing in prompts (must match training prompt format)",
+    )
+    parser.add_argument(
+        "--include-legal-moves",
+        action="store_true",
+        help="Include sorted UCI legal moves in prompts (isolated comparison mode only)",
+    )
+    parser.add_argument(
         "--enable-thinking",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -666,8 +1227,23 @@ def main():
         help="Optional path to write standardized eval_manifest.json (schema_version 1.0)",
     )
     args = parser.parse_args()
+    if args.batch_size < 1:
+        parser.error(f"--batch-size must be >= 1, got {args.batch_size}")
     if args.maia_elo is not None and args.maia_elo <= 0:
         parser.error(f"--maia-elo must be a positive integer, got {args.maia_elo}")
+    if args.stockfish_elo is not None and args.stockfish_elo < MIN_STOCKFISH_ELO:
+        parser.error(
+            f"--stockfish-elo must be >= {MIN_STOCKFISH_ELO} "
+            f"(Stockfish 16 UCI_Elo minimum), got {args.stockfish_elo}"
+        )
+    explicit_opponents = sum(
+        [args.maia_elo is not None, bool(args.random_opponent), args.stockfish_elo is not None]
+    )
+    if explicit_opponents > 1:
+        parser.error(
+            "Specify at most one opponent override among --maia-elo, "
+            "--random-opponent, and --stockfish-elo."
+        )
 
     logging.basicConfig(level=logging.INFO)
 
@@ -690,6 +1266,10 @@ def main():
         enable_thinking=args.enable_thinking,
         maia_elo=args.maia_elo,
         manifest_output=args.manifest_output,
+        include_piece_list=args.include_piece_list,
+        include_legal_moves=args.include_legal_moves,
+        stockfish_elo=args.stockfish_elo,
+        batch_size=args.batch_size,
     )
 
 

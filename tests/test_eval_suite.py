@@ -640,3 +640,450 @@ def test_evaluate_model_suite_audits_completion_key_in_coaching_cases():
     audited_response = manifest["tiers"]["tier3_act_eval"]["cases"][0]["response"]
     assert audited_response == "Develop your pieces toward the center squares."
     assert not audited_response.startswith("{'prompt':")
+
+
+# ---------------------------------------------------------------------------
+# Phase II: CoT Faithfulness, Puzzles, ChessQA, Forgetting & Batched Suite
+# ---------------------------------------------------------------------------
+
+
+def test_tier1_cot_faithfulness_and_think_off_exclusion():
+    positions = [
+        {"fen": chess.STARTING_FEN, "best_move": "e2e4"},  # clean <think> with valid claim
+        {"fen": chess.STARTING_FEN, "best_move": "e2e4"},  # hallucinated <think> (rook on c5)
+        {"fen": chess.STARTING_FEN, "best_move": "e2e4"},  # Think-OFF (no <think> tag)
+    ]
+    preds = iter(
+        [
+            "<think>White can develop with Nf3 or push e2e4.</think> e2e4",
+            "<think>My rook on c5 attacks e5.</think> e2e4",
+            "e2e4",
+        ]
+    )
+    res = evaluate_static_positions(positions, lambda _fen: next(preds), engine=None)
+    # Only the 2 outputs containing <think> are evaluated as CoT traces.
+    assert res["cot_traces_evaluated"] == 2
+    assert res["cot_claims_total"] > 0
+    assert 0.0 < res["cot_claim_accuracy"] < 1.0
+    assert res["cot_zero_violation_rate"] == 0.5
+    assert res["cot_mean_claims_per_trace"] is not None and res["cot_mean_claims_per_trace"] > 0.0
+    assert res["details"][0]["cot"]["zero_violation"] is True
+    assert res["details"][1]["cot"]["zero_violation"] is False
+    assert res["details"][2]["cot"] is None
+
+    # Empty / zero-claim <think> trace: cot_claim_accuracy is None, zero_violation_rate == 1.0.
+    empty_claim_res = evaluate_static_positions(
+        [{"fen": chess.STARTING_FEN}],
+        lambda _fen: "<think>Let us think carefully about the position.</think> e2e4",
+        engine=None,
+    )
+    assert empty_claim_res["cot_traces_evaluated"] == 1
+    assert empty_claim_res["cot_claims_total"] == 0
+    assert empty_claim_res["cot_claim_accuracy"] is None
+    assert empty_claim_res["cot_zero_violation_rate"] == 1.0
+    assert empty_claim_res["cot_mean_claims_per_trace"] == 0.0
+
+
+def test_evaluate_puzzles_splits_fallbacks_and_cot():
+    from chessfm.eval.suite import evaluate_puzzles
+
+    empty = evaluate_puzzles([], lambda _fen: "")
+    assert empty["total_puzzles"] == 0
+    assert empty["accuracy"] == 0.0
+    assert empty["wilson_ci_95"] == [0.0, 0.0]
+
+    puzzles = [
+        {
+            "fen": SCHOLARS_MATE_FEN,
+            "best_move": "h5f7",
+            "split_group": "theme",
+            "primary_theme": "mateIn1",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "line": ["e2e4", "e7e5"],
+            "split_group": "difficulty",
+            "difficulty_band": "1200-1599",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "solution": ["d2d4"],
+            "split_group": "difficulty",
+            "rating": 2100,  # fallback difficulty_band -> >=2000
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "moves": "g1f3 d7d5",
+            "split_group": "theme",
+            "primary_theme": "opening",
+            "rating": 1100,  # fallback difficulty_band -> <1200
+        },
+    ]
+    preds = iter(
+        [
+            "<think>Qxf7# is checkmate.</think> h5f7",  # solved
+            "<think>Open with e4.</think> e2e4",  # solved
+            "<think>Try e2e4.</think> e2e4",  # legal, wrong move (target d2d4)
+            "z9z9",  # illegal, Think-OFF
+        ]
+    )
+    res = evaluate_puzzles(puzzles, lambda _fen: next(preds))
+    assert res["total_puzzles"] == 4
+    assert res["solved"] == 2
+    assert res["accuracy"] == 0.5
+    assert res["legal_moves"] == 3
+    assert res["legal_rate"] == 0.75
+    assert res["format_adherence"] == 0.75
+    assert res["cot_traces_evaluated"] == 3
+    assert res["by_split_group"]["theme"]["solved"] == 1
+    assert res["by_split_group"]["theme"]["total"] == 2
+    assert res["by_split_group"]["difficulty"]["solved"] == 1
+    assert res["by_theme"]["mateIn1"]["accuracy"] == 1.0
+    assert res["by_theme"]["opening"]["accuracy"] == 0.0
+    assert res["by_difficulty"]["1200-1599"]["accuracy"] == 1.0
+    assert res["by_difficulty"][">=2000"]["accuracy"] == 0.0
+    assert res["by_difficulty"]["<1200"]["accuracy"] == 0.0
+    lo, hi = res["wilson_ci_95"]
+    assert 0.0 <= lo < 0.5 < hi <= 1.0
+
+
+def test_evaluate_chessqa_all_five_categories_and_normalization():
+    from chessfm.eval.suite import evaluate_chessqa
+
+    items = [
+        {
+            "fen": SCHOLARS_MATE_FEN,
+            "category": "Short Tactics",
+            "subcategory": "best_tactical_move",
+            "answer": "h5f7",
+        },
+        {
+            "fen": SCHOLARS_MATE_FEN,
+            "category": "Motifs",
+            "subcategory": "tactical_motif",
+            "answer": "capture, check, checkmate",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Position Judgment",
+            "subcategory": "advantage_3way",
+            "answer": "Roughly Equal",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Semantic",
+            "subcategory": "castling_rights",
+            "answer": "KQkq",
+        },
+        {
+            "fen": STALEMATE_FEN,
+            "category": "Semantic",
+            "subcategory": "castling_rights",
+            "answer": "none",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Semantic",
+            "subcategory": "game_phase",
+            "answer": "opening",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Semantic",
+            "subcategory": "material_balance",
+            "answer": "Equal",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Semantic",
+            "subcategory": "side_to_move",
+            "answer": "white",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Structural",
+            "subcategory": "attacks",
+            "answer": "d1, d2, e2, f1, f2",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Structural",
+            "subcategory": "check_status",
+            "answer": "no",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Structural",
+            "subcategory": "legal_moves",
+            "answer": "yes",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Structural",
+            "subcategory": "piece_lookup",
+            "answer": "white knight",
+        },
+    ]
+
+    preds = iter(
+        [
+            "<think>mate</think> h5f7",  # Short Tactics: matches
+            "checkmate, capture, check.",  # Motifs: order-insensitive match
+            "equal",  # Position Judgment: 'equal' -> 'roughly equal'
+            "kqkq",  # Semantic castling_rights: WRONG case!
+            "-",  # Semantic castling_rights: '-' -> 'none' match
+            "Opening.",  # Semantic game_phase: match
+            " equal ",  # Semantic material_balance: match
+            "W",  # Semantic side_to_move: match
+            "f2, e2, d1, f1, d2",  # Structural attacks: order-insensitive match
+            "False",  # Structural check_status: match
+            "legal",  # Structural legal_moves: match
+            "White Knight!",  # Structural piece_lookup: match
+        ]
+    )
+    res = evaluate_chessqa(items, lambda _item: next(preds))
+    assert res["total"] == 12
+    assert res["correct"] == 11
+    assert res["accuracy"] == round(11 / 12, 4)
+    assert res["per_category"]["Short Tactics"]["accuracy"] == 1.0
+    assert res["per_category"]["Motifs"]["accuracy"] == 1.0
+    assert res["per_category"]["Position Judgment"]["accuracy"] == 1.0
+    assert res["per_category"]["Structural"]["accuracy"] == 1.0
+    assert res["per_subcategory"]["castling_rights"]["correct"] == 1
+    assert res["per_subcategory"]["castling_rights"]["total"] == 2
+
+
+def test_modal_suite_supports_piece_list_and_legal_moves_flags():
+    import importlib.util
+    from pathlib import Path
+
+    modal_path = Path(__file__).resolve().parents[1] / "scripts" / "modal_train.py"
+    spec = importlib.util.spec_from_file_location("modal_train_check", modal_path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert mod._suite_supports_flag("--include-piece-list") is True
+    assert mod._suite_supports_flag("--include-legal-moves") is True
+
+
+def test_evaluate_model_suite_phase2_flags_and_batched_parity(tmp_path, monkeypatch, capsys):
+    import torch
+
+    import chessfm.load_model as load_model_mod
+    from chessfm.eval.suite import evaluate_model_suite
+
+    seen_prompts: list[str] = []
+
+    class _BatchedFakeTokenizer:
+        eos_token_id = 0
+        eos_token = "<eos>"
+        pad_token_id = 1
+        pad_token = "<pad>"
+        padding_side = "right"
+
+        def apply_chat_template(self, messages, **_kwargs):
+            return messages[-1]["content"]
+
+        def _enc(self, text: str) -> list[int]:
+            return [ord(c) % 120 + 2 for c in text]
+
+        def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+            return self._enc(text)
+
+        def decode(self, ids, skip_special_tokens: bool = True) -> str:
+            if hasattr(ids, "tolist"):
+                ids = ids.tolist()
+            # Recover sentinel reply encoded by _BatchedFakeModel.
+            val = int(ids[0]) if ids else 10
+            mapping = {
+                10: "<think>Open with e4.</think> e2e4",
+                11: "white",
+                12: "Paris",
+            }
+            return mapping.get(val, "white")
+
+        def __call__(self, prompts, return_tensors=None, padding: bool = False):
+            prompt_list = [prompts] if isinstance(prompts, str) else list(prompts)
+            seen_prompts.extend(prompt_list)
+            seqs = [self._enc(p) for p in prompt_list]
+            max_len = max(len(s) for s in seqs)
+            padded = [
+                ([1] * (max_len - len(s)) + s)
+                if self.padding_side == "left"
+                else (s + [1] * (max_len - len(s)))
+                for s in seqs
+            ]
+            t = torch.tensor(padded, dtype=torch.long)
+
+            class _Batch(dict):
+                def __init__(self, tensor, raw_prompts):
+                    super().__init__(input_ids=tensor)
+                    self.input_ids = tensor
+                    self._raw_prompts = raw_prompts
+
+                def to(self, _device):
+                    return self
+
+            return _Batch(t, prompt_list)
+
+    class _BatchedFakeModel:
+        device = "cpu"
+
+        def __init__(self):
+            self.batch_sizes: list[int] = []
+
+        def generate(self, **kwargs):
+            input_ids: torch.Tensor = kwargs["input_ids"]
+            bsz = int(input_ids.shape[0])
+            self.batch_sizes.append(bsz)
+            # Emit sentinel token 10 (e2e4) for chess prompts, 12 (Paris) for non-chess prompts.
+            # Distinguish via prompt length or simple uniform token 10 for moves.
+            toks = torch.full((bsz, 2), 10, dtype=torch.long)
+            return torch.cat([input_ids, toks], dim=1)
+
+    # Include duplicate FENs to verify ordered iterator safety in batched mode.
+    positions = [
+        {"fen": chess.STARTING_FEN, "best_move": "e2e4"},
+        {"fen": chess.STARTING_FEN, "best_move": "e2e4"},
+        {"fen": chess.STARTING_FEN, "best_move": "d2d4"},
+    ]
+    puzzles = [
+        {
+            "fen": chess.STARTING_FEN,
+            "best_move": "e2e4",
+            "split_group": "theme",
+            "primary_theme": "opening",
+        },
+        {
+            "fen": chess.STARTING_FEN,
+            "best_move": "e2e4",
+            "split_group": "difficulty",
+            "difficulty_band": "<1200",
+        },
+    ]
+    chessqa_items = [
+        {
+            "fen": chess.STARTING_FEN,
+            "category": "Short Tactics",
+            "subcategory": "best_tactical_move",
+            "question": f"FEN: {chess.STARTING_FEN}\nFind the best move.",
+            "answer": "e2e4",
+        }
+    ]
+    forgetting_items = [
+        {
+            "id": "geo_1",
+            "category": "knowledge",
+            "prompt": "What is the capital of France?",
+            "answer": "Paris",
+            "answer_type": "exact",
+            "choices": None,
+        }
+    ]
+
+    tok_seq = _BatchedFakeTokenizer()
+    model_seq = _BatchedFakeModel()
+    m_seq = evaluate_model_suite(
+        model_seq,
+        tok_seq,
+        model_id="fake/p2",
+        positions=positions,
+        include_piece_list=True,
+        include_legal_moves=True,
+        run_probes=True,
+        batch_size=1,
+        puzzle_items=puzzles,
+        chessqa_items=chessqa_items,
+        english_forgetting_items=forgetting_items,
+    )
+
+    seen_prompts.clear()
+    tok_bat = _BatchedFakeTokenizer()
+    model_bat = _BatchedFakeModel()
+    m_bat = evaluate_model_suite(
+        model_bat,
+        tok_bat,
+        model_id="fake/p2",
+        positions=positions,
+        include_piece_list=True,
+        include_legal_moves=True,
+        run_probes=True,
+        batch_size=4,
+        puzzle_items=puzzles,
+        chessqa_items=chessqa_items,
+        english_forgetting_items=forgetting_items,
+    )
+
+    # Strict 4 keys inside tiers preserved!
+    assert set(m_bat["tiers"].keys()) == {
+        "tier1_static",
+        "tier2_probes",
+        "tier3_act_eval",
+        "tier4_match",
+    }
+    assert m_bat["include_piece_list"] is True
+    assert m_bat["include_legal_moves"] is True
+    assert m_bat["tiers"]["tier1_static"] == m_seq["tiers"]["tier1_static"]
+    assert m_bat["tiers"]["tier2_probes"] == m_seq["tiers"]["tier2_probes"]
+    assert m_bat["puzzles"] == m_seq["puzzles"]
+    assert m_bat["chessqa"] == m_seq["chessqa"]
+    assert m_bat["english_forgetting"] == m_seq["english_forgetting"]
+    assert max(model_bat.batch_sizes) > 1
+
+    # Verify forgetting prompt had NO chess system prompt / FEN / Pieces injected.
+    forgetting_prompts = [p for p in seen_prompts if "capital of France" in p]
+    assert len(forgetting_prompts) == 1
+    assert "FEN" not in forgetting_prompts[0]
+    assert "Pieces:" not in forgetting_prompts[0]
+    # Verify piece list and legal moves were injected into move prompts.
+    move_prompts = [p for p in seen_prompts if "Legal moves" in p]
+    assert len(move_prompts) >= 3
+    assert any("Pieces:" in p for p in move_prompts)
+
+    # Invalid batch_size raises ValueError.
+    with pytest.raises(ValueError, match="batch_size must be >= 1"):
+        evaluate_model_suite(model_bat, tok_bat, model_id="x", positions=[], batch_size=0)
+
+    # CLI test: --puzzles, --chessqa, --english-forgetting builtin, --batch-size without --benchmark.
+    puzzles_file = tmp_path / "puzzles.jsonl"
+    puzzles_file.write_text(json.dumps(puzzles[0]) + "\n", encoding="utf-8")
+    chessqa_file = tmp_path / "chessqa.jsonl"
+    chessqa_file.write_text(json.dumps(chessqa_items[0]) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        load_model_mod,
+        "load_model",
+        lambda _m, for_inference=True: (_BatchedFakeModel(), _BatchedFakeTokenizer()),
+    )
+    monkeypatch.setattr("chessfm.eval.suite.open_engine", lambda: None)
+
+    rc = main(
+        [
+            "--model",
+            "fake/cli-p2",
+            "--include-piece-list",
+            "--include-legal-moves",
+            "--puzzles",
+            str(puzzles_file),
+            "--chessqa",
+            str(chessqa_file),
+            "--english-forgetting",
+            "builtin",
+            "--batch-size",
+            "4",
+        ]
+    )
+    assert rc == 0
+    cli_manifest = json.loads(capsys.readouterr().out)
+    assert cli_manifest["include_piece_list"] is True
+    assert cli_manifest["include_legal_moves"] is True
+    assert cli_manifest["tiers"]["tier1_static"] == {}
+    assert cli_manifest["puzzles"]["total_puzzles"] == 1
+    assert cli_manifest["chessqa"]["total"] == 1
+    assert cli_manifest["english_forgetting"]["total"] == 100
+
+    # CLI rejects --batch-size 0.
+    with pytest.raises(SystemExit) as exc:
+        main(["--model", "fake/cli-p2", "--batch-size", "0"])
+    assert exc.value.code == 2
