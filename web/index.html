@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChessFM Coach — Free Browser Stockfish + Maia-2 Chess Coach</title>
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d1117'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='44' fill='%2358a6ff'%3E%E2%99%98%3C/text%3E%3C/svg%3E"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">&#9816;</span>
+        <div>
+          <h1 class="brand-title">ChessFM Coach</h1>
+          <p class="brand-sub">100% Client-Side &middot; Stockfish 19 WASM &middot; Maia-2 &middot; ACT-Eval Verified</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <label class="elo-control" for="elo-select">
+          <span>Your Elo</span>
+          <select id="elo-select" aria-label="Student Elo rating">
+            <option value="600">600</option>
+            <option value="800">800</option>
+            <option value="1000">1000</option>
+            <option value="1200">1200</option>
+            <option value="1400" selected>1400</option>
+            <option value="1600">1600</option>
+            <option value="1800">1800</option>
+            <option value="2000">2000</option>
+            <option value="2200">2200</option>
+            <option value="2400">2400</option>
+            <option value="2600">2600</option>
+          </select>
+        </label>
+
+        <span id="sf-pill" class="pill pill-warn" title="Single-threaded Stockfish 19 WASM">Stockfish 19 WASM: Starting&hellip;</span>
+
+        <div class="maia-group">
+          <span id="maia-pill" class="pill pill-info">Maia-2: Calibrated Heuristic</span>
+          <button id="maia-upgrade-btn" class="btn btn-sm btn-ghost" type="button" title="Download and cache MIT Maia-2 ONNX weights in IndexedDB">
+            Upgrade to ONNX (~89 MB)
+          </button>
+        </div>
+
+        <label class="webgpu-toggle" for="webgpu-toggle" title="Optional Layer B local WebGPU LLM coaching">
+          <input id="webgpu-toggle" type="checkbox" />
+          <span>Enable Local AI Coach (WebGPU)</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="webgpu-banner" class="status-banner hidden" role="status"></div>
+
+    <nav class="tab-bar" role="tablist" aria-label="ChessFM Coach sections">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="review" id="tab-btn-review">
+        Game Import &amp; Review
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="board" id="tab-btn-board">
+        Interactive Coach Board
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="openings" id="tab-btn-openings">
+        Opening Coach <span class="badge-count" id="openings-count-badge">43</span>
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="drills" id="tab-btn-drills">
+        Blunder Drills (SM-2) <span class="badge-count" id="drills-due-badge">0</span>
+      </button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    <!-- TAB 1: GAME IMPORT & REVIEW -->
+    <section id="tab-review" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-review">
+      <div class="panel-grid review-layout">
+        <div class="card">
+          <h2 class="card-title">Import Your Games</h2>
+          <p class="muted-text">Fetch recent public games directly from Lichess or Chess.com (zero login, zero server), or paste any PGN.</p>
+
+          <div class="import-row">
+            <input id="lichess-user" class="input" type="text" placeholder="Lichess username (e.g. DrNykterstein)" />
+            <button id="import-lichess-btn" class="btn btn-primary" type="button">Import Lichess</button>
+          </div>
+
+          <div class="import-row">
+            <input id="chesscom-user" class="input" type="text" placeholder="Chess.com username (e.g. Hikaru)" />
+            <button id="import-chesscom-btn" class="btn btn-primary" type="button">Import Chess.com</button>
+          </div>
+
+          <div class="pgn-box">
+            <label for="pgn-input" class="field-label">Or Paste PGN</label>
+            <textarea id="pgn-input" class="textarea" rows="4" placeholder="[White &quot;You&quot;]&#10;1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 ..."></textarea>
+            <div class="btn-row">
+              <button id="load-pgn-btn" class="btn btn-secondary" type="button">Load PGN</button>
+              <button id="load-sample-btn" class="btn btn-accent" type="button">Load Sample Game</button>
+            </div>
+          </div>
+
+          <div id="import-status" class="inline-status"></div>
+
+          <div id="game-list-wrap" class="game-list-wrap hidden">
+            <div class="list-header">
+              <h3 class="sub-title">Select Game to Review</h3>
+              <label class="inline-label">
+                You played:
+                <select id="student-color-select" class="select-sm">
+                  <option value="w">White</option>
+                  <option value="b">Black</option>
+                </select>
+              </label>
+            </div>
+            <ul id="game-list" class="game-list"></ul>
+            <div class="btn-row">
+              <button id="analyze-game-btn" class="btn btn-green" type="button">Analyze Game with Stockfish</button>
+              <button id="cancel-analyze-btn" class="btn btn-danger hidden" type="button">Cancel</button>
+            </div>
+            <div id="review-progress-wrap" class="progress-wrap hidden">
+              <div class="progress-bar"><div id="review-progress-fill" class="progress-fill" style="width: 0%"></div></div>
+              <span id="review-progress-text" class="muted-text">Analyzing&hellip;</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Game Review &amp; 2 Critical Moments at Your Rating</h2>
+          <div id="review-empty" class="empty-state">
+            Click <strong>Load Sample Game</strong> or import a Lichess / Chess.com game, then click <strong>Analyze Game</strong> to surface your 2 highest-impact teachable moments ranked by <code>WDL swing &times; Maia-2 findability</code>.
+          </div>
+
+          <div id="review-results" class="hidden">
+            <div class="accuracy-grid">
+              <div class="metric-card">
+                <span class="metric-label">White Accuracy</span>
+                <strong id="acc-white" class="metric-val">--%</strong>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Black Accuracy</span>
+                <strong id="acc-black" class="metric-val">--%</strong>
+              </div>
+              <div class="metric-card metric-highlight">
+                <span class="metric-label">Your Accuracy</span>
+                <strong id="acc-student" class="metric-val">--%</strong>
+              </div>
+            </div>
+
+            <h3 class="sub-title">2 Critical Moments at Your Rating</h3>
+            <div id="critical-moments-list" class="moments-grid"></div>
+
+            <h3 class="sub-title">6-Category Weakness Profile</h3>
+            <div id="weakness-profile-list" class="weakness-list"></div>
+
+            <h3 class="sub-title">Move-by-Move Breakdown</h3>
+            <div class="table-scroll">
+              <table class="moves-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Played</th>
+                    <th>Best</th>
+                    <th>Eval</th>
+                    <th>Loss</th>
+                    <th>Class</th>
+                  </tr>
+                </thead>
+                <tbody id="review-moves-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: INTERACTIVE COACH BOARD -->
+    <section id="tab-board" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-board">
+      <div class="studio-grid">
+        <div class="card board-card">
+          <div class="board-toolbar">
+            <div class="btn-row">
+              <button id="board-flip-btn" class="btn btn-sm btn-secondary" type="button">Flip</button>
+              <button id="board-undo-btn" class="btn btn-sm btn-secondary" type="button">Undo</button>
+              <button id="board-reset-btn" class="btn btn-sm btn-secondary" type="button">Reset</button>
+            </div>
+            <span id="board-turn-badge" class="pill pill-ok">White to move</span>
+          </div>
+
+          <div class="board-stage">
+            <div class="eval-bar" aria-label="Engine evaluation bar">
+              <div id="eval-fill" class="eval-fill" style="height: 50%"></div>
+              <span id="eval-label" class="eval-label">0.0</span>
+            </div>
+            <div class="board-container">
+              <div id="coach-board" class="chessboard" aria-label="Interactive chessboard"></div>
+              <svg id="coach-arrows" class="board-overlay-svg" viewBox="0 0 800 800" aria-hidden="true"></svg>
+            </div>
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-item"><span class="dot dot-green"></span>Stockfish Best</span>
+            <span class="legend-item"><span class="dot dot-purple"></span>Maia-2 Human Top</span>
+            <span class="legend-item"><span class="dot dot-red"></span>Inspected Mistake</span>
+          </div>
+
+          <div class="fen-row">
+            <input id="fen-input" class="input input-mono" type="text" aria-label="Position FEN" />
+            <button id="fen-load-btn" class="btn btn-sm btn-secondary" type="button">Load FEN</button>
+            <button id="fen-copy-btn" class="btn btn-sm btn-ghost" type="button">Copy</button>
+          </div>
+        </div>
+
+        <div class="coach-sidebar">
+          <div class="card">
+            <div class="card-head-row">
+              <h2 class="card-title">3-Level Socratic Hints</h2>
+              <div class="badge-group">
+                <span id="spoiler-badge" class="pill pill-ok hidden">0% Spoiler Guard</span>
+                <span id="act-eval-badge" class="pill pill-ok">ACT-Eval: Ready</span>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="hint-l1-btn" class="btn btn-sm btn-secondary" type="button">L1 Nudge</button>
+              <button id="hint-l2-btn" class="btn btn-sm btn-secondary" type="button">L2 Clue</button>
+              <button id="hint-l3-btn" class="btn btn-sm btn-accent" type="button">L3 Solution</button>
+            </div>
+            <div id="socratic-output" class="coach-box">
+              Click <strong>L1 Nudge</strong> or <strong>L2 Clue</strong> for a 0%-spoiler Socratic hint verified by ACT-Eval, or <strong>L3 Solution</strong> for the full line.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head-row">
+              <h2 class="card-title">Stockfish 19 MultiPV (Top 3)</h2>
+              <span id="sf-depth-badge" class="muted-text">Depth --</span>
+            </div>
+            <div id="multipv-list" class="pv-list">
+              <p class="muted-text">Analyzing position&hellip;</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head-row">
+              <h2 class="card-title">Maia-2 Human Moves (<span id="maia-elo-label">1400</span> Elo)</h2>
+              <span id="maia-backend-label" class="muted-text">Calibrated Heuristic</span>
+            </div>
+            <div id="maia-list" class="maia-list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: OPENING COACH -->
+    <section id="tab-openings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-openings">
+      <div class="panel-grid openings-layout">
+        <div class="card">
+          <h2 class="card-title">Current Board &amp; Game Deviation</h2>
+          <div id="live-opening-card" class="opening-highlight">
+            <span class="eco-tag" id="live-opening-eco">ECO</span>
+            <h3 id="live-opening-name">Starting Position</h3>
+            <p class="muted-text" id="live-opening-moves">Play moves on the Coach Board or load any opening below.</p>
+            <div id="live-opening-plans" class="plan-grid hidden">
+              <div class="plan-box"><strong>White Plan</strong><p id="live-white-plan"></p></div>
+              <div class="plan-box"><strong>Black Plan</strong><p id="live-black-plan"></p></div>
+              <div class="plan-box plan-trap"><strong>Common Trap</strong><p id="live-common-trap"></p></div>
+            </div>
+          </div>
+
+          <div id="deviation-card" class="deviation-box hidden">
+            <h3 class="sub-title">Imported Game Repertoire Deviation</h3>
+            <p id="deviation-summary"></p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head-row">
+            <h2 class="card-title">ECO Opening Encyclopedia (43 Lines)</h2>
+            <input id="opening-search" class="input input-sm" type="search" placeholder="Search ECO, Sicilian, Fried Liver&hellip;" />
+          </div>
+          <div id="openings-list" class="openings-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: BLUNDER DRILLS (SM-2) -->
+    <section id="tab-drills" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-drills">
+      <div class="studio-grid">
+        <div class="card board-card">
+          <div class="board-toolbar">
+            <h2 class="card-title" id="drill-prompt-title">Blunder Drill Board</h2>
+            <span id="drill-category-badge" class="pill pill-info">SM-2</span>
+          </div>
+          <div class="board-container drill-board-wrap">
+            <div id="drill-board" class="chessboard" aria-label="Drill chessboard"></div>
+            <svg id="drill-arrows" class="board-overlay-svg" viewBox="0 0 800 800" aria-hidden="true"></svg>
+          </div>
+          <div id="drill-feedback" class="coach-box">
+            Seed sample drills or add critical moments from your reviewed games, then play the best move on the board.
+          </div>
+          <div class="btn-row">
+            <button id="drill-hint-l1-btn" class="btn btn-sm btn-secondary" type="button">L1 Nudge</button>
+            <button id="drill-hint-l2-btn" class="btn btn-sm btn-secondary" type="button">L2 Clue</button>
+            <button id="drill-solution-btn" class="btn btn-sm btn-ghost" type="button">Show Solution</button>
+            <button id="drill-next-btn" class="btn btn-sm btn-primary" type="button">Next Due Card</button>
+          </div>
+        </div>
+
+        <div class="coach-sidebar">
+          <div class="card">
+            <div class="card-head-row">
+              <h2 class="card-title">SM-2 Spaced-Repetition Deck</h2>
+              <button id="seed-drills-btn" class="btn btn-sm btn-accent" type="button">Seed Sample Drills</button>
+            </div>
+            <div class="stats-grid">
+              <div class="metric-card"><span class="metric-label">Due Today</span><strong id="stat-due" class="metric-val">0</strong></div>
+              <div class="metric-card"><span class="metric-label">Total Cards</span><strong id="stat-total" class="metric-val">0</strong></div>
+              <div class="metric-card"><span class="metric-label">Mastered</span><strong id="stat-mastered" class="metric-val">0</strong></div>
+              <div class="metric-card"><span class="metric-label">Success Rate</span><strong id="stat-rate" class="metric-val">0%</strong></div>
+            </div>
+            <p class="muted-text">Saved locally in your browser (<code>localStorage: chessfm_drills_v1</code>). Exact best &amp; &le;30 cp moves advance your interval; blunders reset to 1 day.</p>
+            <ul id="drill-card-list" class="drill-list"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <p>
+        <strong>ChessFM Coach</strong> (MIT) &middot; Runs 100% locally in your browser with zero tracking.
+      </p>
+      <p class="licenses">
+        Open-source attributions:
+        <a href="./vendor/stockfish/Copying.txt" target="_blank" rel="noopener">Stockfish 19.0.1 (GPL-3.0)</a>
+        (<a href="./vendor/stockfish/SOURCE.txt" target="_blank" rel="noopener">source</a>) &middot;
+        <a href="./data/MAIA2_LICENSE.txt" target="_blank" rel="noopener">Maia-2 (MIT)</a> &middot;
+        <a href="./vendor/chess.LICENSE.txt" target="_blank" rel="noopener">chess.js (BSD-2-Clause)</a>
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

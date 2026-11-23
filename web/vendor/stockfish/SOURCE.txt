@@ -1,0 +1,12 @@
+Stockfish 19.0.1 WASM (lite-single build)
+Source npm package: https://www.npmjs.com/package/stockfish/v/19.0.1
+Upstream Stockfish repository: https://github.com/official-stockfish/Stockfish
+Upstream WASM wrapper repository: https://github.com/nmrugg/stockfish.js
+License: GNU General Public License v3.0 (see Copying.txt in this directory)
+
+Vendored files:
+- stockfish-19-lite-single.js (from stockfish@19.0.1/bin/stockfish-19-lite-single.js)
+- stockfish-19-lite-single.wasm (from stockfish@19.0.1/bin/stockfish-19-lite-single.wasm)
+- Copying.txt (from stockfish@19.0.1/Copying.txt)
+
+Single-threaded lite NNUE build requiring zero COOP/COEP headers or SharedArrayBuffer.

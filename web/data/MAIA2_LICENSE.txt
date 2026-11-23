@@ -1,0 +1,6 @@
+Maia-2 Move Dictionary (maia2_moves.json) & ONNX Model Attribution
+Source: CSSLab/maia2 & CSSLab/maia-platform-frontend
+Commit: c2afeeaa96c7664dc9bb81954960b75ede7e4c20
+License: MIT License (Copyright (c) Computational Social Science Lab, University of Toronto)
+
+Contains the 1,880-entry UCI move index dictionary used by Maia-2 (maia_rapid.onnx).
