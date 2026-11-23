@@ -255,7 +255,8 @@ class _KVCacheGenerationMixin:
                 self.model.train()
 
 
-def main():
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse CLI arguments for GRPO training."""
     parser = argparse.ArgumentParser(description="Train ChessFM with GRPO")
     parser.add_argument(
         "--stage",
@@ -315,8 +316,56 @@ def main():
         action="store_true",
         help="Include an ASCII board rendering in position prompts",
     )
+    parser.add_argument(
+        "--merge-and-save",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Merge LoRA weights into standalone checkpoint at <output>/stage{N}_final_merged",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def save_grpo_checkpoint(
+    model,
+    tokenizer,
+    output_dir: Path,
+    stage: int,
+    *,
+    merge_and_save: bool = True,
+) -> dict[str, Path | None]:
+    """Save GRPO adapter checkpoint and optionally a standalone merged checkpoint.
+
+    When chaining multiple GRPO stages (Stage 0 -> Stage 1 -> Stage 2), each
+    stage loads the previous checkpoint with ``merge_peft=True`` and attaches a
+    fresh LoRA adapter. Saving only the adapter would point its
+    ``base_model_name_or_path`` at the original pre-GRPO weights, silently
+    discarding earlier GRPO stages. Merging into ``stage{stage}_final_merged``
+    preserves all accumulated weights for subsequent stages and HF uploads.
+    """
+    final_path = output_dir / f"stage{stage}_final"
+    model.save_pretrained(str(final_path))
+    tokenizer.save_pretrained(str(final_path))
+    print(f"\nTraining complete! Adapter saved to {final_path}")
+
+    merged_path: Path | None = None
+    if merge_and_save:
+        merged_path = output_dir / f"stage{stage}_final_merged"
+        if hasattr(model, "merge_and_unload"):
+            print(f"Merging LoRA adapter into standalone weights -> {merged_path}")
+            merged_model = model.merge_and_unload()
+            merged_model.save_pretrained(str(merged_path))
+        else:
+            print(f"Model has no PEFT adapter; saving standalone weights -> {merged_path}")
+            model.save_pretrained(str(merged_path))
+        tokenizer.save_pretrained(str(merged_path))
+        print(f"Merged model saved to {merged_path}")
+
+    return {"adapter_path": final_path, "merged_path": merged_path}
+
+
+def main():
+    args = parse_args()
 
     logging.basicConfig(level=logging.INFO)
 
@@ -339,6 +388,7 @@ def main():
     print(f"Beta (KL):        {args.beta}")
     print(f"Checkpoint every: {args.checkpoint_every}")
     print(f"Resume:           {args.resume}")
+    print(f"Merge & save:     {args.merge_and_save}")
     print()
 
     import torch  # noqa: F401  (kept so an early CUDA error surfaces here)
@@ -401,10 +451,13 @@ def main():
             trainer.train()
         wall_clock_seconds = round(time.monotonic() - train_start, 2)
 
-        final_path = args.output / f"stage{args.stage}_final"
-        model.save_pretrained(str(final_path))
-        tokenizer.save_pretrained(str(final_path))
-        print(f"\nTraining complete! Model saved to {final_path}")
+        save_grpo_checkpoint(
+            model,
+            tokenizer,
+            args.output,
+            args.stage,
+            merge_and_save=args.merge_and_save,
+        )
 
         gpu_type = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
         manifest_path = write_run_manifest(
@@ -421,6 +474,7 @@ def main():
                 "temperature": args.temperature,
                 "beta": args.beta,
                 "include_ascii": args.include_ascii,
+                "merge_and_save": args.merge_and_save,
             },
             dataset_path=args.positions,
             gpu_type=gpu_type,

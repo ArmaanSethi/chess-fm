@@ -24,6 +24,9 @@ ACCOUNTS = [
     "GMHikaru",  # Hikaru Nakamura
     "DanielNaroditsky",  # Daniel Naroditsky
     "GMWSO",  # Wesley So
+    "Firouzja2003",  # Alireza Firouzja
+    "penguingim1",  # Andrew Tang
+    "nihalsarin",  # Nihal Sarin
 ]
 
 # Games fetched per account per run. Lichess allows larger exports with an
@@ -31,7 +34,12 @@ ACCOUNTS = [
 GAMES_PER_ACCOUNT = 300
 
 
-def fetch_lila_fens(limit: int = 25000) -> list[str]:
+def fetch_lila_fens(
+    limit: int = 25000,
+    min_fullmove: int = 3,
+    max_fullmove: int = 55,
+    games_per_account: int = GAMES_PER_ACCOUNT,
+) -> list[str]:
     """Fetch up to ``limit`` unique FENs from elite Lichess games.
 
     Returns a deterministically sorted list so repeated runs are stable.
@@ -39,14 +47,20 @@ def fetch_lila_fens(limit: int = 25000) -> list[str]:
     down, API changed, all accounts unavailable) — writing an empty positions
     file would silently break every downstream pipeline stage.
     """
-    logger.info("Sourcing %d elite FEN positions...", limit)
+    logger.info(
+        "Sourcing %d elite FEN positions (fullmove %d..%d, %d games/account)...",
+        limit,
+        min_fullmove,
+        max_fullmove,
+        games_per_account,
+    )
     fens: set[str] = set()
 
     for account in ACCOUNTS:
         logger.info("Fetching games from %s...", account)
         try:
             response = requests.get(
-                f"https://lichess.org/api/games/user/{account}?max={GAMES_PER_ACCOUNT}",
+                f"https://lichess.org/api/games/user/{account}?max={games_per_account}",
                 headers={
                     "Accept": "application/x-chess-pgn",
                     # Lichess asks automated clients to identify themselves.
@@ -70,9 +84,10 @@ def fetch_lila_fens(limit: int = 25000) -> list[str]:
 
                 for move in moves:
                     board.push(move)
-                    # Midgame focus: skip the first 10 full moves and stop
-                    # before move 45 (i.e. keep fullmoves 11..44).
-                    if 10 < board.fullmove_number < 45 and not board.is_game_over():
+                    if (
+                        min_fullmove <= board.fullmove_number <= max_fullmove
+                        and not board.is_game_over()
+                    ):
                         fens.add(board.fen())
                         if len(fens) >= limit:
                             break
@@ -103,6 +118,24 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--count", type=int, default=25000)
     parser.add_argument(
+        "--min-fullmove",
+        type=int,
+        default=3,
+        help="Minimum fullmove number to include (default: 3, includes openings)",
+    )
+    parser.add_argument(
+        "--max-fullmove",
+        type=int,
+        default=55,
+        help="Maximum fullmove number to include (default: 55, includes endgames)",
+    )
+    parser.add_argument(
+        "--games-per-account",
+        type=int,
+        default=GAMES_PER_ACCOUNT,
+        help="Maximum games to request per GM account (default: 300)",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=PROJECT_ROOT / "data_generation" / "positions.txt",
@@ -110,7 +143,12 @@ def main():
     )
     args = parser.parse_args()
 
-    fens = fetch_lila_fens(args.count)
+    fens = fetch_lila_fens(
+        limit=args.count,
+        min_fullmove=args.min_fullmove,
+        max_fullmove=args.max_fullmove,
+        games_per_account=args.games_per_account,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     with open(args.output, "w") as f:

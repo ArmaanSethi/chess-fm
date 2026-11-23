@@ -9,6 +9,8 @@ import pytest
 from chessfm.rl.train_grpo import (
     load_positions,
     make_reward_func,
+    parse_args,
+    save_grpo_checkpoint,
     validate_grpo_batch_divisibility,
 )
 
@@ -120,6 +122,86 @@ class TestEngineFailureGuard(unittest.TestCase):
         with self.assertRaises(SystemExit):
             for _ in range(30):
                 fn(prompts=[self.PROMPT] * 4, completions=[self.COMPLETION] * 4)
+
+
+class _DummyTokenizer:
+    def __init__(self):
+        self.saved_paths: list[str] = []
+
+    def save_pretrained(self, path: str) -> None:
+        self.saved_paths.append(path)
+
+
+class _DummyStandaloneModel:
+    def __init__(self):
+        self.saved_paths: list[str] = []
+
+    def save_pretrained(self, path: str) -> None:
+        self.saved_paths.append(path)
+
+
+class _DummyPeftModel(_DummyStandaloneModel):
+    def __init__(self):
+        super().__init__()
+        self.merged_calls = 0
+        self.merged_model = _DummyStandaloneModel()
+
+    def merge_and_unload(self):
+        self.merged_calls += 1
+        return self.merged_model
+
+
+def test_parse_args_merge_and_save_defaults_and_toggle():
+    default_args = parse_args([])
+    assert default_args.merge_and_save is True
+
+    enabled_args = parse_args(["--merge-and-save"])
+    assert enabled_args.merge_and_save is True
+
+    disabled_args = parse_args(["--no-merge-and-save"])
+    assert disabled_args.merge_and_save is False
+
+
+def test_save_grpo_checkpoint_merges_peft_model(tmp_path):
+    model = _DummyPeftModel()
+    tok = _DummyTokenizer()
+
+    res = save_grpo_checkpoint(model, tok, tmp_path, stage=0, merge_and_save=True)
+
+    adapter_dir = tmp_path / "stage0_final"
+    merged_dir = tmp_path / "stage0_final_merged"
+    assert res == {"adapter_path": adapter_dir, "merged_path": merged_dir}
+    assert model.saved_paths == [str(adapter_dir)]
+    assert model.merged_calls == 1
+    assert model.merged_model.saved_paths == [str(merged_dir)]
+    assert tok.saved_paths == [str(adapter_dir), str(merged_dir)]
+
+
+def test_save_grpo_checkpoint_handles_non_peft_model(tmp_path):
+    model = _DummyStandaloneModel()
+    tok = _DummyTokenizer()
+
+    res = save_grpo_checkpoint(model, tok, tmp_path, stage=1, merge_and_save=True)
+
+    adapter_dir = tmp_path / "stage1_final"
+    merged_dir = tmp_path / "stage1_final_merged"
+    assert res == {"adapter_path": adapter_dir, "merged_path": merged_dir}
+    assert model.saved_paths == [str(adapter_dir), str(merged_dir)]
+    assert tok.saved_paths == [str(adapter_dir), str(merged_dir)]
+
+
+def test_save_grpo_checkpoint_no_merge_skips_merged_dir(tmp_path):
+    model = _DummyPeftModel()
+    tok = _DummyTokenizer()
+
+    res = save_grpo_checkpoint(model, tok, tmp_path, stage=2, merge_and_save=False)
+
+    adapter_dir = tmp_path / "stage2_final"
+    assert res == {"adapter_path": adapter_dir, "merged_path": None}
+    assert model.saved_paths == [str(adapter_dir)]
+    assert model.merged_calls == 0
+    assert model.merged_model.saved_paths == []
+    assert tok.saved_paths == [str(adapter_dir)]
 
 
 if __name__ == "__main__":

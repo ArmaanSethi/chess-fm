@@ -307,11 +307,27 @@ class TestModalTrainAST:
         assert "--decoding-mode" in string_literals
         assert "--enable-thinking" in string_literals
         assert "--maia-elo" in string_literals
+        assert "--positions" in string_literals
+        assert "--max-positions" in string_literals
         assert "final_merged" in source
+        assert "_final_merged" in source
         assert "scripts/export_gguf.py" in string_literals
         assert "scripts/upload_hf.py" in string_literals
         assert "chessfm.eval.suite" in string_literals
         assert "chessfm.data_generation.distill_open_teacher" in string_literals
+
+    def test_grpo_functions_accept_positions_and_merge_and_save(self):
+        _, tree = self._parse_modal_source()
+        fn_args = {
+            node.name: {arg.arg for arg in node.args.args}
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+        }
+        for fn_name in ("_exec_grpo", "run_grpo", "run_grpo_modern"):
+            assert "positions" in fn_args[fn_name]
+            assert "merge_and_save" in fn_args[fn_name]
+        assert "positions" in fn_args["main"]
+        assert "max_positions" in fn_args["main"]
 
 
 # ---------------------------------------------------------------------------

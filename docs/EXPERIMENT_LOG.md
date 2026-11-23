@@ -16,6 +16,7 @@ Every metric in this log is backed by a reproducible CLI command and recorded ma
 | `QUIRK-004` | Stockfish 16 Linux binary (`src/chessfm/rl/engine.py`) | `chess.engine.EngineTerminatedError: engine process died unexpectedly (exit code: -8)` (`SIGFPE`) during rapid sequential `depth=4` `analyse()` calls in `test_grpo_reward_variance_across_stages`. | Ubuntu's Stockfish 16 build intermittently raises `SIGFPE` under rapid shallow-depth (`depth=4`) `analyse()` bursts; previously, a dead `SimpleEngine` handle stayed dead for all subsequent reward calls. | Wrapped `open_engine()` in `ResilientEngine` (`src/chessfm/rl/engine.py`) which detects `EngineTerminatedError` / `BrokenPipeError`, cleanly closes the dead process, respawns Stockfish with all previously applied UCI options, and retries up to `max_restarts=2` times per call. | Long-running RL loops calling external UCI binaries need bounded auto-restart wrappers that preserve `configure()` state (e.g. `Threads`, `Hash`, `Skill Level`). |
 | `QUIRK-005` | Paired match opening indexing (`src/chessfm/rl/evaluate.py`) | With `--alternate-colors` and `--openings`, each opening FEN was only played by a single color instead of both White and Black. | `evaluate_model` indexed `opening_fens[g % len(opening_fens)]` while alternating color by `g % 2 == 0`, so even-indexed openings were always played as White and odd-indexed openings as Black. | Changed indexing to `opening_fens[(g // 2) % len(opening_fens)]` when `alternate_colors=True` and added explicit `white` / `black` W-D-L splits plus `color_balanced` to the JSON report and `eval_manifest.json`. | Color-balanced chess benchmarks require each opening position to be played from *both* sides; indexing by `g // 2` eliminates opening-color confounding. |
 | `QUIRK-006` | TRL 0.16 `GRPOTrainer` rollout speed with `gradient_checkpointing=True` | `` `use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`. `` during GRPO rollouts; step 0/20 stalled >145s without completing on L4 (`ap-c0Nu3vFgTlZfryW3YUJdJv`). | TRL 0.16's `GRPOTrainer._generate_and_score_completions()` calls `unwrapped_model.generate(...)` while `model.training == True`, causing `Qwen3ForCausalLM.forward()` to forcibly disable KV caching on every autoregressive rollout token whenever `gradient_checkpointing=True`. | Subclassed `GRPOTrainer` as `_KVCacheGRPOTrainer` in `src/chessfm/rl/train_grpo.py` to switch to `model.eval()` + `model.config.use_cache = True` strictly inside `_generate_and_score_completions()`, restoring `model.train()` + `use_cache = False` before `compute_loss()`; set L4 `grad_accum=2`. | Enabling gradient checkpointing fixes backward OOMs but silently disables KV caching during TRL 0.16 rollouts unless the model is toggled to `eval()` during generation. |
+| `QUIRK-009` | Multi-stage GRPO LoRA chaining (`src/chessfm/rl/train_grpo.py`, `scripts/modal_train.py`) | Loading `stage1_final` or `stage2_final` silently drops earlier GRPO stage weights, and `modal_train.py` did not forward `--positions` or `--max-positions` to `train_grpo.py`. | Each GRPO stage loads the prior checkpoint with `merge_peft=True` (merging in memory) and attaches a fresh LoRA adapter, but `model.name_or_path` still points to the pre-GRPO SFT checkpoint. Calling `model.save_pretrained("stageN_final")` without `merge_and_unload()` writes only the new stage's delta referencing the pre-GRPO base. | Added `--merge-and-save` (default `True`) and `save_grpo_checkpoint()` in `src/chessfm/rl/train_grpo.py` to persist standalone `stage{N}_final_merged` weights via `merge_and_unload()`; updated `scripts/modal_train.py` to forward `--positions`, `--max-positions`, and `--merge-and-save` and return `stage{N}_final_merged`. | Never chain PEFT adapters across RL stages by saving raw adapters — always merge and save standalone weights between stages so earlier RL updates are never silently lost. |
 
 ---
 
@@ -67,3 +68,56 @@ Every metric in this log is backed by a reproducible CLI command and recorded ma
   1. **Zero OOMs verified across all 3 stages** on a single 22.08 GiB L4 (`$0.80/hr`), validating our memory and KV-cache fixes.
   2. **Smoke SFT underfitting signal:** After only 4 optimizer steps on 34 sample rows, `Qwen/Qwen3-4B` had not yet learned to close `</think>` within the 512-token completion budget (`completion_length=512.0` on all rollouts, `Format Adherence=0.0%`), causing all 4 completions per group to tie at `-1.0` (`reward_std=0.0`, zero GRPO gradient).
   3. **Decision / Next Action:** Proceed to M3 — build the 2,500–3,000-row phase-balanced Stockfish-verified SFT corpus (so 3-epoch SFT reliably teaches concise `<think>...</think>` + legal UCI moves before GRPO begins) and run full Base (`Think OFF` vs `ON`, `Strict` vs `Constrained`) -> SFT -> Staged GRPO evaluations using `--detach` on Modal.
+
+---
+
+### EXP-003 — Phase-Balanced Corpus Expansion & Untuned `Qwen/Qwen3-4B` Base Evaluation (Think OFF vs ON, Strict vs Constrained + Stockfish L1)
+
+| Field | Value |
+|---|---|
+| **Date (UTC)** | 2026-11-23 |
+| **Track** | P1 (`Qwen/Qwen3-4B`, `v1`, untuned base model) |
+| **Hardware & Est. Cost** | Corpus: Local CPU (`$0`, `63s` on 2 cores) · Base Eval: 6× Modal NVIDIA L4 (`$0.80/hr`), `17,858.25s` active GPU time (`$3.97` completed + `~$0.40` from 3 canceled 10m client-timeout retries = **`~$4.37`**) |
+| **Modal App IDs** | Job A (`Think OFF strict`): `ap-kg4eMQO8YXGj4bcDwZoIjD` · Job B (`Think OFF constrained`): `ap-IsEzMts4LoPk7PUGUMNnyF` · Job C (`Think ON strict`): `ap-NzxSs8QJSZZ86YuDQAY8X6` · Job D (`Think ON constrained`): `ap-d4asbHKOUjSDku1Bqcjlcj` · Job E (`20g SF-L1 Think OFF`): `ap-Iru6PPpkzqsjaUVpV6tMPA` · Job F (`20g SF-L1 Think ON`): `ap-Z3h1VmMxgAsr1YoeEXsSSW` |
+| **Volume Artifacts** | `/vol/data/{sft_bestline_2500.jsonl,grpo_positions_5k.txt,eval_benchmark_200.jsonl,eval_openings_25.txt}` · `/vol/results/{base_think_off_strict.json,base_think_off_constrained.json,base_think_on_strict.json,base_think_on_constrained.json,eval_20261123_020452.json,eval_20261123_020645.json}` |
+
+#### 1. Phase-Balanced, Zero-Leakage Corpus Generation (`$0` local CPU)
+- **Root fix:** Previous `positions.txt` filtered `10 < fullmove < 45`, yielding `0.0%` openings. Parameterized `fetch_elite_data.py` (`--min-fullmove 3 --max-fullmove 55 --games-per-account 300`) and fetched **35,000** positions (`34,744` unique 4-field FENs: `6,239` opening / `17,174` middlegame / `11,331` endgame).
+- **Disjoint splits (`build_corpus.py --build-p1-splits --depth 10 --workers 2 --seed 42`):**
+  - `sft_bestline_2500.jsonl`: **2,500 rows** (`25.0%` opening / `55.0%` middlegame / `20.0%` endgame), `audit_dataset_rows` passed (`0` illegal moves, `0` blunders).
+  - `grpo_positions_5k.txt`: **5,000 FENs** (`25.0%` / `55.0%` / `20.0%`).
+  - `eval_benchmark_200.jsonl`: **200 FENs** (`25.0%` / `55.0%` / `20.0%`, Stockfish `depth=10, multipv=3`).
+  - `eval_openings_25.txt`: **25 opening FENs** (`100.0%` opening) from the held-out eval opening slice.
+  - `verify_zero_leakage(sft_fens, grpo_fens, eval_fens, strict=True)` -> **`zero_leakage=True, total_overlap=0`**.
+
+#### 2. Base `Qwen/Qwen3-4B` Evaluation Results (200-FEN Static + 1,000 ChessQA Probes + 20-Game Paired Stockfish L1)
+
+| Mode | Decoding | Wall-Clock (L4) | Est. Cost | Legal Rate | Format Adherence | ACPL | MAR (<=50cp) | Mean WDL Loss | Exact Match |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Base (Think OFF)** | `strict` | `5,290.22s` | `$1.18` | `0.5%` (`1/200`) | `0.0%` | `80.0` *(n=1)* | `0.0%` | `7.27` *(n=1)* | `0.0%` |
+| **Base (Think OFF)** | `constrained` | `76.16s` | `$0.02` | **`100.0%`** (`200/200`) | `0.0%` | **`465.36`** | `20.0%` | `19.66` | `2.0%` |
+| **Base (Think ON)** | `strict` | `5,304.21s` | `$1.18` | `0.0%` (`0/200`) | `0.0%` | `—` *(n=0)* | `0.0%` | `—` | `0.0%` |
+| **Base (Think ON)** | `constrained` | `6,310.20s` | `$1.40` | **`0.0%`** (`0/200`) | `0.0%` | `—` *(n=0)* | `0.0%` | `—` | `0.0%` |
+
+- **Tier 2 Board-State Probing (ChessQA, 1,000 greedy probes across 200 FENs — identical for Think OFF & ON):**
+  - **Overall Accuracy:** **`41.3%`** (`413/1,000`)
+  - `side_to_move`: **`94.0%`** (`188/200`) — reads FEN header reliably
+  - `piece_on_square`: **`12.5%`** (`25/200`) — severe 2D coordinate blindness despite ASCII board
+  - `move_legality`: **`50.0%`** (`200/400`) — exact random-chance coin flip
+  - `legal_move_count`: **`0.0%`** (`0/200`) — zero ability to enumerate legal moves
+
+- **Tier 4 Paired Color-Balanced Matches vs Stockfish L1 (`depth=6`, `N=20`, 10 paired openings from `eval_openings_25.txt`):**
+
+| Mode | Wall-Clock (L4) | Est. Cost | Record (W-L-D) | White / Black Split | 95% Wilson CI | Legal Move Rate | Format Rate |
+|---|---:|---:|---|---|---|---:|---:|
+| **Base (Think OFF, strict)** | `451.83s` | `$0.10` | `0-20-0` | `W 0-10-0 \| B 0-10-0` | `[0.000, 0.161]` | `4.76%` (`1/21`) | `0.0%` |
+| **Base (Think ON, strict)** | `425.63s` | `$0.09` | `0-20-0` | `W 0-10-0 \| B 0-10-0` | `[0.000, 0.161]` | `0.0%` (`0/20`) | `0.0%` |
+
+#### 3. Key Scientific Takeaways & Real Failure Traces
+1. **Constrained decoding alone cannot save untuned Think-ON models:** `LegalMoveLogitsProcessor(require_think_close=True)` only activates after `</think>`. Untuned `Qwen/Qwen3-4B` with `enable_thinking=True` exhausts all `512` tokens inside `<think>` on `200/200` positions, so even constrained decoding yields **`0.0%` legality** (`6,310s` wasted rambling). SFT is strictly required to teach bounded `<think>...</think>` reasoning!
+2. **Constrained decoding with Think OFF exposes true untuned chess strength:** With `require_think_close=False`, the prefix trie fires immediately (`76.16s`, `100.0%` legal), revealing near-random move quality (**`465.36` ACPL**, `2.0%` exact match).
+3. **Real failure traces (`base_think_off_strict.json`):** Out of `199/200` illegal outputs, `186` produced verbose unparsed prose (`predicted_move=None`) and `13` emitted syntactically valid but hallucinated illegal UCI moves:
+   - `5rk1/ppp3pp/1b1pq3/7B/7Q/3Pr1B1/PPP1N1K1/4R3 b - - 8 24` -> predicted `d7d6` (illegal: `d7` is empty, pawn is already on `d6`; best: `g7g6`).
+   - `rnbqkb1r/pppppp1p/5np1/8/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 3` -> predicted `e4e5` (illegal: White's e-pawn is still on `e2`; best: `c2c4`).
+   - `1r6/R5pp/4rBk1/1p2bp2/4p3/6P1/1P3P1P/3R1BK1 b - - 0 30` -> predicted `a2a4` (illegal: Black to move and `a2` is empty; best: `g6f6`).
+

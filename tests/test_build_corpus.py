@@ -22,12 +22,17 @@ from chessfm.data_generation.build_corpus import (
     ENDGAME_SEED_FENS,
     MIDDLEGAME_SEED_FENS,
     OPENING_SEED_FENS,
+    _analyze_eval_chunk,
+    _analyze_sft_chunk,
+    _chunk_list,
     _ensure_spoiler_free,
     _extract_reasoning_from_completion,
+    build_p1_splits,
     build_verified_coaching_corpus,
     clean_and_verify_sft_file,
     main,
     parse_args,
+    split_disjoint_balanced_fens,
 )
 from chessfm.data_generation.phase_sampler import (
     classify_game_phase,
@@ -460,3 +465,171 @@ def test_kaggle_training_notebook_valid_nbformat_4_5() -> None:
         "scripts/export_gguf.py",
     ):
         assert required_token in full_text, f"Notebook missing required token: {required_token!r}"
+
+
+# ---------------------------------------------------------------------------
+# P1 Disjoint Balanced Splits & Parameterized Lichess Fetch Tests
+# ---------------------------------------------------------------------------
+
+
+def test_chunk_list_splits_evenly_and_handles_empty() -> None:
+    assert _chunk_list([], 2) == []
+    assert _chunk_list(["a", "b", "c", "d", "e"], 2) == [["a", "b", "c"], ["d", "e"]]
+    assert _chunk_list(["a", "b"], 5) == [["a"], ["b"]]
+
+
+def test_split_disjoint_balanced_fens_enforces_zero_leakage() -> None:
+    candidates = [
+        *CURATED_SEED_FENS,
+        # Duplicate with different move clock -> must deduplicate via normalize_board_fen
+        OPENING_SEED_FENS[0].rsplit(" ", 2)[0] + " 2 9",
+        # Invalid and checkmate FENs -> must be dropped
+        "not a fen",
+        "",
+        "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
+    ]
+    res = split_disjoint_balanced_fens(
+        candidates,
+        eval_count=8,
+        sft_count=16,
+        grpo_count=16,
+        ratios=(0.25, 0.50, 0.25),
+        seed=42,
+    )
+    assert res["total_valid_unique"] == len(CURATED_SEED_FENS)
+    assert len(res["eval_fens"]) == 8
+    assert len(res["sft_fens"]) == 16
+    assert len(res["grpo_fens"]) == 16
+    assert res["leakage"]["zero_leakage"] is True
+    assert res["leakage"]["total_overlap"] == 0
+    for split_name in ("eval", "sft", "grpo"):
+        dist = res["phase_distributions"][split_name]
+        assert dist["opening"] > 0
+        assert dist["middlegame"] > 0
+        assert dist["endgame"] > 0
+
+
+def test_build_p1_splits_and_cli_with_mock_engine(tmp_path: Path) -> None:
+    pos_file = tmp_path / "positions.txt"
+    pos_file.write_text("\n".join(CURATED_SEED_FENS) + "\n", encoding="utf-8")
+
+    sft_out = tmp_path / "sft.jsonl"
+    grpo_out = tmp_path / "grpo.txt"
+    eval_out = tmp_path / "eval.jsonl"
+    openings_out = tmp_path / "openings.txt"
+
+    with patch("chessfm.data_generation.build_corpus.open_engine", return_value=_MockEngine()):
+        summary = build_p1_splits(
+            positions_path=pos_file,
+            sft_out=sft_out,
+            grpo_out=grpo_out,
+            eval_out=eval_out,
+            openings_out=openings_out,
+            sft_count=12,
+            grpo_count=12,
+            eval_count=8,
+            openings_count=2,
+            depth=4,
+            workers=1,
+            include_ascii=True,
+            seed=42,
+        )
+
+    assert summary["sft_count"] == 12
+    assert summary["grpo_count"] == 12
+    assert summary["eval_count"] == 8
+    assert summary["openings_count"] == 2
+    assert summary["sft_audit"]["passed"] is True
+    assert summary["leakage"]["zero_leakage"] is True
+
+    eval_rows = read_jsonl(eval_out)
+    assert len(eval_rows) == 8
+    for row in eval_rows:
+        assert set(row.keys()) == {"fen", "phase", "best_move", "top_moves", "eval_cp"}
+        assert row["phase"] in {"opening", "middlegame", "endgame"}
+
+    opening_lines = [
+        line.strip() for line in openings_out.read_text(encoding="utf-8").splitlines() if line
+    ]
+    assert len(opening_lines) == 2
+    assert all(classify_game_phase(f) == "opening" for f in opening_lines)
+
+    # Verify CLI --build-p1-splits dispatch
+    with patch("chessfm.data_generation.build_corpus.open_engine", return_value=_MockEngine()):
+        rc = main(
+            [
+                "--build-p1-splits",
+                "--positions-file",
+                str(pos_file),
+                "--sft-out",
+                str(tmp_path / "cli_sft.jsonl"),
+                "--grpo-out",
+                str(tmp_path / "cli_grpo.txt"),
+                "--eval-out",
+                str(tmp_path / "cli_eval.jsonl"),
+                "--openings-out",
+                str(tmp_path / "cli_openings.txt"),
+                "--sft-count",
+                "8",
+                "--grpo-count",
+                "8",
+                "--eval-count",
+                "8",
+                "--openings-count",
+                "2",
+                "--depth",
+                "4",
+                "--workers",
+                "1",
+            ]
+        )
+    assert rc == 0
+    assert (tmp_path / "cli_sft.jsonl").exists()
+    assert (tmp_path / "cli_eval.jsonl").exists()
+
+
+def test_p1_chunk_workers_raise_when_stockfish_missing() -> None:
+    with (
+        patch("chessfm.data_generation.build_corpus.open_engine", return_value=None),
+        pytest.raises(RuntimeError, match="Stockfish binary not found"),
+    ):
+        _analyze_sft_chunk([OPENING_SEED_FENS[0]], depth=4, include_ascii=True)
+
+    with (
+        patch("chessfm.data_generation.build_corpus.open_engine", return_value=None),
+        pytest.raises(RuntimeError, match="Stockfish binary not found"),
+    ):
+        _analyze_eval_chunk([OPENING_SEED_FENS[0]], depth=4)
+
+
+def test_fetch_lila_fens_respects_fullmove_bounds_and_games_per_account() -> None:
+    from chessfm.data_generation.fetch_elite_data import fetch_lila_fens
+
+    sample_pgn = (
+        '[Event "Test"]\n[Site "?"]\n[Date "2026.01.01"]\n[Round "?"]\n'
+        '[White "A"]\n[Black "B"]\n[Result "*"]\n\n'
+        "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 "
+        "6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Na5 10. Bc2 c5 "
+        "11. d4 Qc7 12. Nbd2 cxd4 *\n\n"
+    )
+
+    class _Resp:
+        status_code = 200
+        text = sample_pgn
+
+    seen_urls: list[str] = []
+
+    def _fake_get(url: str, **kwargs):
+        seen_urls.append(url)
+        return _Resp()
+
+    with (
+        patch("chessfm.data_generation.fetch_elite_data.requests.get", side_effect=_fake_get),
+        patch("chessfm.data_generation.fetch_elite_data.time.sleep"),
+    ):
+        fens = fetch_lila_fens(limit=50, min_fullmove=3, max_fullmove=10, games_per_account=15)
+
+    assert len(fens) > 0
+    assert any("max=15" in u for u in seen_urls)
+    assert all(3 <= chess.Board(f).fullmove_number <= 10 for f in fens)
+    assert any(classify_game_phase(f) == "opening" for f in fens)

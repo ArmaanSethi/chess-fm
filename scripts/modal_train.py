@@ -294,6 +294,8 @@ def _exec_grpo(
     checkpoint_every: int,
     resume: bool,
     include_ascii: bool,
+    positions: str = "",
+    merge_and_save: bool = True,
 ) -> str:
     _ensure_installed()
     out_dir = f"{VOL_MOUNT}/checkpoints/{output_subdir}"
@@ -315,17 +317,23 @@ def _exec_grpo(
         str(per_device_batch_size),
         "--grad-accum",
         str(grad_accum),
-        "--max-positions",
-        str(max_positions),
         "--checkpoint-every",
         str(checkpoint_every),
+        "--merge-and-save" if merge_and_save else "--no-merge-and-save",
     ]
+    if positions:
+        cmd.extend(["--positions", positions])
+    if max_positions > 0:
+        cmd.extend(["--max-positions", str(max_positions)])
     if resume:
         cmd.append("--resume")
     if include_ascii:
         cmd.append("--include-ascii")
     _run(cmd)
     volume.commit()
+    merged_dir = f"{out_dir}/stage{stage}_final_merged"
+    if merge_and_save and Path(merged_dir).exists():
+        return merged_dir
     return f"{out_dir}/stage{stage}_final"
 
 
@@ -487,6 +495,8 @@ def run_grpo(
     checkpoint_every: int = 100,
     resume: bool = True,
     include_ascii: bool = False,
+    positions: str = "",
+    merge_and_save: bool = True,
 ) -> str:
     return _exec_grpo(
         model,
@@ -500,6 +510,8 @@ def run_grpo(
         checkpoint_every,
         resume,
         include_ascii,
+        positions=positions,
+        merge_and_save=merge_and_save,
     )
 
 
@@ -522,6 +534,8 @@ def run_grpo_modern(
     checkpoint_every: int = 100,
     resume: bool = True,
     include_ascii: bool = False,
+    positions: str = "",
+    merge_and_save: bool = True,
 ) -> str:
     return _exec_grpo(
         model,
@@ -535,6 +549,8 @@ def run_grpo_modern(
         checkpoint_every,
         resume,
         include_ascii,
+        positions=positions,
+        merge_and_save=merge_and_save,
     )
 
 
@@ -1080,6 +1096,7 @@ def main(
     maia_elo: int = 0,
     opponent_depth: int = 0,
     benchmark: str = "data_generation/eval_benchmark.jsonl",
+    positions: str = "",
     max_positions: int = 0,
     skip_probes: bool = False,
     quant: str = "q4_k_m",
@@ -1128,13 +1145,18 @@ def main(
         )
         print(f"Student SFT merged checkpoint saved to Modal volume: {ckpt}")
     elif task == "grpo":
-        ckpt = grpo_fn.remote(
-            model=resolved_model,
-            stage=stage,
-            steps=steps,
-            output_subdir=output_subdir or f"grpo_stage{stage}",
-            include_ascii=include_ascii,
-        )
+        grpo_kwargs: dict = {
+            "model": resolved_model,
+            "stage": stage,
+            "steps": steps,
+            "output_subdir": output_subdir or f"grpo_stage{stage}",
+            "include_ascii": include_ascii,
+            "positions": positions,
+            "merge_and_save": True,
+        }
+        if max_positions > 0:
+            grpo_kwargs["max_positions"] = max_positions
+        ckpt = grpo_fn.remote(**grpo_kwargs)
         print(f"GRPO Stage {stage} checkpoint saved to Modal volume: {ckpt}")
     elif task == "eval":
         eval_fn.remote(

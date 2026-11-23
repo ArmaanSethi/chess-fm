@@ -17,10 +17,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import chess
+import chess.engine
 
 from chessfm.coach.classifier import build_partial_strategy_tree
 from chessfm.coach.maia_sidecar import MaiaSidecar
@@ -38,8 +40,10 @@ from chessfm.data_generation.phase_sampler import (
     classify_game_phase,
     normalize_board_fen,
     phase_distribution,
+    sample_balanced_positions,
+    verify_zero_leakage,
 )
-from chessfm.fens import read_jsonl
+from chessfm.fens import read_fens, read_jsonl
 from chessfm.rl.engine import best_cp, best_move, close_engine, eval_after_move, open_engine
 
 # ---------------------------------------------------------------------------
@@ -557,6 +561,251 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
             fout.write(json.dumps(rec) + "\n")
 
 
+def _write_lines(path: Path, lines: list[str]) -> None:
+    """Write newline-delimited strings to ``path``, creating parent directories."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fout:
+        for line in lines:
+            fout.write(line + "\n")
+
+
+def _chunk_list(items: list[str], num_chunks: int) -> list[list[str]]:
+    """Split ``items`` into at most ``num_chunks`` balanced non-empty slices."""
+    if not items:
+        return []
+    n = max(1, min(num_chunks, len(items)))
+    chunk_size = (len(items) + n - 1) // n
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+
+def split_disjoint_balanced_fens(
+    candidate_fens: list[str],
+    *,
+    eval_count: int = 200,
+    sft_count: int = 2500,
+    grpo_count: int = 5000,
+    ratios: tuple[float, float, float] = (0.25, 0.55, 0.20),
+    seed: int = 42,
+) -> dict[str, Any]:
+    """Allocate strictly disjoint, phase-balanced eval/SFT/GRPO FEN splits.
+
+    Deduplicates ``candidate_fens`` by 4-field ``normalize_board_fen``, drops
+    invalid or game-over positions, samples ``eval -> sft -> grpo`` without
+    replacement, and enforces ``verify_zero_leakage(..., strict=True)``.
+    """
+    unique_valid: list[str] = []
+    seen_keys: set[str] = set()
+    for raw_fen in candidate_fens:
+        if not isinstance(raw_fen, str):
+            continue
+        fen = raw_fen.strip()
+        if not fen:
+            continue
+        try:
+            key = normalize_board_fen(fen)
+            board = chess.Board(fen)
+        except ValueError:
+            continue
+        if key in seen_keys or not board.is_valid() or board.is_game_over():
+            continue
+        seen_keys.add(key)
+        unique_valid.append(fen)
+
+    eval_fens = sample_balanced_positions(unique_valid, eval_count, ratios=ratios, seed=seed)
+    eval_keys = {normalize_board_fen(f) for f in eval_fens}
+
+    rem_after_eval = [f for f in unique_valid if normalize_board_fen(f) not in eval_keys]
+    sft_fens = sample_balanced_positions(rem_after_eval, sft_count, ratios=ratios, seed=seed + 1)
+    sft_keys = {normalize_board_fen(f) for f in sft_fens}
+
+    excluded = eval_keys | sft_keys
+    rem_after_sft = [f for f in unique_valid if normalize_board_fen(f) not in excluded]
+    grpo_fens = sample_balanced_positions(rem_after_sft, grpo_count, ratios=ratios, seed=seed + 2)
+
+    leakage = verify_zero_leakage(sft_fens, grpo_fens, eval_fens, strict=True)
+    return {
+        "eval_fens": eval_fens,
+        "sft_fens": sft_fens,
+        "grpo_fens": grpo_fens,
+        "leakage": leakage,
+        "phase_distributions": {
+            "eval": phase_distribution(eval_fens),
+            "sft": phase_distribution(sft_fens),
+            "grpo": phase_distribution(grpo_fens),
+        },
+        "total_valid_unique": len(unique_valid),
+    }
+
+
+def _analyze_sft_chunk(
+    fens_chunk: list[str],
+    depth: int,
+    include_ascii: bool,
+) -> list[dict[str, Any]]:
+    """Worker: run single-PV Stockfish analysis and build best-line SFT rows."""
+    engine = open_engine(threads=1, hash_mb=16)
+    if engine is None:
+        raise RuntimeError(
+            "Stockfish binary not found. Install Stockfish (e.g. `apt-get install stockfish`) "
+            "before running chessfm.data_generation.build_corpus."
+        )
+    rows: list[dict[str, Any]] = []
+    try:
+        for fen in fens_chunk:
+            board = chess.Board(fen)
+            info = engine.analyse(board, chess.engine.Limit(depth=depth))
+            pv = info.get("pv", [])
+            if not pv:
+                continue
+            pv_ucis = [m.uci() for m in pv[:4]]
+            score_obj = info.get("score")
+            eval_cp = (
+                float(score_obj.pov(board.turn).score(mate_score=10000))
+                if score_obj is not None
+                else 0.0
+            )
+            rows.append(
+                build_best_line_sft_example(
+                    fen=fen,
+                    best_move_uci=pv_ucis[0],
+                    pv_ucis=pv_ucis,
+                    eval_cp=eval_cp,
+                    include_ascii=include_ascii,
+                )
+            )
+    finally:
+        close_engine(engine)
+    return rows
+
+
+def _analyze_eval_chunk(fens_chunk: list[str], depth: int) -> list[dict[str, Any]]:
+    """Worker: run MultiPV=3 Stockfish analysis for held-out eval benchmark rows."""
+    engine = open_engine(threads=1, hash_mb=16)
+    if engine is None:
+        raise RuntimeError(
+            "Stockfish binary not found. Install Stockfish (e.g. `apt-get install stockfish`) "
+            "before running chessfm.data_generation.build_corpus."
+        )
+    rows: list[dict[str, Any]] = []
+    try:
+        for fen in fens_chunk:
+            tree = build_partial_strategy_tree(
+                fen=fen,
+                engine=engine,
+                depth=depth,
+                multipv=3,
+                pv_plies=4,
+            )
+            top_lines = tree.get("top_lines", [])
+            if not top_lines or not tree.get("best_move"):
+                continue
+            best_line = top_lines[0]
+            rows.append(
+                {
+                    "fen": fen,
+                    "phase": classify_game_phase(fen),
+                    "best_move": best_line["move"],
+                    "top_moves": [
+                        {
+                            "move": line["move"],
+                            "san": line["san"],
+                            "eval_cp": line["eval_cp"],
+                            "pv_uci": line["pv_uci"],
+                        }
+                        for line in top_lines
+                    ],
+                    "eval_cp": float(best_line["eval_cp"]),
+                }
+            )
+    finally:
+        close_engine(engine)
+    return rows
+
+
+def build_p1_splits(
+    positions_path: Path,
+    sft_out: Path,
+    grpo_out: Path,
+    eval_out: Path,
+    openings_out: Path | None = None,
+    *,
+    sft_count: int = 2500,
+    grpo_count: int = 5000,
+    eval_count: int = 200,
+    openings_count: int = 25,
+    depth: int = 10,
+    workers: int = 2,
+    include_ascii: bool = True,
+    seed: int = 42,
+) -> dict[str, Any]:
+    """Build disjoint phase-balanced P1 SFT, GRPO, Eval, and paired-opening files."""
+    candidate_fens = read_fens(Path(positions_path))
+    splits = split_disjoint_balanced_fens(
+        candidate_fens,
+        eval_count=eval_count,
+        sft_count=sft_count,
+        grpo_count=grpo_count,
+        seed=seed,
+    )
+    eval_fens: list[str] = splits["eval_fens"]
+    sft_fens: list[str] = splits["sft_fens"]
+    grpo_fens: list[str] = splits["grpo_fens"]
+
+    sft_chunks = _chunk_list(sft_fens, max(1, workers))
+    eval_chunks = _chunk_list(eval_fens, max(1, workers))
+
+    if workers <= 1:
+        sft_rows = [
+            row for chunk in sft_chunks for row in _analyze_sft_chunk(chunk, depth, include_ascii)
+        ]
+        eval_rows = [row for chunk in eval_chunks for row in _analyze_eval_chunk(chunk, depth)]
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            sft_futures = [
+                pool.submit(_analyze_sft_chunk, chunk, depth, include_ascii) for chunk in sft_chunks
+            ]
+            sft_rows = [row for fut in sft_futures for row in fut.result()]
+            eval_futures = [pool.submit(_analyze_eval_chunk, chunk, depth) for chunk in eval_chunks]
+            eval_rows = [row for fut in eval_futures for row in fut.result()]
+
+    sft_audit = audit_dataset_rows(sft_rows)
+    if not sft_audit["passed"]:
+        raise RuntimeError(f"Generated SFT rows failed dataset audit: {sft_audit}")
+
+    final_sft_fens = [r["fen"] for r in sft_rows]
+    final_eval_fens = [r["fen"] for r in eval_rows]
+    leakage = verify_zero_leakage(final_sft_fens, grpo_fens, final_eval_fens, strict=True)
+
+    _write_jsonl(Path(sft_out), sft_rows)
+    _write_lines(Path(grpo_out), grpo_fens)
+    _write_jsonl(Path(eval_out), eval_rows)
+
+    opening_fens = [r["fen"] for r in eval_rows if r["phase"] == "opening"][:openings_count]
+    if openings_out is not None:
+        _write_lines(Path(openings_out), opening_fens)
+
+    return {
+        "total_valid_unique": splits["total_valid_unique"],
+        "sft_count": len(sft_rows),
+        "grpo_count": len(grpo_fens),
+        "eval_count": len(eval_rows),
+        "openings_count": len(opening_fens),
+        "sft_audit": sft_audit,
+        "leakage": leakage,
+        "phase_distributions": {
+            "sft": phase_distribution(final_sft_fens),
+            "grpo": phase_distribution(grpo_fens),
+            "eval": phase_distribution(final_eval_fens),
+        },
+        "paths": {
+            "sft_out": str(sft_out),
+            "grpo_out": str(grpo_out),
+            "eval_out": str(eval_out),
+            "openings_out": str(openings_out) if openings_out is not None else None,
+        },
+    }
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the corpus builder."""
     parser = argparse.ArgumentParser(
@@ -603,12 +852,82 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Output SFT JSONL file for --clean-sft (default: <output-dir>/sft_train.jsonl)",
     )
+    parser.add_argument(
+        "--build-p1-splits",
+        action="store_true",
+        help="Build disjoint phase-balanced P1 SFT, GRPO, Eval, and paired-opening splits",
+    )
+    parser.add_argument(
+        "--positions-file",
+        type=Path,
+        default=Path("data_generation/full/positions_inclusive.txt"),
+        help="Input candidate FENs file for --build-p1-splits",
+    )
+    parser.add_argument(
+        "--sft-out",
+        type=Path,
+        default=Path("data_generation/full/sft_bestline_2500.jsonl"),
+        help="Output best-line SFT JSONL for --build-p1-splits",
+    )
+    parser.add_argument(
+        "--grpo-out",
+        type=Path,
+        default=Path("data_generation/full/grpo_positions_5k.txt"),
+        help="Output GRPO FENs text file for --build-p1-splits",
+    )
+    parser.add_argument(
+        "--eval-out",
+        type=Path,
+        default=Path("data_generation/eval_benchmark_200.jsonl"),
+        help="Output 200-FEN MultiPV eval benchmark JSONL for --build-p1-splits",
+    )
+    parser.add_argument(
+        "--openings-out",
+        type=Path,
+        default=Path("data_generation/full/eval_openings_25.txt"),
+        help="Output paired opening FENs file for --build-p1-splits",
+    )
+    parser.add_argument("--sft-count", type=int, default=2500, help="Target SFT FEN count")
+    parser.add_argument("--grpo-count", type=int, default=5000, help="Target GRPO FEN count")
+    parser.add_argument("--eval-count", type=int, default=200, help="Target Eval FEN count")
+    parser.add_argument(
+        "--openings-count", type=int, default=25, help="Target paired opening FEN count"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=2, help="Parallel Stockfish worker processes"
+    )
+    parser.add_argument("--seed", type=int, default=42, help="Deterministic RNG seed")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point for building the verified coaching corpus."""
     args = parse_args(argv)
+    if args.build_p1_splits:
+        summary = build_p1_splits(
+            positions_path=args.positions_file,
+            sft_out=args.sft_out,
+            grpo_out=args.grpo_out,
+            eval_out=args.eval_out,
+            openings_out=args.openings_out,
+            sft_count=args.sft_count,
+            grpo_count=args.grpo_count,
+            eval_count=args.eval_count,
+            openings_count=args.openings_count,
+            depth=args.depth,
+            workers=args.workers,
+            include_ascii=args.include_ascii,
+            seed=args.seed,
+        )
+        print(
+            f"Built P1 splits: SFT={summary['sft_count']}, GRPO={summary['grpo_count']}, "
+            f"Eval={summary['eval_count']}, Openings={summary['openings_count']} "
+            f"(zero_leakage={summary['leakage']['zero_leakage']}, "
+            f"total_overlap={summary['leakage']['total_overlap']})."
+        )
+        print(f"Phase distributions: {summary['phase_distributions']}")
+        return 0
+
     engine = open_engine()
     if engine is None:
         raise RuntimeError(

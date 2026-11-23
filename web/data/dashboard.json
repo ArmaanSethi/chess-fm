@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T01:28:00Z",
+  "updated_utc": "2026-11-23T04:00:00Z",
   "overall_progress_pct": 50,
   "budget": {
     "cap_usd": 30,
-    "spent_usd_est": 0.49,
+    "spent_usd_est": 4.86,
     "currency": "USD",
-    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke pipeline verified end-to-end (~$0.09, 0 OOMs; ~$0.49 cumulative incl. initial OOM baseline). Estimated full P1+P2 GPU budget: ~$13-$14."
+    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke (~$0.49 cumulative) + M3 Base Qwen3-4B Eval across 6 L4 runs (~$4.37 incl. 3 canceled 10m retries). Estimated full P1+P2 GPU budget: ~$13-$14."
   },
   "test_summary": {
     "python_tests_note": "609 unit/integration tests passing (94.25% coverage, CI gate >= 80%)",
@@ -96,10 +96,15 @@
       "id": "M3",
       "name": "P1 Corpus, Base Eval, SFT & Staged GRPO + Final Eval",
       "track": "P1",
-      "status": "PLANNED",
+      "status": "IN_PROGRESS",
       "commit_sha": null,
       "summary": "Phase-balanced corpus & disjoint 200-FEN benchmark, Base Eval (Think OFF vs ON), Completion-Masked SFT, Staged GRPO (Stages 0->1->2) on Modal L4, Dual-Mode Eval, and HF winsonly upload.",
-      "verified_metrics": []
+      "verified_metrics": [
+        "Disjoint corpus: 2.5K SFT / 5K GRPO / 200 Eval (0 leakage)",
+        "Base Think OFF: 0.5% strict / 100.0% constrained (465.4 ACPL)",
+        "Base Think ON: 0.0% strict & constrained (exhausts 512 tok)",
+        "Tier 2 ChessQA: 41.3% (1,000 probes)"
+      ]
     },
     {
       "id": "M4",
@@ -147,24 +152,24 @@
       {
         "stage": "Base (Think OFF)",
         "model": "Qwen/Qwen3-4B",
-        "status": "pending",
-        "strict_legal_pct": null,
-        "constrained_legal_pct": null,
-        "acpl": null,
-        "stockfish_score": null,
+        "status": "measured",
+        "strict_legal_pct": 0.5,
+        "constrained_legal_pct": 100.0,
+        "acpl": 465.4,
+        "stockfish_score": "0.00 (0-20-0 L1)",
         "maia_score": null,
-        "notes": "Pending (M3)"
+        "notes": "200-FEN benchmark + 20g SF L1 (EXP-003); Tier 2 ChessQA 41.3%"
       },
       {
         "stage": "Base (Think ON)",
         "model": "Qwen/Qwen3-4B",
-        "status": "pending",
-        "strict_legal_pct": null,
-        "constrained_legal_pct": null,
+        "status": "measured",
+        "strict_legal_pct": 0.0,
+        "constrained_legal_pct": 0.0,
         "acpl": null,
-        "stockfish_score": null,
+        "stockfish_score": "0.00 (0-20-0 L1)",
         "maia_score": null,
-        "notes": "Pending (M3)"
+        "notes": "200-FEN benchmark + 20g SF L1 (EXP-003); 100% exhaust 512-tok budget before </think>"
       },
       {
         "stage": "Completion-Masked SFT",
