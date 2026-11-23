@@ -40,6 +40,7 @@ Usage:
 
 from __future__ import annotations
 
+import inspect
 import os
 import subprocess
 import time
@@ -252,6 +253,14 @@ def _exec_sft(
     lr: float,
     include_ascii: bool,
     merge_and_save: bool,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    optim: str = "",
+    packing: bool = False,
 ) -> str:
     _ensure_installed()
     out_dir = f"{VOL_MOUNT}/checkpoints/{output_subdir}"
@@ -271,15 +280,33 @@ def _exec_sft(
         str(batch_size),
         "--grad-accum",
         str(grad_accum),
-        "--lr",
-        str(lr),
+        "--lora-r",
+        str(lora_r),
+        "--all-linear" if all_linear else "--no-all-linear",
         "--merge-and-save" if merge_and_save else "--no-merge-and-save",
     ]
+    if lr > 0:
+        cmd.extend(["--lr", str(lr)])
+    if lora_alpha > 0:
+        cmd.extend(["--lora-alpha", str(lora_alpha)])
+    if full_ft:
+        cmd.append("--full-ft")
+    if optim:
+        cmd.extend(["--optim", optim])
+    if packing:
+        cmd.append("--packing")
     if include_ascii:
         cmd.append("--include-ascii")
+    if include_piece_list:
+        cmd.append("--include-piece-list")
+    if include_legal_moves:
+        cmd.append("--include-legal-moves")
     _run(cmd)
     volume.commit()
-    return f"{out_dir}/final_merged" if merge_and_save else f"{out_dir}/final"
+    merged_dir = f"{out_dir}/final_merged"
+    if merge_and_save and not full_ft and Path(merged_dir).exists():
+        return merged_dir
+    return f"{out_dir}/final"
 
 
 def _exec_grpo(
@@ -296,6 +323,20 @@ def _exec_grpo(
     include_ascii: bool,
     positions: str = "",
     merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    reward_mode: str = "legacy",
+    lr: float = 0.0,
+    beta: float = -1.0,
+    epsilon: float = -1.0,
+    epsilon_high: float = -1.0,
+    loss_type: str = "",
+    scale_rewards: bool = True,
+    filter_zero_variance: bool = False,
 ) -> str:
     _ensure_installed()
     out_dir = f"{VOL_MOUNT}/checkpoints/{output_subdir}"
@@ -307,6 +348,8 @@ def _exec_grpo(
         model,
         "--stage",
         str(stage),
+        "--reward-mode",
+        reward_mode,
         "--steps",
         str(steps),
         "--output",
@@ -319,8 +362,28 @@ def _exec_grpo(
         str(grad_accum),
         "--checkpoint-every",
         str(checkpoint_every),
+        "--lora-r",
+        str(lora_r),
+        "--all-linear" if all_linear else "--no-all-linear",
+        "--scale-rewards" if scale_rewards else "--no-scale-rewards",
         "--merge-and-save" if merge_and_save else "--no-merge-and-save",
     ]
+    if lora_alpha > 0:
+        cmd.extend(["--lora-alpha", str(lora_alpha)])
+    if full_ft:
+        cmd.append("--full-ft")
+    if lr > 0:
+        cmd.extend(["--lr", str(lr)])
+    if beta >= 0:
+        cmd.extend(["--beta", str(beta)])
+    if epsilon >= 0:
+        cmd.extend(["--epsilon", str(epsilon)])
+    if epsilon_high >= 0:
+        cmd.extend(["--epsilon-high", str(epsilon_high)])
+    if loss_type:
+        cmd.extend(["--loss-type", loss_type])
+    if filter_zero_variance:
+        cmd.append("--filter-zero-variance")
     if positions:
         cmd.extend(["--positions", positions])
     if max_positions > 0:
@@ -329,10 +392,14 @@ def _exec_grpo(
         cmd.append("--resume")
     if include_ascii:
         cmd.append("--include-ascii")
+    if include_piece_list:
+        cmd.append("--include-piece-list")
+    if include_legal_moves:
+        cmd.append("--include-legal-moves")
     _run(cmd)
     volume.commit()
     merged_dir = f"{out_dir}/stage{stage}_final_merged"
-    if merge_and_save and Path(merged_dir).exists():
+    if merge_and_save and not full_ft and Path(merged_dir).exists():
         return merged_dir
     return f"{out_dir}/stage{stage}_final"
 
@@ -348,6 +415,8 @@ def _exec_eval(
     openings: str = "",
     maia_elo: int = 0,
     opponent_depth: int = 0,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> None:
     _ensure_installed()
     cmd = [
@@ -368,6 +437,10 @@ def _exec_eval(
         cmd.append("--random-opponent")
     if include_ascii:
         cmd.append("--include-ascii")
+    if include_piece_list:
+        cmd.append("--include-piece-list")
+    if include_legal_moves:
+        cmd.append("--include-legal-moves")
     if openings:
         cmd.extend(["--openings", openings])
     if maia_elo > 0:
@@ -379,6 +452,16 @@ def _exec_eval(
     volume.commit()
 
 
+def _suite_supports_flag(flag: str) -> bool:
+    """Return True if ``chessfm.eval.suite`` accepts ``flag`` (e.g. ``--include-piece-list``)."""
+    param_name = flag.lstrip("-").replace("-", "_")
+    try:
+        from chessfm.eval.suite import evaluate_model_suite
+    except ImportError:
+        return False
+    return param_name in inspect.signature(evaluate_model_suite).parameters
+
+
 def _exec_static_eval(
     model: str,
     benchmark: str,
@@ -388,6 +471,8 @@ def _exec_static_eval(
     max_positions: int,
     skip_probes: bool,
     output_name: str,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> str:
     _ensure_installed()
     out_path = f"{VOL_MOUNT}/results/{output_name}"
@@ -407,6 +492,20 @@ def _exec_static_eval(
     ]
     if include_ascii:
         cmd.append("--include-ascii")
+    if include_piece_list:
+        if not _suite_supports_flag("--include-piece-list"):
+            raise ValueError(
+                "chessfm.eval.suite does not yet support --include-piece-list. "
+                "Update chessfm.eval.suite or omit --include-piece-list for static-eval."
+            )
+        cmd.append("--include-piece-list")
+    if include_legal_moves:
+        if not _suite_supports_flag("--include-legal-moves"):
+            raise ValueError(
+                "chessfm.eval.suite does not yet support --include-legal-moves. "
+                "Update chessfm.eval.suite or omit --include-legal-moves for static-eval."
+            )
+        cmd.append("--include-legal-moves")
     if max_positions > 0:
         cmd.extend(["--max-positions", str(max_positions)])
     if skip_probes:
@@ -429,9 +528,17 @@ def run_sft(
     epochs: int = 3,
     batch_size: int = 2,
     grad_accum: int = 4,
-    lr: float = 2e-5,
+    lr: float = 0.0,
     include_ascii: bool = False,
     merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    optim: str = "",
+    packing: bool = False,
 ) -> str:
     return _exec_sft(
         model,
@@ -443,6 +550,106 @@ def run_sft(
         lr,
         include_ascii,
         merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        optim=optim,
+        packing=packing,
+    )
+
+
+@app.function(
+    gpu="A100-80GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 6,
+)
+def run_sft_a100(
+    model: str = DEFAULT_V1_MODEL,
+    data: str = "data_generation/sft_train.jsonl",
+    output_subdir: str = "sft_a100",
+    epochs: int = 2,
+    batch_size: int = 8,
+    grad_accum: int = 4,
+    lr: float = 0.0,
+    include_ascii: bool = False,
+    merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    optim: str = "",
+    packing: bool = False,
+) -> str:
+    return _exec_sft(
+        model,
+        data,
+        output_subdir,
+        epochs,
+        batch_size,
+        grad_accum,
+        lr,
+        include_ascii,
+        merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        optim=optim,
+        packing=packing,
+    )
+
+
+@app.function(
+    gpu="H100",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 6,
+)
+def run_sft_h100(
+    model: str = DEFAULT_V1_MODEL,
+    data: str = "data_generation/sft_train.jsonl",
+    output_subdir: str = "sft_h100",
+    epochs: int = 2,
+    batch_size: int = 8,
+    grad_accum: int = 4,
+    lr: float = 0.0,
+    include_ascii: bool = False,
+    merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = True,
+    optim: str = "paged_adamw_8bit",
+    packing: bool = False,
+) -> str:
+    return _exec_sft(
+        model,
+        data,
+        output_subdir,
+        epochs,
+        batch_size,
+        grad_accum,
+        lr,
+        include_ascii,
+        merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        optim=optim,
+        packing=packing,
     )
 
 
@@ -460,9 +667,17 @@ def run_sft_modern(
     epochs: int = 3,
     batch_size: int = 4,
     grad_accum: int = 2,
-    lr: float = 2e-5,
+    lr: float = 0.0,
     include_ascii: bool = False,
     merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    optim: str = "",
+    packing: bool = False,
 ) -> str:
     return _exec_sft(
         model,
@@ -474,6 +689,14 @@ def run_sft_modern(
         lr,
         include_ascii,
         merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        optim=optim,
+        packing=packing,
     )
 
 
@@ -497,6 +720,20 @@ def run_grpo(
     include_ascii: bool = False,
     positions: str = "",
     merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    reward_mode: str = "legacy",
+    lr: float = 0.0,
+    beta: float = -1.0,
+    epsilon: float = -1.0,
+    epsilon_high: float = -1.0,
+    loss_type: str = "",
+    scale_rewards: bool = True,
+    filter_zero_variance: bool = False,
 ) -> str:
     return _exec_grpo(
         model,
@@ -512,6 +749,86 @@ def run_grpo(
         include_ascii,
         positions=positions,
         merge_and_save=merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        reward_mode=reward_mode,
+        lr=lr,
+        beta=beta,
+        epsilon=epsilon,
+        epsilon_high=epsilon_high,
+        loss_type=loss_type,
+        scale_rewards=scale_rewards,
+        filter_zero_variance=filter_zero_variance,
+    )
+
+
+@app.function(
+    gpu="A100-80GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 8,
+)
+def run_grpo_a100(
+    model: str = DEFAULT_V1_MODEL,
+    stage: int = 1,
+    steps: int = 500,
+    output_subdir: str = "grpo_a100",
+    num_generations: int = 8,
+    per_device_batch_size: int = 8,
+    grad_accum: int = 2,
+    max_positions: int = 1000,
+    checkpoint_every: int = 100,
+    resume: bool = True,
+    include_ascii: bool = False,
+    positions: str = "",
+    merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 32,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    reward_mode: str = "wdl_loss",
+    lr: float = 0.0,
+    beta: float = 0.04,
+    epsilon: float = 0.20,
+    epsilon_high: float = 0.28,
+    loss_type: str = "",
+    scale_rewards: bool = True,
+    filter_zero_variance: bool = True,
+) -> str:
+    return _exec_grpo(
+        model,
+        stage,
+        steps,
+        output_subdir,
+        num_generations,
+        per_device_batch_size,
+        grad_accum,
+        max_positions,
+        checkpoint_every,
+        resume,
+        include_ascii,
+        positions=positions,
+        merge_and_save=merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        reward_mode=reward_mode,
+        lr=lr,
+        beta=beta,
+        epsilon=epsilon,
+        epsilon_high=epsilon_high,
+        loss_type=loss_type,
+        scale_rewards=scale_rewards,
+        filter_zero_variance=filter_zero_variance,
     )
 
 
@@ -536,6 +853,20 @@ def run_grpo_modern(
     include_ascii: bool = False,
     positions: str = "",
     merge_and_save: bool = True,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    reward_mode: str = "legacy",
+    lr: float = 0.0,
+    beta: float = -1.0,
+    epsilon: float = -1.0,
+    epsilon_high: float = -1.0,
+    loss_type: str = "",
+    scale_rewards: bool = True,
+    filter_zero_variance: bool = False,
 ) -> str:
     return _exec_grpo(
         model,
@@ -551,6 +882,20 @@ def run_grpo_modern(
         include_ascii,
         positions=positions,
         merge_and_save=merge_and_save,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        all_linear=all_linear,
+        full_ft=full_ft,
+        reward_mode=reward_mode,
+        lr=lr,
+        beta=beta,
+        epsilon=epsilon,
+        epsilon_high=epsilon_high,
+        loss_type=loss_type,
+        scale_rewards=scale_rewards,
+        filter_zero_variance=filter_zero_variance,
     )
 
 
@@ -571,6 +916,8 @@ def run_eval(
     openings: str = "",
     maia_elo: int = 0,
     opponent_depth: int = 0,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> None:
     _exec_eval(
         model,
@@ -583,6 +930,8 @@ def run_eval(
         openings=openings,
         maia_elo=maia_elo,
         opponent_depth=opponent_depth,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
     )
 
 
@@ -604,6 +953,8 @@ def run_eval_modern(
     openings: str = "",
     maia_elo: int = 0,
     opponent_depth: int = 0,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> None:
     _exec_eval(
         model,
@@ -616,6 +967,8 @@ def run_eval_modern(
         openings=openings,
         maia_elo=maia_elo,
         opponent_depth=opponent_depth,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
     )
 
 
@@ -634,6 +987,8 @@ def run_static_eval(
     max_positions: int = 0,
     skip_probes: bool = False,
     output_name: str = "eval_manifest.json",
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> str:
     return _exec_static_eval(
         model,
@@ -644,6 +999,8 @@ def run_static_eval(
         max_positions,
         skip_probes,
         output_name,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
     )
 
 
@@ -663,6 +1020,8 @@ def run_static_eval_modern(
     max_positions: int = 0,
     skip_probes: bool = False,
     output_name: str = "eval_manifest.json",
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> str:
     return _exec_static_eval(
         model,
@@ -673,6 +1032,8 @@ def run_static_eval_modern(
         max_positions,
         skip_probes,
         output_name,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
     )
 
 
@@ -1090,6 +1451,8 @@ def main(
     stockfish_level: int = 1,
     random_opponent: bool = False,
     include_ascii: bool = False,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
     enable_thinking: bool = True,
     decoding_mode: str = "strict",
     openings: str = "",
@@ -1112,26 +1475,95 @@ def main(
     dry_run: bool = False,
     workers: int = 24,
     opset: int = 17,
+    gpu: str = "l4",
+    lora_r: int = 16,
+    lora_alpha: int = 0,
+    all_linear: bool = True,
+    full_ft: bool = False,
+    optim: str = "",
+    packing: bool = False,
+    lr: float = 0.0,
+    batch_size: int = 0,
+    grad_accum: int = 0,
+    num_generations: int = 0,
+    reward_mode: str = "legacy",
+    beta: float = -1.0,
+    epsilon: float = -1.0,
+    epsilon_high: float = -1.0,
+    loss_type: str = "",
+    scale_rewards: bool = True,
+    filter_zero_variance: bool = False,
 ) -> None:
+    gpu_tier = gpu.strip().lower()
+    if gpu_tier not in {"l4", "a100", "h100"}:
+        raise ValueError(f"Unknown --gpu {gpu!r}. Choose from: l4, a100, h100")
+
     resolved_model = resolve_track_model(
         model=model, track=track, use_official_gemma=use_official_gemma
     )
     use_modern = requires_modern_stack(resolved_model)
-    sft_fn = run_sft_modern if use_modern else run_sft
-    grpo_fn = run_grpo_modern if use_modern else run_grpo
+    if gpu_tier == "h100":
+        if task != "sft":
+            raise ValueError(f"--gpu h100 is only supported for --task sft (got --task {task!r}).")
+        if use_modern:
+            raise ValueError(
+                f"--gpu h100 uses the legacy TRL image and does not support modern-stack "
+                f"model {resolved_model!r}. Use --gpu l4 for modern tracks."
+            )
+    elif gpu_tier == "a100":
+        a100_tasks = {"sft", "grpo", "smoke-pipeline"}
+        if task not in a100_tasks:
+            raise ValueError(
+                f"--gpu a100 is only supported for tasks {sorted(a100_tasks)} "
+                f"(got --task {task!r}). Use --gpu l4 for this task."
+            )
+        if use_modern:
+            raise ValueError(
+                f"--gpu a100 uses the legacy TRL image and does not support modern-stack "
+                f"model {resolved_model!r}. Use --gpu l4 for modern tracks."
+            )
+
+    if gpu_tier == "h100":
+        sft_fn = run_sft_h100
+    elif gpu_tier == "a100":
+        sft_fn = run_sft_a100
+    else:
+        sft_fn = run_sft_modern if use_modern else run_sft
+
+    if gpu_tier == "a100":
+        grpo_fn = run_grpo_a100
+    else:
+        grpo_fn = run_grpo_modern if use_modern else run_grpo
+
     eval_fn = run_eval_modern if use_modern else run_eval
     static_eval_fn = run_static_eval_modern if use_modern else run_static_eval
 
     if task == "sft":
-        ckpt = sft_fn.remote(
-            model=resolved_model,
-            data=data,
-            output_subdir=output_subdir or "sft_baseline",
-            epochs=epochs,
-            include_ascii=include_ascii,
-            merge_and_save=True,
-        )
-        print(f"SFT merged checkpoint saved to Modal volume: {ckpt}")
+        sft_kwargs: dict = {
+            "model": resolved_model,
+            "data": data,
+            "output_subdir": output_subdir or "sft_baseline",
+            "epochs": epochs,
+            "include_ascii": include_ascii,
+            "include_piece_list": include_piece_list,
+            "include_legal_moves": include_legal_moves,
+            "merge_and_save": not full_ft,
+            "lora_r": lora_r,
+            "lora_alpha": lora_alpha,
+            "all_linear": all_linear,
+            "full_ft": full_ft,
+            "packing": packing,
+        }
+        if lr > 0:
+            sft_kwargs["lr"] = lr
+        if batch_size > 0:
+            sft_kwargs["batch_size"] = batch_size
+        if grad_accum > 0:
+            sft_kwargs["grad_accum"] = grad_accum
+        if optim:
+            sft_kwargs["optim"] = optim
+        ckpt = sft_fn.remote(**sft_kwargs)
+        print(f"SFT checkpoint saved to Modal volume: {ckpt}")
     elif task == "sft-student":
         ckpt = run_sft_student_l4.remote(
             model=resolved_model,
@@ -1151,11 +1583,38 @@ def main(
             "steps": steps,
             "output_subdir": output_subdir or f"grpo_stage{stage}",
             "include_ascii": include_ascii,
+            "include_piece_list": include_piece_list,
+            "include_legal_moves": include_legal_moves,
             "positions": positions,
-            "merge_and_save": True,
+            "merge_and_save": not full_ft,
+            "lora_r": lora_r,
+            "lora_alpha": lora_alpha,
+            "all_linear": all_linear,
+            "full_ft": full_ft,
+            "reward_mode": reward_mode,
+            "scale_rewards": scale_rewards,
+            "filter_zero_variance": filter_zero_variance,
         }
         if max_positions > 0:
             grpo_kwargs["max_positions"] = max_positions
+        if num_generations > 0:
+            grpo_kwargs["num_generations"] = num_generations
+            if batch_size <= 0:
+                grpo_kwargs["per_device_batch_size"] = num_generations
+        if batch_size > 0:
+            grpo_kwargs["per_device_batch_size"] = batch_size
+        if grad_accum > 0:
+            grpo_kwargs["grad_accum"] = grad_accum
+        if lr > 0:
+            grpo_kwargs["lr"] = lr
+        if beta >= 0:
+            grpo_kwargs["beta"] = beta
+        if epsilon >= 0:
+            grpo_kwargs["epsilon"] = epsilon
+        if epsilon_high >= 0:
+            grpo_kwargs["epsilon_high"] = epsilon_high
+        if loss_type:
+            grpo_kwargs["loss_type"] = loss_type
         ckpt = grpo_fn.remote(**grpo_kwargs)
         print(f"GRPO Stage {stage} checkpoint saved to Modal volume: {ckpt}")
     elif task == "eval":
@@ -1166,6 +1625,8 @@ def main(
             random_opponent=random_opponent,
             decoding_mode=decoding_mode,
             include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
             enable_thinking=enable_thinking,
             openings=openings,
             maia_elo=maia_elo,
@@ -1180,6 +1641,8 @@ def main(
             benchmark=benchmark,
             decoding_mode=decoding_mode,
             include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
             enable_thinking=enable_thinking,
             max_positions=max_positions,
             skip_probes=skip_probes,
@@ -1257,10 +1720,11 @@ def main(
             output_subdir=sft_subdir,
             epochs=epochs,
             include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
             merge_and_save=True,
+            full_ft=False,
         )
-        if not sft_merged_ckpt.endswith("/final_merged"):
-            sft_merged_ckpt = f"{VOL_MOUNT}/checkpoints/{sft_subdir}/final_merged"
         print(f"SFT complete (merged): {sft_merged_ckpt}")
 
         print("=== Step 2/3: GRPO Stage 0 ===")
@@ -1270,6 +1734,8 @@ def main(
             steps=steps,
             output_subdir=(output_subdir or "smoke") + "_grpo_stage0",
             include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
         )
         print(f"GRPO Stage 0 complete: {grpo_ckpt}")
 
@@ -1281,6 +1747,8 @@ def main(
             random_opponent=random_opponent,
             decoding_mode=decoding_mode,
             include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
             enable_thinking=enable_thinking,
             openings=openings,
             maia_elo=maia_elo,

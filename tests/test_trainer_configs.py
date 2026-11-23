@@ -242,3 +242,143 @@ def test_kv_cache_generation_mixin_unwraps_ddp_and_restores_on_error():
     no_cfg_trainer = _TestTrainer(no_cfg_model, accelerator=None, fail=False)
     assert no_cfg_trainer._generate_and_score_completions("ok") == "ok"
     assert no_cfg_model.training is True
+
+
+def test_sft_parse_args_defaults_and_full_ft_lr():
+    from chessfm.training.train_sft import DEFAULT_FULL_FT_LR, DEFAULT_LORA_LR, parse_args
+
+    lora_args = parse_args([])
+    assert lora_args.lr == DEFAULT_LORA_LR
+    assert lora_args.lora_r == 16
+    assert lora_args.all_linear is True
+    assert lora_args.full_ft is False
+    assert lora_args.packing is False
+    assert lora_args.include_piece_list is False
+    assert lora_args.include_legal_moves is False
+
+    ft_args = parse_args(["--full-ft", "--packing", "--include-piece-list"])
+    assert ft_args.full_ft is True
+    assert ft_args.lr == DEFAULT_FULL_FT_LR
+    assert ft_args.packing is True
+    assert ft_args.include_piece_list is True
+
+    explicit_args = parse_args(["--lora-r", "64", "--lr", "1e-4", "--no-all-linear"])
+    assert explicit_args.lora_r == 64
+    assert explicit_args.lr == 1e-4
+    assert explicit_args.all_linear is False
+
+
+def test_sft_format_example_piece_list_and_messages_priority():
+    import chess
+
+    from chessfm.training.train_sft import format_sft_example
+
+    p1_sample = {
+        "fen": chess.STARTING_FEN,
+        "prompt": "old_prompt",
+        "completion": "<think>center</think>\ne2e4",
+    }
+    row = format_sft_example(
+        p1_sample, tokenizer=None, include_piece_list=True, include_legal_moves=True
+    )
+    assert "Pieces: White: Ke1," in row["text"]
+    assert "Legal moves: a2a3," in row["text"]
+
+    # Coaching row with messages + fen MUST NOT be clobbered by include_piece_list
+    coach_sample = {
+        "fen": chess.STARTING_FEN,
+        "messages": [
+            {"role": "user", "content": "Why is e4 strong?"},
+            {"role": "assistant", "content": "It controls d5 and f5."},
+        ],
+    }
+    coach_row = format_sft_example(
+        coach_sample, tokenizer=None, include_ascii=True, include_piece_list=True
+    )
+    assert "Why is e4 strong?" in coach_row["text"]
+    assert "Pieces:" not in coach_row["text"]
+
+
+def test_sft_config_packing_fallback_with_completion_collator(caplog):
+    import logging
+
+    from chessfm.training.train_sft import build_sft_config
+
+    with caplog.at_level(logging.WARNING, logger="chessfm.train_sft"):
+        cfg_fallback = build_sft_config(
+            _fake_args(packing=True, lr=None),
+            has_completion_collator=True,
+        )
+    assert cfg_fallback.packing is False
+    assert cfg_fallback.group_by_length is True
+    assert cfg_fallback.learning_rate == 2e-4
+    assert any("group_by_length=True" in rec.message for rec in caplog.records)
+
+    cfg_packed = build_sft_config(
+        _fake_args(packing=True, lr=None, full_ft=True),
+        has_completion_collator=False,
+    )
+    assert cfg_packed.packing is True
+    assert cfg_packed.learning_rate == 2e-5
+
+
+def test_grpo_config_dapo_kwargs_and_loss_type_guard(caplog):
+    import logging
+
+    from chessfm.rl.train_grpo import build_grpo_config
+
+    with caplog.at_level(logging.WARNING, logger="chessfm.train_grpo"):
+        cfg = build_grpo_config(
+            _fake_args(
+                epsilon=0.20,
+                epsilon_high=0.28,
+                beta=0.04,
+                scale_rewards=False,
+                loss_type="dr_grpo",
+            )
+        )
+    assert cfg.epsilon == 0.20
+    assert cfg.epsilon_high == 0.28
+    assert cfg.beta == 0.04
+    assert cfg.scale_rewards is False
+
+
+def test_filter_zero_variance_groups_and_mixin():
+    import torch
+
+    from chessfm.rl.train_grpo import _ZeroVarianceFilterMixin, filter_zero_variance_groups
+
+    # Group 0: zero variance [1.0, 1.0, 1.0, 1.0]; Group 1: informative [0.0, 1.0, 0.5, -1.0]
+    rewards = torch.tensor([1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.5, -1.0])
+    mask = torch.ones((8, 3), dtype=torch.long)
+
+    filtered, frac = filter_zero_variance_groups(rewards, mask, num_generations=4)
+    assert frac == pytest.approx(0.5)
+    assert filtered[:4].sum().item() == 0
+    assert filtered[4:].sum().item() == 12
+
+    # All-zero-variance batch MUST NOT zero out the entire mask (prevents 0/0 NaN)
+    all_zero_rewards = torch.ones(8)
+    filtered_all, frac_all = filter_zero_variance_groups(all_zero_rewards, mask, num_generations=4)
+    assert frac_all == 0.0
+    assert filtered_all.sum().item() == 24
+
+    # Mixin integration
+    class _BaseTrainer:
+        def __init__(self):
+            self.num_generations = 4
+
+        def _generate_and_score_completions(self, inputs):
+            return {
+                "rewards": rewards,
+                "completion_mask": mask.clone(),
+            }
+
+    class _FilteredTrainer(_ZeroVarianceFilterMixin, _BaseTrainer):
+        pass
+
+    trainer = _FilteredTrainer()
+    out = trainer._generate_and_score_completions({})
+    assert out["completion_mask"][:4].sum().item() == 0
+    assert out["completion_mask"][4:].sum().item() == 12
+    assert trainer._last_zero_variance_filtered_frac == pytest.approx(0.5)

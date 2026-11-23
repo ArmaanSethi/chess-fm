@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for ChessFM central configuration."""
 
+import pytest
+
 from chessfm.config import (
     ALT_TEACHER_MODEL,
     CHATML_ASSISTANT_OPEN,
@@ -20,6 +22,8 @@ from chessfm.config import (
     is_gemma4_model,
     make_prompt,
     render_ascii_board,
+    render_legal_moves,
+    render_piece_list,
     requires_modern_transformers,
 )
 
@@ -145,3 +149,69 @@ class TestPrompts:
     def test_prompt_template_is_shared_source(self):
         assert "Reason inside <think>...</think> tags" in PROMPT_TEMPLATE
         assert "in UCI format (e.g. e2e4)" in PROMPT_TEMPLATE
+
+    def test_render_piece_list_starting_position(self):
+        listing = render_piece_list(START_FEN)
+        assert listing == (
+            "White: Ke1, Qd1, Ra1, Rh1, Bc1, Bf1, Nb1, Ng1, pawns a2 b2 c2 d2 e2 f2 g2 h2"
+            " | Black: Ke8, Qd8, Ra8, Rh8, Bc8, Bf8, Nb8, Ng8, pawns a7 b7 c7 d7 e7 f7 g7 h7"
+            " | Castling: KQkq"
+        )
+
+    def test_render_piece_list_empty_and_en_passant_and_promoted(self):
+        empty = render_piece_list("8/8/8/8/8/8/8/8 w - - 0 1")
+        assert empty == "White: none | Black: none"
+
+        ep_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+        ep_listing = render_piece_list(ep_fen)
+        assert "Castling: KQkq" in ep_listing
+        assert "En passant: e3" in ep_listing
+
+        two_queens = render_piece_list("4k3/8/8/8/8/8/Q7/Q3K3 w - - 0 1")
+        assert two_queens == "White: Ke1, Qa1, Qa2 | Black: Ke8"
+
+        with pytest.raises(ValueError):
+            render_piece_list("not a valid fen")
+
+    def test_render_legal_moves_sorted_and_checkmate(self):
+        moves = render_legal_moves(START_FEN).split(", ")
+        assert len(moves) == 20
+        assert moves == sorted(moves)
+        assert "e2e4" in moves
+
+        # Fool's mate checkmate position: 0 legal moves
+        mate_fen = "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"
+        assert render_legal_moves(mate_fen) == "none"
+
+        with pytest.raises(ValueError):
+            render_legal_moves("invalid fen")
+
+    def test_make_prompt_and_chat_prompt_with_piece_list_and_legal_moves(self):
+        base = make_prompt(START_FEN)
+        assert "Pieces:" not in base
+        assert "Legal moves:" not in base
+
+        with_pieces = make_prompt(START_FEN, include_piece_list=True)
+        assert with_pieces.startswith(f"Position (FEN): {START_FEN}\nSide to move: White\n\n")
+        assert "Pieces: White: Ke1," in with_pieces
+        assert "Legal moves:" not in with_pieces
+
+        with_all = make_prompt(
+            START_FEN,
+            include_ascii=True,
+            include_piece_list=True,
+            include_legal_moves=True,
+        )
+        assert (
+            with_all.index("Board:\n")
+            < with_all.index("Pieces: ")
+            < with_all.index("Legal moves: ")
+        )
+
+        chat = build_chat_prompt(
+            START_FEN,
+            include_piece_list=True,
+            include_legal_moves=True,
+        )
+        assert "Pieces: White: Ke1," in chat
+        assert "Legal moves: a2a3," in chat

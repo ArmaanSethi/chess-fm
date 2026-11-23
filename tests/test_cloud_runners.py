@@ -323,11 +323,176 @@ class TestModalTrainAST:
             for node in ast.walk(tree)
             if isinstance(node, ast.FunctionDef)
         }
-        for fn_name in ("_exec_grpo", "run_grpo", "run_grpo_modern"):
+        for fn_name in ("_exec_grpo", "run_grpo", "run_grpo_a100", "run_grpo_modern"):
             assert "positions" in fn_args[fn_name]
             assert "merge_and_save" in fn_args[fn_name]
+            assert "reward_mode" in fn_args[fn_name]
+            assert "filter_zero_variance" in fn_args[fn_name]
+        for fn_name in ("_exec_sft", "run_sft", "run_sft_a100", "run_sft_h100", "run_sft_modern"):
+            assert "lora_r" in fn_args[fn_name]
+            assert "full_ft" in fn_args[fn_name]
+            assert "packing" in fn_args[fn_name]
+            assert "include_piece_list" in fn_args[fn_name]
+        for flag in (
+            "gpu",
+            "lora_r",
+            "full_ft",
+            "packing",
+            "include_piece_list",
+            "include_legal_moves",
+            "reward_mode",
+            "epsilon",
+            "epsilon_high",
+            "beta",
+            "loss_type",
+            "filter_zero_variance",
+        ):
+            assert flag in fn_args["main"], f"Missing CLI param {flag!r} in modal_train.main"
         assert "positions" in fn_args["main"]
         assert "max_positions" in fn_args["main"]
+
+
+class TestModalTrainRouting:
+    @staticmethod
+    def _load_modal_train():
+        pytest.importorskip("modal")
+        return _load_script_module("modal_train_test", "modal_train.py")
+
+    def test_h100_rejects_non_sft_tasks(self):
+        mt = self._load_modal_train()
+        for bad_task in ("grpo", "smoke-pipeline", "eval", "static-eval"):
+            with pytest.raises(ValueError, match="h100"):
+                mt.main(task=bad_task, gpu="h100", track="v1")
+
+    def test_h100_rejects_modern_tracks(self):
+        mt = self._load_modal_train()
+        for modern_track in ("v1.5", "v2", "coach", "student"):
+            with pytest.raises(ValueError, match="modern-stack"):
+                mt.main(task="sft", gpu="h100", track=modern_track)
+
+    def test_h100_routes_legacy_sft(self, monkeypatch: pytest.MonkeyPatch):
+        mt = self._load_modal_train()
+        calls: list[dict] = []
+
+        class _FakeRemote:
+            def remote(self, **kwargs):
+                calls.append(kwargs)
+                return "/vol/checkpoints/sft_h100/final"
+
+        monkeypatch.setattr(mt, "run_sft_h100", _FakeRemote())
+        mt.main(task="sft", gpu="h100", track="v1", full_ft=True)
+        assert len(calls) == 1
+        assert calls[0]["full_ft"] is True
+        assert calls[0]["merge_and_save"] is False
+
+    def test_a100_rejects_modern_tracks_and_unsupported_tasks(self):
+        mt = self._load_modal_train()
+        for bad_task in ("eval", "static-eval", "coach-eval", "export-gguf"):
+            with pytest.raises(ValueError, match="a100"):
+                mt.main(task=bad_task, gpu="a100", track="v1")
+        for task in ("sft", "grpo", "smoke-pipeline"):
+            with pytest.raises(ValueError, match="modern-stack"):
+                mt.main(task=task, gpu="a100", track="v1.5")
+
+    def test_smoke_pipeline_passes_full_ft_false_and_preserves_returned_ckpt(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        mt = self._load_modal_train()
+        sft_calls: list[dict] = []
+        grpo_calls: list[dict] = []
+        eval_calls: list[dict] = []
+
+        class _FakeSft:
+            def remote(self, **kwargs):
+                sft_calls.append(kwargs)
+                return "/vol/checkpoints/sft_smoke/final"
+
+        class _FakeGrpo:
+            def remote(self, **kwargs):
+                grpo_calls.append(kwargs)
+                return "/vol/checkpoints/smoke_grpo_stage0/stage0_final_merged"
+
+        class _FakeEval:
+            def remote(self, **kwargs):
+                eval_calls.append(kwargs)
+
+        monkeypatch.setattr(mt, "run_sft_a100", _FakeSft())
+        monkeypatch.setattr(mt, "run_grpo_a100", _FakeGrpo())
+        monkeypatch.setattr(mt, "run_eval", _FakeEval())
+
+        mt.main(task="smoke-pipeline", gpu="a100", track="v1")
+        assert len(sft_calls) == 1
+        assert sft_calls[0]["full_ft"] is False
+        assert sft_calls[0]["merge_and_save"] is True
+        assert len(grpo_calls) == 1
+        assert grpo_calls[0]["model"] == "/vol/checkpoints/sft_smoke/final"
+        assert len(eval_calls) == 1
+
+    def test_exec_static_eval_fast_fails_when_suite_lacks_flags(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        mt = self._load_modal_train()
+        ran: list[list[str]] = []
+        monkeypatch.setattr(mt, "_ensure_installed", lambda: None)
+        monkeypatch.setattr(mt, "_run", lambda cmd: ran.append(cmd))
+        monkeypatch.setattr(mt, "_suite_supports_flag", lambda _flag: False)
+
+        with pytest.raises(ValueError, match="--include-piece-list"):
+            mt._exec_static_eval(
+                model="Qwen/Qwen3-4B",
+                benchmark="data_generation/eval_benchmark.jsonl",
+                decoding_mode="strict",
+                include_ascii=False,
+                enable_thinking=True,
+                max_positions=10,
+                skip_probes=True,
+                output_name="out.json",
+                include_piece_list=True,
+            )
+        assert ran == []
+
+        with pytest.raises(ValueError, match="--include-legal-moves"):
+            mt._exec_static_eval(
+                model="Qwen/Qwen3-4B",
+                benchmark="data_generation/eval_benchmark.jsonl",
+                decoding_mode="strict",
+                include_ascii=False,
+                enable_thinking=True,
+                max_positions=10,
+                skip_probes=True,
+                output_name="out.json",
+                include_legal_moves=True,
+            )
+        assert ran == []
+
+    def test_exec_static_eval_forwards_flags_when_suite_supports_them(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        mt = self._load_modal_train()
+        ran: list[list[str]] = []
+        committed: list[bool] = []
+        monkeypatch.setattr(mt, "_ensure_installed", lambda: None)
+        monkeypatch.setattr(mt, "_run", lambda cmd: ran.append(cmd))
+        monkeypatch.setattr(mt.volume, "commit", lambda: committed.append(True))
+        monkeypatch.setattr(mt, "_suite_supports_flag", lambda _flag: True)
+
+        out = mt._exec_static_eval(
+            model="Qwen/Qwen3-4B",
+            benchmark="data_generation/eval_benchmark.jsonl",
+            decoding_mode="strict",
+            include_ascii=True,
+            enable_thinking=True,
+            max_positions=10,
+            skip_probes=True,
+            output_name="out.json",
+            include_piece_list=True,
+            include_legal_moves=True,
+        )
+        assert out == "/vol/results/out.json"
+        assert committed == [True]
+        assert len(ran) == 1
+        assert "--include-piece-list" in ran[0]
+        assert "--include-legal-moves" in ran[0]
 
 
 # ---------------------------------------------------------------------------

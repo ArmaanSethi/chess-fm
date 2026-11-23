@@ -204,5 +204,105 @@ def test_save_grpo_checkpoint_no_merge_skips_merged_dir(tmp_path):
     assert tok.saved_paths == [str(adapter_dir)]
 
 
+def test_parse_args_dapo_and_lora_defaults_and_overrides():
+    defaults = parse_args([])
+    assert defaults.num_generations == 8
+    assert defaults.per_device_batch_size == 8
+    assert defaults.beta == pytest.approx(0.04)
+    assert defaults.epsilon == pytest.approx(0.20)
+    assert defaults.epsilon_high == pytest.approx(0.28)
+    assert defaults.reward_mode == "legacy"
+    assert defaults.lora_r == 16
+    assert defaults.all_linear is True
+    assert defaults.filter_zero_variance is False
+    assert defaults.include_piece_list is False
+    assert defaults.include_legal_moves is False
+
+    custom = parse_args(
+        [
+            "--reward-mode",
+            "wdl_loss",
+            "--num-generations",
+            "16",
+            "--per-device-batch-size",
+            "16",
+            "--lora-r",
+            "32",
+            "--no-all-linear",
+            "--filter-zero-variance",
+            "--loss-type",
+            "dr_grpo",
+            "--include-piece-list",
+            "--include-legal-moves",
+        ]
+    )
+    assert custom.reward_mode == "wdl_loss"
+    assert custom.num_generations == 16
+    assert custom.lora_r == 32
+    assert custom.all_linear is False
+    assert custom.filter_zero_variance is True
+    assert custom.loss_type == "dr_grpo"
+    assert custom.include_piece_list is True
+    assert custom.include_legal_moves is True
+
+
+def test_load_positions_supports_piece_list_and_legal_moves(tmp_path):
+    p = tmp_path / "positions.txt"
+    p.write_text(START_FEN + "\n")
+    positions = load_positions(p, include_piece_list=True, include_legal_moves=True)
+    assert "Pieces: White: Ke1," in positions[0]["prompt"]
+    assert "Legal moves: a2a3," in positions[0]["prompt"]
+
+
+def test_make_reward_func_wdl_uses_cache_across_rollouts():
+    class _FakeScore:
+        def __init__(self, cp):
+            self._cp = cp
+
+        def is_mate(self):
+            return False
+
+        def score(self):
+            return self._cp
+
+        def white(self):
+            return self
+
+    class _CountingEngine:
+        def __init__(self):
+            self.calls = 0
+
+        def analyse(self, board, limit):
+            self.calls += 1
+            return {"score": _FakeScore(25), "pv": []}
+
+    engine = _CountingEngine()
+    fn = make_reward_func(stage=0, engine=engine, reward_mode="wdl_loss", use_cache=True)
+    prompt = f"Position (FEN): {START_FEN}\nSide to move: White"
+    comp = "<think>control the center with e2e4 cleanly.</think>\ne2e4"
+    rewards = fn(prompts=[prompt] * 8, completions=[comp] * 8)
+    assert len(rewards) == 8
+    assert all(r == pytest.approx(3.1) for r in rewards)
+    assert engine.calls == 2  # 1 before + 1 after, reused across all 8 rollouts
+    assert fn.cache is not None
+    assert fn.cache.stats()["fen_hits"] >= 7
+
+
+def test_filter_zero_variance_groups_guards_empty_active_mask():
+    import torch
+
+    from chessfm.rl.train_grpo import filter_zero_variance_groups
+
+    # Group 0 has zero reward variance and non-zero completion tokens;
+    # Group 1 has non-zero reward variance but all-zero completion tokens.
+    rewards = torch.tensor([1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.5, -0.5])
+    mask = torch.zeros((8, 5), dtype=torch.long)
+    mask[:4, :] = 1
+    filtered_mask, frac = filter_zero_variance_groups(rewards, mask, num_generations=4)
+    assert filtered_mask.sum().item() == mask.sum().item()
+    assert torch.equal(filtered_mask, mask)
+    assert frac == 0.0
+
+
 if __name__ == "__main__":
     unittest.main()

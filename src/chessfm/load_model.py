@@ -22,6 +22,34 @@ _TARGET_MODULES = [
     "down_proj",
 ]
 
+_ATTN_TARGET_MODULES = [
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+]
+
+
+def resolve_lora_config(
+    lora_r: int = LORA_R,
+    lora_alpha: int | None = None,
+    all_linear: bool = True,
+) -> dict:
+    """Resolve effective LoRA rank, alpha (defaults to ``2 * lora_r``), and target modules."""
+    if lora_r <= 0:
+        raise ValueError(f"lora_r must be positive, got {lora_r}")
+    effective_alpha = (
+        lora_alpha if lora_alpha is not None else (LORA_ALPHA if lora_r == LORA_R else 2 * lora_r)
+    )
+    if effective_alpha <= 0:
+        raise ValueError(f"lora_alpha must be positive, got {effective_alpha}")
+    target_modules = list(_TARGET_MODULES if all_linear else _ATTN_TARGET_MODULES)
+    return {
+        "r": int(lora_r),
+        "lora_alpha": int(effective_alpha),
+        "target_modules": target_modules,
+    }
+
 
 def is_peft_adapter_checkpoint(model_name: str | Path) -> bool:
     """Return True if ``model_name`` is a local directory containing a PEFT adapter."""
@@ -68,30 +96,44 @@ def load_model(
     for_inference: bool = False,
     merge_peft: bool = False,
     load_in_4bit: bool = False,
+    *,
+    lora_r: int = LORA_R,
+    lora_alpha: int | None = None,
+    all_linear: bool = True,
+    full_ft: bool = False,
 ) -> tuple:
-    """Load ``model_name`` with 4-bit LoRA (unsloth) or a PEFT fallback.
+    """Load ``model_name`` with LoRA (unsloth/PEFT) or native Full Fine-Tuning.
 
     Returns a ``(model, tokenizer)`` tuple. ``for_inference`` switches 4-bit
     mode off and enables fast inference mode when using unsloth.
 
-    When ``model_name`` is a local PEFT adapter checkpoint (contains
-    ``adapter_config.json``), the base model is loaded and the adapter is
-    attached via ``PeftModel.from_pretrained``. If ``merge_peft=True`` (the
-    recommended mode for SFT -> GRPO handoff), the adapter is merged into the
-    base weights via ``merge_and_unload()`` before attaching any new LoRA
-    adapter, avoiding silent ``lora_B`` zeroing.
+    When ``full_ft=True``:
+    - Raises ``ValueError`` if ``load_in_4bit=True`` (cannot full-FT a 4-bit
+      quantized model).
+    - Bypasses Unsloth and PEFT/LoRA wrapping entirely, loading native weights
+      in ``bf16`` (Ampere+/H100), ``fp16`` (pre-Ampere), or ``fp32`` (CPU).
+    - If ``model_name`` is a PEFT adapter and ``merge_peft=True``, merges and
+      unloads the adapter without re-attaching LoRA.
 
-    When ``load_in_4bit=True`` on the PEFT fallback path (CUDA + training mode
-    without ``merge_peft``), loads the base model in NF4 4-bit quantization via
-    ``BitsAndBytesConfig`` to reduce VRAM footprint on 24 GB GPUs like L4.
+    When ``full_ft=False`` (default):
+    - Applies LoRA with rank ``lora_r``, alpha ``lora_alpha`` (default
+      ``2 * lora_r``), and all-linear targets (``q/k/v/o/gate/up/down_proj``)
+      when ``all_linear=True`` or attention-only targets when ``all_linear=False``.
     """
+    if full_ft and load_in_4bit:
+        raise ValueError(
+            "full_ft=True cannot be combined with load_in_4bit=True; "
+            "full fine-tuning requires non-quantized weights (bf16/fp16/fp32)."
+        )
+
+    lora_cfg = None if full_ft else resolve_lora_config(lora_r, lora_alpha, all_linear)
     is_adapter = is_peft_adapter_checkpoint(model_name)
     auth = _auth_kwargs()
 
-    # Use the Transformers + PEFT path for PEFT adapter checkpoints (to cleanly
-    # merge or continue training without silent lora_B zeroing) and for Gemma 4
-    # multimodal checkpoints.
-    use_unsloth = not is_adapter and not is_gemma4_model(model_name)
+    # Use the Transformers + PEFT path for Full FT, PEFT adapter checkpoints
+    # (to cleanly merge or continue training without silent lora_B zeroing),
+    # and Gemma 4 multimodal checkpoints.
+    use_unsloth = not full_ft and not is_adapter and not is_gemma4_model(model_name)
 
     if use_unsloth:
         try:
@@ -106,11 +148,12 @@ def load_model(
             if for_inference:
                 FastLanguageModel.for_inference(model)
                 return model, tokenizer
+            assert lora_cfg is not None
             model = FastLanguageModel.get_peft_model(
                 model,
-                r=LORA_R,
-                target_modules=_TARGET_MODULES,
-                lora_alpha=LORA_ALPHA,
+                r=lora_cfg["r"],
+                target_modules=lora_cfg["target_modules"],
+                lora_alpha=lora_cfg["lora_alpha"],
                 lora_dropout=0,
                 bias="none",
                 use_gradient_checkpointing="unsloth",
@@ -165,10 +208,15 @@ def load_model(
             if for_inference:
                 model = model.eval()
                 return model, tokenizer
+            if full_ft:
+                for p in model.parameters():
+                    p.requires_grad = True
+                return model, tokenizer
+            assert lora_cfg is not None
             peft_config = LoraConfig(
-                r=LORA_R,
-                lora_alpha=LORA_ALPHA,
-                target_modules=_TARGET_MODULES,
+                r=lora_cfg["r"],
+                lora_alpha=lora_cfg["lora_alpha"],
+                target_modules=lora_cfg["target_modules"],
                 task_type="CAUSAL_LM",
             )
             model = get_peft_model(model, peft_config)
@@ -187,14 +235,19 @@ def load_model(
     if for_inference:
         model = model.eval()
         return model, tokenizer
+    if full_ft:
+        for p in model.parameters():
+            p.requires_grad = True
+        return model, tokenizer
     if "quantization_config" in load_kwargs:
         from peft import prepare_model_for_kbit_training
 
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+    assert lora_cfg is not None
     peft_config = LoraConfig(
-        r=LORA_R,
-        lora_alpha=LORA_ALPHA,
-        target_modules=_TARGET_MODULES,
+        r=lora_cfg["r"],
+        lora_alpha=lora_cfg["lora_alpha"],
+        target_modules=lora_cfg["target_modules"],
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, peft_config)

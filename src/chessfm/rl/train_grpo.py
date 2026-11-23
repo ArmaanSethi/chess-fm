@@ -18,6 +18,7 @@ USAGE:
 from __future__ import annotations
 
 import argparse
+import inspect
 import logging
 import os
 import random
@@ -33,6 +34,7 @@ from chessfm.config import (
     GRPO_BETA,
     GRPO_NUM_GENERATIONS,
     GRPO_TEMPERATURE,
+    LORA_R,
     MAX_COMPLETION_LENGTH,
     MAX_PROMPT_LENGTH,
     build_chat_prompt,
@@ -40,7 +42,7 @@ from chessfm.config import (
 from chessfm.fens import read_fens
 from chessfm.rl.engine import close_engine, open_engine
 from chessfm.rl.move_utils import extract_fen_from_prompt, parse_move_from_output
-from chessfm.rl.rewards import EngineAnalysisError, combined_reward
+from chessfm.rl.rewards import EngineAnalysisError, StockfishEvalCache, combined_reward
 from chessfm.training.manifest import write_run_manifest
 
 logger = logging.getLogger("chessfm.train_grpo")
@@ -50,6 +52,9 @@ logger = logging.getLogger("chessfm.train_grpo")
 # worse than stopping training.
 _MAX_ENGINE_FAILURE_RATE = 0.05
 _MIN_FAILURE_SAMPLE = 20
+
+DEFAULT_EPSILON_LOW = 0.20
+DEFAULT_EPSILON_HIGH = 0.28
 
 
 def validate_grpo_batch_divisibility(
@@ -80,11 +85,23 @@ def validate_grpo_batch_divisibility(
         )
 
 
-def make_reward_func(stage: int, engine=None):
+def make_reward_func(
+    stage: int | str,
+    engine=None,
+    *,
+    reward_mode: str = "legacy",
+    cache: StockfishEvalCache | None = None,
+    use_cache: bool = True,
+):
     """Build a TRL-compatible reward function.
 
     TRL calls reward funcs as ``reward_func(prompts=..., completions=..., **kwargs)``
     and expects a list of floats back, one per completion.
+
+    When ``engine`` is provided and ``use_cache=True`` (the default), a
+    :class:`~chessfm.rl.rewards.StockfishEvalCache` is attached so repeated
+    per-FEN and per-(FEN, move) evaluations across GRPO rollouts reuse cached
+    Stockfish analyses.
 
     Engine failures (``EngineAnalysisError``) are treated as neutral (0.0) and
     counted; once the failure rate exceeds ``_MAX_ENGINE_FAILURE_RATE`` over at
@@ -92,6 +109,11 @@ def make_reward_func(stage: int, engine=None):
     Stockfish process must not quietly degrade into a garbage training signal.
     """
     stats = {"calls": 0, "engine_failures": 0}
+    active_cache = (
+        cache
+        if cache is not None
+        else (StockfishEvalCache() if engine is not None and use_cache else None)
+    )
 
     def _abort_if_engine_dying():
         if stats["engine_failures"] == 0 or stats["calls"] < _MIN_FAILURE_SAMPLE:
@@ -114,7 +136,15 @@ def make_reward_func(stage: int, engine=None):
             try:
                 fen = extract_fen_from_prompt(prompt)
                 move = parse_move_from_output(completion) or "xxxx"
-                r = combined_reward(fen, move, completion, stage=stage, engine=engine)
+                r = combined_reward(
+                    fen,
+                    move,
+                    completion,
+                    stage=stage,
+                    engine=engine,
+                    reward_mode=reward_mode,
+                    cache=active_cache,
+                )
                 rewards.append(r["total"])
             except EngineAnalysisError as e:
                 # An infrastructure failure must be loud and *neutral*, not
@@ -132,6 +162,7 @@ def make_reward_func(stage: int, engine=None):
         _abort_if_engine_dying()
         return rewards
 
+    chess_reward_fn.cache = active_cache  # type: ignore[attr-defined]
     return chess_reward_fn
 
 
@@ -141,6 +172,8 @@ def load_positions(
     seed: int = 42,
     tokenizer=None,
     include_ascii: bool = False,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> list[dict]:
     """Load positions into chat-formatted prompt dataset.
 
@@ -166,6 +199,8 @@ def load_positions(
                 fen,
                 tokenizer=tokenizer,
                 include_ascii=include_ascii,
+                include_piece_list=include_piece_list,
+                include_legal_moves=include_legal_moves,
                 enable_thinking=True,
             )
         }
@@ -174,6 +209,45 @@ def load_positions(
     if not positions:
         raise SystemExit(f"Positions file contains no positions: {filepath}")
     return positions
+
+
+def filter_zero_variance_groups(
+    rewards,
+    completion_mask,
+    num_generations: int,
+    eps: float = 1e-8,
+):
+    """Mask out completion tokens belonging to zero-variance reward groups.
+
+    In DAPO/RLVR, groups where all ``num_generations`` completions receive the
+    same reward contribute zero advantage but still dilute the token-level loss
+    denominator (and KL term when ``beta > 0``). This helper zeroes their
+    ``completion_mask`` rows while guarding against the all-zero-variance batch
+    edge case: if every group in the batch has zero variance, the mask is
+    returned unchanged so ``completion_mask.sum()`` never becomes ``0`` (NaN).
+
+    Returns ``(filtered_completion_mask, filtered_group_fraction)``.
+    """
+    if num_generations <= 1:
+        return completion_mask, 0.0
+    total_rows = int(rewards.shape[0])
+    if total_rows == 0 or total_rows % num_generations != 0:
+        return completion_mask, 0.0
+
+    grouped = rewards.reshape(-1, num_generations)
+    spread = grouped.max(dim=1).values - grouped.min(dim=1).values
+    active_groups = spread > eps
+    if not bool(active_groups.any()):
+        # Guard against 0/0 NaN in compute_loss when every group has zero variance.
+        return completion_mask, 0.0
+
+    row_mask = active_groups.repeat_interleave(num_generations).unsqueeze(1)
+    filtered_mask = completion_mask * row_mask.to(dtype=completion_mask.dtype)
+    if not bool(filtered_mask.any()):
+        # Guard against 0/0 NaN in compute_loss if active groups have empty masks.
+        return completion_mask, 0.0
+    filtered_frac = float((~active_groups).float().mean().item())
+    return filtered_mask, filtered_frac
 
 
 def build_grpo_config(args) -> GRPOConfig:
@@ -196,9 +270,34 @@ def build_grpo_config(args) -> GRPOConfig:
 
     use_gpu = torch.cuda.is_available()
     report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
+    grpo_params = inspect.signature(GRPOConfig.__init__).parameters
     extra_kwargs: dict = {}
     if use_gpu:
         extra_kwargs["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
+
+    epsilon = getattr(args, "epsilon", None)
+    if epsilon is not None and "epsilon" in grpo_params:
+        extra_kwargs["epsilon"] = epsilon
+
+    epsilon_high = getattr(args, "epsilon_high", None)
+    if epsilon_high is not None and "epsilon_high" in grpo_params:
+        extra_kwargs["epsilon_high"] = epsilon_high
+
+    scale_rewards = getattr(args, "scale_rewards", None)
+    if scale_rewards is not None and "scale_rewards" in grpo_params:
+        extra_kwargs["scale_rewards"] = scale_rewards
+
+    loss_type = getattr(args, "loss_type", None)
+    if loss_type:
+        if "loss_type" in grpo_params:
+            extra_kwargs["loss_type"] = loss_type
+        else:
+            logger.warning(
+                "Installed TRL GRPOConfig does not accept loss_type=%r; "
+                "falling back to TRL default token-level loss.",
+                loss_type,
+            )
+
     return GRPOConfig(
         output_dir=str(args.output),
         learning_rate=args.lr,
@@ -255,6 +354,34 @@ class _KVCacheGenerationMixin:
                 self.model.train()
 
 
+class _ZeroVarianceFilterMixin:
+    """DAPO-style dynamic zero-variance group filter for GRPOTrainer.
+
+    Wraps ``_generate_and_score_completions`` and masks out ``completion_mask``
+    for any group whose rewards/advantages have zero variance, while leaving
+    all-zero-variance batches intact to prevent ``0 / 0`` NaN loss.
+    """
+
+    def _generate_and_score_completions(self, inputs):
+        output = super()._generate_and_score_completions(inputs)
+        if not isinstance(output, dict) or "completion_mask" not in output:
+            return output
+        signal = output.get("rewards")
+        if signal is None:
+            signal = output.get("advantages")
+        if signal is None:
+            return output
+        num_gen = getattr(self, "num_generations", None) or getattr(
+            getattr(self, "args", None), "num_generations", 1
+        )
+        filtered_mask, frac = filter_zero_variance_groups(
+            signal, output["completion_mask"], int(num_gen)
+        )
+        output["completion_mask"] = filtered_mask
+        self._last_zero_variance_filtered_frac = frac
+        return output
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for GRPO training."""
     parser = argparse.ArgumentParser(description="Train ChessFM with GRPO")
@@ -264,6 +391,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=0,
         choices=[0, 1, 2],
         help="Training stage (0=legality, 1=+move quality, 2=+opponent-reply delta)",
+    )
+    parser.add_argument(
+        "--reward-mode",
+        type=str,
+        default="legacy",
+        choices=["legacy", "wdl_loss"],
+        help="Reward mode ('legacy' for stages 0/1/2, 'wdl_loss' for expected-score delta)",
     )
     parser.add_argument("--steps", type=int, default=500, help="Number of max training steps")
     parser.add_argument("--model", type=str, default=DEFAULT_BASE_MODEL, help="Base model to train")
@@ -288,6 +422,54 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Sampling temperature for generation",
     )
     parser.add_argument("--beta", type=float, default=GRPO_BETA, help="KL penalty coefficient")
+    parser.add_argument(
+        "--epsilon",
+        type=float,
+        default=DEFAULT_EPSILON_LOW,
+        help="Lower PPO/GRPO clipping bound (epsilon_low)",
+    )
+    parser.add_argument(
+        "--epsilon-high",
+        type=float,
+        default=DEFAULT_EPSILON_HIGH,
+        help="Upper DAPO Clip-Higher bound (epsilon_high)",
+    )
+    parser.add_argument(
+        "--loss-type",
+        type=str,
+        default=None,
+        choices=["grpo", "bnpo", "dr_grpo", "dapo"],
+        help="Optional TRL loss type (forwarded when supported by installed TRL version)",
+    )
+    parser.add_argument(
+        "--scale-rewards",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Divide advantages by group reward std (pass --no-scale-rewards for Dr. GRPO)",
+    )
+    parser.add_argument(
+        "--filter-zero-variance",
+        action="store_true",
+        help="Mask out completion tokens from zero-variance reward groups (DAPO dynamic filtering)",
+    )
+    parser.add_argument("--lora-r", type=int, default=LORA_R, help="LoRA adapter rank")
+    parser.add_argument(
+        "--lora-alpha",
+        type=int,
+        default=None,
+        help="LoRA scaling alpha (defaults to 2 * --lora-r)",
+    )
+    parser.add_argument(
+        "--all-linear",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Target all linear layers (q/k/v/o/gate/up/down_proj) vs attention-only",
+    )
+    parser.add_argument(
+        "--full-ft",
+        action="store_true",
+        help="Train all parameters without LoRA adapters",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -315,6 +497,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--include-ascii",
         action="store_true",
         help="Include an ASCII board rendering in position prompts",
+    )
+    parser.add_argument(
+        "--include-piece-list",
+        action="store_true",
+        help="Include a lossless piece-by-square listing in position prompts",
+    )
+    parser.add_argument(
+        "--include-legal-moves",
+        action="store_true",
+        help="Include sorted UCI legal moves in position prompts (isolated comparison mode only)",
     )
     parser.add_argument(
         "--merge-and-save",
@@ -376,16 +568,22 @@ def main():
         world_size=world_size,
     )
 
+    effective_alpha = args.lora_alpha if args.lora_alpha is not None else 2 * args.lora_r
     print("=" * 60)
     print("ChessFM RL Training (GRPO via TRL)")
     print("=" * 60)
-    print(f"Stage:            {args.stage}")
+    print(f"Stage:            {args.stage} (reward_mode={args.reward_mode})")
     print(f"Model:            {args.model}")
     print(f"Max Steps:        {args.steps}")
     print(f"Generations/grp:  {args.num_generations}")
     print(f"Batch size/dev:   {args.per_device_batch_size}")
     print(f"Temperature:      {args.temperature}")
     print(f"Beta (KL):        {args.beta}")
+    print(f"Clip bounds:      [{args.epsilon}, {args.epsilon_high}]")
+    print(f"Zero-var filter:  {args.filter_zero_variance}")
+    print(
+        f"LoRA / Full-FT:   {'Full FT' if args.full_ft else f'r={args.lora_r}, alpha={effective_alpha}'}"
+    )
     print(f"Checkpoint every: {args.checkpoint_every}")
     print(f"Resume:           {args.resume}")
     print(f"Merge & save:     {args.merge_and_save}")
@@ -399,7 +597,14 @@ def main():
 
     torch.manual_seed(args.seed)
 
-    model, tokenizer = load_model(args.model, merge_peft=True)
+    model, tokenizer = load_model(
+        args.model,
+        merge_peft=True,
+        lora_r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        all_linear=args.all_linear,
+        full_ft=args.full_ft,
+    )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -409,18 +614,21 @@ def main():
         seed=args.seed,
         tokenizer=tokenizer,
         include_ascii=args.include_ascii,
+        include_piece_list=args.include_piece_list,
+        include_legal_moves=args.include_legal_moves,
     )
     dataset = Dataset.from_list(raw_positions)
     print(f"Loaded {len(dataset)} prompts/positions for training")
 
     engine = None
-    if args.stage >= 1:
+    needs_engine = args.stage >= 1 or args.reward_mode == "wdl_loss"
+    if needs_engine:
         engine = open_engine()
         if engine is None:
             raise SystemExit(
-                "Stockfish engine not found. Stages 1/2 require Stockfish for "
-                "the move-quality reward. Install it (brew install stockfish / "
-                "apt install stockfish) or run with --stage 0."
+                "Stockfish engine not found. Stages 1/2 and wdl_loss reward mode require "
+                "Stockfish for move evaluation. Install it (brew install stockfish / "
+                "apt install stockfish) or run with --stage 0 --reward-mode legacy."
             )
 
     if hasattr(model, "config"):
@@ -428,12 +636,24 @@ def main():
 
     training_args = build_grpo_config(args)
 
-    reward_fn = make_reward_func(args.stage, engine=engine)
+    reward_fn = make_reward_func(
+        args.stage,
+        engine=engine,
+        reward_mode=args.reward_mode,
+        use_cache=True,
+    )
 
-    class _KVCacheGRPOTrainer(_KVCacheGenerationMixin, GRPOTrainer):
-        pass
+    if args.filter_zero_variance:
 
-    trainer = _KVCacheGRPOTrainer(
+        class _ChessGRPOTrainer(_ZeroVarianceFilterMixin, _KVCacheGenerationMixin, GRPOTrainer):
+            pass
+
+    else:
+
+        class _ChessGRPOTrainer(_KVCacheGenerationMixin, GRPOTrainer):
+            pass
+
+    trainer = _ChessGRPOTrainer(
         model=model,
         processing_class=tokenizer,
         reward_funcs=[reward_fn],
@@ -456,7 +676,7 @@ def main():
             tokenizer,
             args.output,
             args.stage,
-            merge_and_save=args.merge_and_save,
+            merge_and_save=args.merge_and_save and not args.full_ft,
         )
 
         gpu_type = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
@@ -467,14 +687,26 @@ def main():
             seed=args.seed,
             hyperparameters={
                 "steps": args.steps,
+                "reward_mode": args.reward_mode,
                 "num_generations": args.num_generations,
                 "per_device_batch_size": args.per_device_batch_size,
                 "grad_accum": args.grad_accum,
                 "lr": args.lr,
                 "temperature": args.temperature,
                 "beta": args.beta,
+                "epsilon": args.epsilon,
+                "epsilon_high": args.epsilon_high,
+                "loss_type": args.loss_type,
+                "scale_rewards": args.scale_rewards,
+                "filter_zero_variance": args.filter_zero_variance,
+                "lora_r": None if args.full_ft else args.lora_r,
+                "lora_alpha": None if args.full_ft else effective_alpha,
+                "all_linear": None if args.full_ft else args.all_linear,
+                "full_ft": args.full_ft,
                 "include_ascii": args.include_ascii,
-                "merge_and_save": args.merge_and_save,
+                "include_piece_list": args.include_piece_list,
+                "include_legal_moves": args.include_legal_moves,
+                "merge_and_save": args.merge_and_save and not args.full_ft,
             },
             dataset_path=args.positions,
             gpu_type=gpu_type,

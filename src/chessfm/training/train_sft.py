@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import logging
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -34,7 +35,11 @@ from chessfm.fens import read_jsonl
 from chessfm.training.manifest import write_run_manifest
 from chessfm.training.split import fen_level_split
 
+logger = logging.getLogger("chessfm.train_sft")
+
 GEMMA_ASSISTANT_OPEN = "<|turn>model\n"
+DEFAULT_LORA_LR = 2e-4
+DEFAULT_FULL_FT_LR = 2e-5
 
 
 def get_response_template(model_name: str = DEFAULT_BASE_MODEL) -> str:
@@ -106,12 +111,14 @@ def format_sft_example(
     tokenizer: Any,
     *,
     include_ascii: bool = False,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
     use_prompt_completion: bool = False,
 ) -> dict[str, str]:
     """Format one SFT example for TRL 0.16 (``text``) or TRL >=1.18 (``prompt``/``completion``).
 
     Checks ``messages`` FIRST so coaching rows containing ``fen`` are never
-    clobbered by P1 FEN prompts when ``--include-ascii`` is enabled.
+    clobbered by P1 FEN prompts when board representation flags are enabled.
     """
     messages = sample.get("messages")
     if isinstance(messages, list) and len(messages) >= 2:
@@ -136,11 +143,13 @@ def format_sft_example(
             return {"prompt": prompt_str, "completion": completion_str}
         return {"text": full_str}
 
-    if include_ascii and "fen" in sample:
+    if (include_ascii or include_piece_list or include_legal_moves) and "fen" in sample:
         prompt = build_chat_prompt(
             sample["fen"],
             tokenizer=tokenizer,
-            include_ascii=True,
+            include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
             enable_thinking=True,
         )
     else:
@@ -178,7 +187,19 @@ def build_completion_collator(tokenizer, model_name: str = DEFAULT_BASE_MODEL):
     )
 
 
-def build_sft_config(args, *, completion_only_loss: bool = False) -> SFTConfig:
+def resolve_sft_lr(lr: float | None, *, full_ft: bool = False) -> float:
+    """Resolve SFT learning rate (defaults to 2e-5 for Full FT, 2e-4 for LoRA)."""
+    if lr is not None:
+        return float(lr)
+    return DEFAULT_FULL_FT_LR if full_ft else DEFAULT_LORA_LR
+
+
+def build_sft_config(
+    args,
+    *,
+    completion_only_loss: bool = False,
+    has_completion_collator: bool = False,
+) -> SFTConfig:
     """Construct the TRL SFTConfig from parsed CLI args.
 
     Imported lazily so ``read_jsonl`` stays usable without the full torch/trl
@@ -191,41 +212,67 @@ def build_sft_config(args, *, completion_only_loss: bool = False) -> SFTConfig:
     from trl import SFTConfig
 
     use_gpu = torch.cuda.is_available()
+    full_ft = bool(getattr(args, "full_ft", False))
     report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
     grad_accum = getattr(args, "grad_accum", 2)
+    lr = resolve_sft_lr(getattr(args, "lr", None), full_ft=full_ft)
+    explicit_optim = getattr(args, "optim", None)
+    if explicit_optim:
+        optim = explicit_optim
+    elif use_gpu:
+        optim = "adamw_bnb_8bit" if full_ft else "adamw_8bit"
+    else:
+        optim = "adamw_torch"
+
     sft_params = inspect.signature(SFTConfig.__init__).parameters
-    extra_kwargs: dict = {}
+    extra_kwargs: dict[str, Any] = {}
     if use_gpu:
         extra_kwargs["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
     if "warmup_ratio" in sft_params:
         extra_kwargs["warmup_ratio"] = 0.1
     if completion_only_loss and "completion_only_loss" in sft_params:
         extra_kwargs["completion_only_loss"] = True
+
+    if getattr(args, "packing", False):
+        if has_completion_collator:
+            logger.warning(
+                "packing=True is incompatible with DataCollatorForCompletionOnlyLM "
+                "(packed sequences would leave subsequent prompts unmasked); "
+                "falling back to packing=False with group_by_length=True."
+            )
+            if "packing" in sft_params:
+                extra_kwargs["packing"] = False
+            if "group_by_length" in sft_params:
+                extra_kwargs["group_by_length"] = True
+        elif "packing" in sft_params:
+            extra_kwargs["packing"] = True
+
     return SFTConfig(
         output_dir=str(args.output),
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=grad_accum,
-        learning_rate=args.lr,
+        learning_rate=lr,
         weight_decay=0.01,
         logging_steps=10,
         save_steps=50,
         save_total_limit=3,
         eval_strategy="epoch",
         report_to=report_to,
-        # bf16 is preferred on modern GPUs (matches Qwen2.5's native dtype);
+        # bf16 is preferred on modern GPUs (matches Qwen2.5/Qwen3 native dtype);
         # fp16 is only a fallback for pre-Ampere hardware.
         bf16=use_gpu and torch.cuda.is_bf16_supported(),
         fp16=use_gpu and not torch.cuda.is_bf16_supported(),
         gradient_checkpointing=use_gpu,
-        optim="adamw_8bit" if use_gpu else "adamw_torch",
+        optim=optim,
         seed=args.seed,
         max_length=MAX_SEQ_LENGTH,
         **extra_kwargs,
     )
 
 
-def main():
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse CLI arguments for SFT training."""
     parser = argparse.ArgumentParser(description="Train ChessFM with SFT")
     parser.add_argument(
         "--data",
@@ -245,7 +292,44 @@ def main():
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=4, help="Per-device batch size")
     parser.add_argument("--grad-accum", type=int, default=4, help="Gradient accumulation steps")
-    parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Learning rate (defaults to 2e-4 for LoRA, 2e-5 for --full-ft)",
+    )
+    parser.add_argument("--lora-r", type=int, default=LORA_R, help="LoRA adapter rank")
+    parser.add_argument(
+        "--lora-alpha",
+        type=int,
+        default=None,
+        help="LoRA scaling alpha (defaults to 2 * --lora-r)",
+    )
+    parser.add_argument(
+        "--all-linear",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Target all linear layers (q/k/v/o/gate/up/down_proj) vs attention-only",
+    )
+    parser.add_argument(
+        "--full-ft",
+        action="store_true",
+        help="Run full-parameter fine-tuning (bf16 + gradient checkpointing) instead of LoRA",
+    )
+    parser.add_argument(
+        "--optim",
+        type=str,
+        default=None,
+        help="Optimizer name (e.g. adamw_bnb_8bit, paged_adamw_8bit, adamw_8bit, adamw_torch)",
+    )
+    parser.add_argument(
+        "--packing",
+        action="store_true",
+        help=(
+            "Enable sequence packing when compatible with completion-only masking "
+            "(falls back to group_by_length=True with DataCollatorForCompletionOnlyLM)"
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true", help="Just validate data, don't train")
     parser.add_argument(
         "--merge-and-save",
@@ -258,19 +342,45 @@ def main():
         action="store_true",
         help="Include an ASCII board rendering in prompts when FEN is available",
     )
+    parser.add_argument(
+        "--include-piece-list",
+        action="store_true",
+        help="Include a lossless piece-by-square listing in prompts when FEN is available",
+    )
+    parser.add_argument(
+        "--include-legal-moves",
+        action="store_true",
+        help="Include sorted UCI legal moves in prompts (isolated comparison mode only)",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    args.lr = resolve_sft_lr(args.lr, full_ft=args.full_ft)
+    return args
+
+
+def main(argv: list[str] | None = None):
+    args = parse_args(argv)
+    logging.basicConfig(level=logging.INFO)
+
+    effective_alpha = args.lora_alpha if args.lora_alpha is not None else 2 * args.lora_r
+    mode_desc = (
+        "Full FT"
+        if args.full_ft
+        else f"LoRA r={args.lora_r}, alpha={effective_alpha}, all_linear={args.all_linear}"
+    )
 
     print("=" * 60)
     print("ChessFM SFT Training")
     print("=" * 60)
     print(f"Model:      {args.model}")
     print(f"Data:       {args.data}")
+    print(f"Mode:       {mode_desc}")
     print(f"Epochs:     {args.epochs}")
     print(f"Batch size: {args.batch_size}")
     print(f"Grad accum: {args.grad_accum}")
+    print(f"LR:         {args.lr}")
+    print(f"Packing:    {args.packing}")
     print(f"Seed:       {args.seed}")
-    print(f"LoRA rank:  {LORA_R}")
     print()
 
     print("Loading training data...")
@@ -315,7 +425,13 @@ def main():
     from chessfm.load_model import load_model
 
     print("\nLoading model...")
-    model, tokenizer = load_model(args.model)
+    model, tokenizer = load_model(
+        args.model,
+        lora_r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        all_linear=args.all_linear,
+        full_ft=args.full_ft,
+    )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -328,6 +444,8 @@ def main():
             sample,
             tokenizer,
             include_ascii=args.include_ascii,
+            include_piece_list=args.include_piece_list,
+            include_legal_moves=args.include_legal_moves,
             use_prompt_completion=use_prompt_completion,
         )
         for sample in valid_data
@@ -347,7 +465,11 @@ def main():
     if hasattr(model, "config"):
         model.config.use_cache = False
 
-    training_args = build_sft_config(args, completion_only_loss=use_prompt_completion)
+    training_args = build_sft_config(
+        args,
+        completion_only_loss=use_prompt_completion,
+        has_completion_collator=data_collator is not None,
+    )
 
     trainer = SFTTrainer(
         model=model,
@@ -366,9 +488,10 @@ def main():
     final_dir = args.output / "final"
     model.save_pretrained(final_dir)
     tokenizer.save_pretrained(final_dir)
-    print(f"Training complete! Adapter saved to: {final_dir}")
+    label = "Full-FT model" if args.full_ft else "Adapter"
+    print(f"Training complete! {label} saved to: {final_dir}")
 
-    if args.merge_and_save and hasattr(model, "merge_and_unload"):
+    if not args.full_ft and args.merge_and_save and hasattr(model, "merge_and_unload"):
         merged_dir = args.output / "final_merged"
         print(f"Merging LoRA adapter into base weights -> {merged_dir}")
         merged_model = model.merge_and_unload()
@@ -387,8 +510,17 @@ def main():
             "batch_size": args.batch_size,
             "grad_accum": args.grad_accum,
             "lr": args.lr,
+            "lora_r": None if args.full_ft else args.lora_r,
+            "lora_alpha": None if args.full_ft else effective_alpha,
+            "all_linear": None if args.full_ft else args.all_linear,
+            "full_ft": args.full_ft,
+            "optim": training_args.optim,
+            "packing": bool(getattr(training_args, "packing", False)),
+            "group_by_length": bool(getattr(training_args, "group_by_length", False)),
             "include_ascii": args.include_ascii,
-            "merge_and_save": args.merge_and_save,
+            "include_piece_list": args.include_piece_list,
+            "include_legal_moves": args.include_legal_moves,
+            "merge_and_save": args.merge_and_save and not args.full_ft,
         },
         dataset_path=args.data,
         gpu_type=gpu_type,

@@ -135,15 +135,75 @@ def render_ascii_board(fen: str) -> str:
     return "\n".join(labeled)
 
 
-def make_prompt(fen: str, include_ascii: bool = False) -> str:
+_PIECE_LIST_ORDER = (
+    (chess.KING, "K"),
+    (chess.QUEEN, "Q"),
+    (chess.ROOK, "R"),
+    (chess.BISHOP, "B"),
+    (chess.KNIGHT, "N"),
+)
+
+
+def _format_side_pieces(board: chess.Board, color: chess.Color) -> str:
+    """Format one side's pieces in deterministic type + square order."""
+    entries: list[str] = []
+    for piece_type, symbol in _PIECE_LIST_ORDER:
+        for sq in sorted(board.pieces(piece_type, color)):
+            entries.append(f"{symbol}{chess.square_name(sq)}")
+    pawns = [chess.square_name(sq) for sq in sorted(board.pieces(chess.PAWN, color))]
+    if pawns:
+        entries.append(f"pawns {' '.join(pawns)}")
+    return ", ".join(entries) if entries else "none"
+
+
+def render_piece_list(fen: str) -> str:
+    """Render a lossless, compact piece-by-square listing for a FEN position.
+
+    Orders non-pawn pieces as ``K, Q, R, B, N`` (sorted by square index) followed
+    by pawns, grouped into ``White`` and ``Black`` sections, plus castling rights
+    and en passant square when present.
+    """
+    board = chess.Board(fen)
+    parts = [
+        f"White: {_format_side_pieces(board, chess.WHITE)}",
+        f"Black: {_format_side_pieces(board, chess.BLACK)}",
+    ]
+    castling = board.castling_xfen()
+    if castling != "-":
+        parts.append(f"Castling: {castling}")
+    if board.ep_square is not None:
+        parts.append(f"En passant: {chess.square_name(board.ep_square)}")
+    return " | ".join(parts)
+
+
+def render_legal_moves(fen: str) -> str:
+    """Render all legal moves for a FEN position as sorted comma-separated UCI strings."""
+    board = chess.Board(fen)
+    moves = sorted(m.uci() for m in board.legal_moves)
+    return ", ".join(moves) if moves else "none"
+
+
+def make_prompt(
+    fen: str,
+    include_ascii: bool = False,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
+) -> str:
     """Build the raw (unwrapped) instructional prompt for a FEN position."""
     color = "White" if fen.split()[1] == "w" else "Black"
     prompt = PROMPT_TEMPLATE.format(fen=fen, color=color)
+    blocks: list[str] = []
     if include_ascii:
-        board_block = f"Board:\n{render_ascii_board(fen)}\n\n"
+        blocks.append(f"Board:\n{render_ascii_board(fen)}\n\n")
+    if include_piece_list:
+        blocks.append(f"Pieces: {render_piece_list(fen)}\n\n")
+    if include_legal_moves:
+        blocks.append(f"Legal moves: {render_legal_moves(fen)}\n\n")
+    if blocks:
+        extra = "".join(blocks)
         prompt = prompt.replace(
             f"Side to move: {color}\n\n",
-            f"Side to move: {color}\n\n{board_block}",
+            f"Side to move: {color}\n\n{extra}",
             1,
         )
     return prompt
@@ -154,13 +214,20 @@ def build_chat_prompt(
     tokenizer=None,
     include_ascii: bool = False,
     enable_thinking: bool = False,
+    include_piece_list: bool = False,
+    include_legal_moves: bool = False,
 ) -> str:
     """Build a chat-wrapped prompt for a FEN position.
 
     When ``tokenizer`` is ``None`` (or has no usable ``apply_chat_template``),
     falls back to the exact ChatML format used by Qwen-2.5-Instruct.
     """
-    raw_prompt = make_prompt(fen, include_ascii=include_ascii)
+    raw_prompt = make_prompt(
+        fen,
+        include_ascii=include_ascii,
+        include_piece_list=include_piece_list,
+        include_legal_moves=include_legal_moves,
+    )
     if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
         messages = [{"role": "user", "content": raw_prompt}]
         try:

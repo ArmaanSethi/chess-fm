@@ -38,7 +38,7 @@ class ResilientEngine:
         *,
         threads: int = 1,
         hash_mb: int = 16,
-        max_restarts: int = 2,
+        max_restarts: int = 12,
     ) -> None:
         self._path = path
         self._engine = engine
@@ -103,7 +103,7 @@ class ResilientEngine:
 def open_engine(
     threads: int = 1,
     hash_mb: int = 16,
-    max_restarts: int = 2,
+    max_restarts: int = 12,
     stockfish_path: str | None = None,
 ) -> ResilientEngine | None:
     """Open a Stockfish engine from ``stockfish_path`` or configured paths, or None."""

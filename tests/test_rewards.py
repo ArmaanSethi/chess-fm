@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """Unit tests for reward functions."""
 
+import math
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 import chess
 import chess.engine
 
 from chessfm.rl.rewards import (
     EngineAnalysisError,
+    StockfishEvalCache,
     combined_reward,
+    cp_to_expected_score,
     reward_budget,
     reward_format,
     reward_legality,
@@ -16,6 +20,7 @@ from chessfm.rl.rewards import (
     reward_opponent_reply_delta,
     reward_outcome,
     reward_stockfish_delta,
+    wdl_loss_reward,
 )
 
 
@@ -311,6 +316,326 @@ class TestDefensivePaths(unittest.TestCase):
                 stage=2,
                 engine=_FailOnThirdAnalyse(),
             )
+
+
+class TestExpectedScoreAndWDLReward(unittest.TestCase):
+    FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+    def test_cp_to_expected_score_values_symmetry_and_clamping(self):
+        self.assertAlmostEqual(cp_to_expected_score(0.0), 0.5)
+        pos = cp_to_expected_score(100.0)
+        neg = cp_to_expected_score(-100.0)
+        self.assertGreater(pos, 0.55)
+        self.assertAlmostEqual(pos + neg, 1.0, places=10)
+        # Extreme mate scores and inf must not overflow math.exp
+        self.assertGreater(cp_to_expected_score(10000.0), 0.9999)
+        self.assertLess(cp_to_expected_score(-10000.0), 0.0001)
+        self.assertEqual(cp_to_expected_score(float("inf")), 1.0)
+        self.assertAlmostEqual(cp_to_expected_score(float("-inf")), 0.0)
+        with self.assertRaises(ValueError):
+            cp_to_expected_score(float("nan"))
+
+    def test_wdl_loss_reward_best_move_vs_blunder_and_saturation(self):
+        class _SeqEngine:
+            def __init__(self, cps):
+                self._cps = list(cps)
+
+            def analyse(self, board, limit):
+                cp = self._cps.pop(0)
+                return {"score": _FakeScore(cp), "pv": []}
+
+        # Best move: 0 cp loss -> wdl_loss_reward == 0.0
+        self.assertAlmostEqual(wdl_loss_reward(self.FEN, "e2e4", _SeqEngine([30, 30])), 0.0)
+
+        # Blunder from equal (0 -> -500) hurts much more than blunder when already lost (-800 -> -1200)
+        blunder_equal = wdl_loss_reward(self.FEN, "e2e4", _SeqEngine([0, -500]))
+        blunder_lost = wdl_loss_reward(self.FEN, "e2e4", _SeqEngine([-800, -1200]))
+        self.assertLess(blunder_equal, -0.3)
+        self.assertGreater(blunder_lost, -0.05)
+        self.assertLess(blunder_equal, blunder_lost)
+
+        # Illegal move -> -1.0
+        self.assertEqual(wdl_loss_reward(self.FEN, "e2e5", _SeqEngine([0, 0])), -1.0)
+        # Broken engine -> EngineAnalysisError
+        with self.assertRaises(EngineAnalysisError):
+            wdl_loss_reward(self.FEN, "e2e4", _BrokenEngine())
+
+    def test_combined_reward_wdl_mode_and_stage3(self):
+        class _SeqEngine:
+            def __init__(self, cps):
+                self._cps = list(cps)
+
+            def analyse(self, board, limit):
+                cp = self._cps.pop(0)
+                return {"score": _FakeScore(cp), "pv": []}
+
+        good_out = "<think>develop central pawn and claim space.</think>\ne2e4"
+        best_res = combined_reward(
+            self.FEN, "e2e4", good_out, stage=0, engine=_SeqEngine([50, 50]), reward_mode="wdl_loss"
+        )
+        self.assertTrue(best_res["legal"])
+        self.assertAlmostEqual(best_res["components"]["wdl_quality"], 2.0)
+        self.assertAlmostEqual(best_res["total"], 1.0 + 0.1 + 2.0)
+
+        blunder_res = combined_reward(
+            self.FEN, "e2e4", good_out, stage=3, engine=_SeqEngine([0, -600])
+        )
+        self.assertLess(blunder_res["total"], best_res["total"])
+        self.assertAlmostEqual(sum(blunder_res["components"].values()), blunder_res["total"])
+
+        # Missing engine in WDL mode raises ValueError
+        with self.assertRaises(ValueError):
+            combined_reward(
+                self.FEN, "e2e4", good_out, stage=0, engine=None, reward_mode="wdl_loss"
+            )
+
+        # Invalid reward_mode or stage raises ValueError
+        with self.assertRaises(ValueError):
+            combined_reward(self.FEN, "e2e4", good_out, reward_mode="unknown")
+        with self.assertRaises(ValueError):
+            combined_reward(self.FEN, "e2e4", good_out, stage=99)
+
+
+class TestStockfishEvalCache(unittest.TestCase):
+    FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+    def test_cache_reuses_fen_and_move_evals_and_isolates_depth(self):
+        class _CountingEngine:
+            def __init__(self):
+                self.calls = 0
+
+            def analyse(self, board, limit):
+                self.calls += 1
+                pv = [next(iter(board.legal_moves))] if any(board.legal_moves) else []
+                return {"score": _FakeScore(40), "pv": pv}
+
+        engine = _CountingEngine()
+        cache = StockfishEvalCache(max_size=16)
+        out = "<think>control the center with e2e4 cleanly.</think>\ne2e4"
+
+        # 8 repeated rollouts of same (fen, move) -> only 2 engine.analyse calls total (before + after)
+        for _ in range(8):
+            res = combined_reward(
+                self.FEN, "e2e4", out, stage=1, engine=engine, move_quality_depth=8, cache=cache
+            )
+            self.assertAlmostEqual(res["components"]["move_quality"], 1.0)
+        self.assertEqual(engine.calls, 2)
+
+        # Different move from same FEN reuses before-eval, only 1 new engine call
+        combined_reward(
+            self.FEN, "d2d4", out, stage=1, engine=engine, move_quality_depth=8, cache=cache
+        )
+        self.assertEqual(engine.calls, 3)
+
+        # Different depth does not collide
+        combined_reward(
+            self.FEN, "e2e4", out, stage=1, engine=engine, move_quality_depth=10, cache=cache
+        )
+        self.assertEqual(engine.calls, 5)
+
+        st = cache.stats()
+        self.assertGreater(st["fen_hits"], 0)
+        self.assertGreater(st["move_hits"], 0)
+        cache.clear()
+        self.assertEqual(cache.stats()["fen_size"], 0)
+        self.assertEqual(cache.stats()["fen_hits"], 0)
+
+    def test_cache_does_not_cache_engine_failures_and_evicts_lru(self):
+        class _FlakyEngine:
+            def __init__(self):
+                self.calls = 0
+
+            def analyse(self, board, limit):
+                self.calls += 1
+                if self.calls == 1:
+                    raise chess.engine.EngineError("transient failure")
+                return {"score": _FakeScore(25), "pv": []}
+
+        engine = _FlakyEngine()
+        cache = StockfishEvalCache(max_size=2)
+        board = chess.Board(self.FEN)
+
+        cp1, _ = cache.get_best(engine, board, depth=6)
+        self.assertIsNone(cp1)
+        # Second call must retry because None was not cached
+        cp2, _ = cache.get_best(engine, board, depth=6)
+        self.assertEqual(cp2, 25.0)
+        self.assertEqual(engine.calls, 2)
+
+        # LRU eviction with max_size=2
+        b1 = board.copy()
+        b1.push_uci("e2e4")
+        b2 = board.copy()
+        b2.push_uci("d2d4")
+        cache.get_best(engine, b1, depth=6)
+        cache.get_best(engine, b2, depth=6)
+        self.assertEqual(cache.stats()["fen_size"], 2)
+
+    def test_cache_thread_safety(self):
+        class _CountingEngine:
+            def __init__(self):
+                self.calls = 0
+
+            def analyse(self, board, limit):
+                self.calls += 1
+                return {"score": _FakeScore(30), "pv": []}
+
+        engine = _CountingEngine()
+        cache = StockfishEvalCache(max_size=64)
+        board = chess.Board(self.FEN)
+
+        def _worker(move_uci: str):
+            return cache.get_after_move_cp(engine, board, move_uci, depth=6, for_color=chess.WHITE)
+
+        moves = ["e2e4", "d2d4", "g1f3", "c2c4"] * 8
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(_worker, moves))
+        self.assertTrue(all(r == 30.0 for r in results))
+        self.assertFalse(any(math.isnan(r) for r in results))
+
+    def test_cache_oserror_wrapped_and_not_cached(self):
+        class _OsErrorEngine:
+            def __init__(self):
+                self.calls = 0
+
+            def analyse(self, board, limit):
+                self.calls += 1
+                if self.calls == 1:
+                    raise OSError("io failure")
+                return {"score": _FakeScore(20), "pv": []}
+
+        engine = _OsErrorEngine()
+        cache = StockfishEvalCache(max_size=16)
+        out = "<think>develop the king pawn cleanly now.</think>\ne2e4"
+        with self.assertRaises(EngineAnalysisError):
+            combined_reward(
+                self.FEN, "e2e4", out, stage=1, engine=engine, move_quality_depth=6, cache=cache
+            )
+        # Failure must not be cached; subsequent call succeeds cleanly.
+        self.assertEqual(cache.stats()["fen_size"], 0)
+        result = combined_reward(
+            self.FEN, "e2e4", out, stage=1, engine=engine, move_quality_depth=6, cache=cache
+        )
+        self.assertGreater(result["total"], 0.0)
+        self.assertGreaterEqual(engine.calls, 2)
+
+    def test_cache_incomplete_or_missing_score_raises_and_recovers(self):
+        bad_infos = [
+            {},
+            {"pv": [chess.Move.from_uci("e2e4")]},
+            {"score": None},
+            {"score": object()},
+            {"score": 42},
+            {"score": _FakeScore(True)},
+            {"score": _FakeScore(float("nan"))},
+            None,
+            "bad",
+        ]
+        out = "<think>develop the king pawn cleanly now.</think>\ne2e4"
+        for bad_info in bad_infos:
+            with self.subTest(bad_info=bad_info):
+
+                class _BadInfoOnceEngine:
+                    def __init__(self, payload):
+                        self._payload = payload
+                        self.calls = 0
+
+                    def analyse(self, board, limit):
+                        self.calls += 1
+                        if self.calls == 1:
+                            return self._payload
+                        pv = [next(iter(board.legal_moves))] if any(board.legal_moves) else []
+                        return {"score": _FakeScore(25), "pv": pv}
+
+                engine = _BadInfoOnceEngine(bad_info)
+                cache = StockfishEvalCache(max_size=16)
+
+                with self.assertRaises(EngineAnalysisError):
+                    combined_reward(
+                        self.FEN,
+                        "e2e4",
+                        out,
+                        stage=1,
+                        engine=engine,
+                        move_quality_depth=6,
+                        cache=cache,
+                    )
+                self.assertEqual(engine.calls, 1)
+                self.assertEqual(cache.stats()["fen_size"], 0)
+                self.assertEqual(cache.stats()["move_size"], 0)
+
+                # Subsequent valid call must succeed cleanly and populate the cache.
+                res = combined_reward(
+                    self.FEN,
+                    "e2e4",
+                    out,
+                    stage=1,
+                    engine=engine,
+                    move_quality_depth=6,
+                    cache=cache,
+                )
+                self.assertAlmostEqual(res["components"]["move_quality"], 1.0)
+                self.assertEqual(cache.stats()["fen_size"], 2)
+                self.assertEqual(cache.stats()["move_size"], 1)
+
+                # Also verify wdl_loss_reward raises EngineAnalysisError and caches nothing.
+                wdl_engine = _BadInfoOnceEngine(bad_info)
+                wdl_cache = StockfishEvalCache(max_size=16)
+                with self.assertRaises(EngineAnalysisError):
+                    wdl_loss_reward(self.FEN, "e2e4", wdl_engine, depth=6, cache=wdl_cache)
+                self.assertEqual(wdl_engine.calls, 1)
+                self.assertEqual(wdl_cache.stats()["fen_size"], 0)
+                self.assertEqual(wdl_cache.stats()["move_size"], 0)
+                self.assertAlmostEqual(
+                    wdl_loss_reward(self.FEN, "e2e4", wdl_engine, depth=6, cache=wdl_cache),
+                    0.0,
+                )
+
+    def test_cache_malformed_pv_degrades_gracefully_without_crashing(self):
+        valid_score = chess.engine.PovScore(chess.engine.Cp(25), chess.WHITE)
+
+        class _BadUciObj:
+            def uci(self):
+                raise TypeError("bad uci")
+
+        bad_pvs = [[None], 123, [_BadUciObj()]]
+        out = "<think>develop the king pawn cleanly now.</think>\ne2e4"
+        for bad_pv in bad_pvs:
+            with self.subTest(bad_pv=bad_pv):
+
+                class _BadPvEngine:
+                    def __init__(self, pv_payload):
+                        self._pv_payload = pv_payload
+
+                    def analyse(self, board, limit):
+                        return {"score": valid_score, "pv": self._pv_payload}
+
+                engine = _BadPvEngine(bad_pv)
+                cache = StockfishEvalCache(max_size=16)
+                cp, pv_uci = cache.get_best(engine, chess.Board(self.FEN), depth=4)
+                self.assertEqual(cp, 25.0)
+                self.assertIsNone(pv_uci)
+
+                # Stage 1 and WDL mode do not require pv and succeed cleanly.
+                res = combined_reward(
+                    self.FEN, "e2e4", out, stage=1, engine=engine, move_quality_depth=4, cache=cache
+                )
+                self.assertAlmostEqual(res["components"]["move_quality"], 1.0)
+                self.assertAlmostEqual(
+                    wdl_loss_reward(self.FEN, "e2e4", engine, depth=4, cache=cache), 0.0
+                )
+
+                # Stage 2 needs reply pv and raises EngineAnalysisError rather than AttributeError/TypeError.
+                with self.assertRaises(EngineAnalysisError):
+                    combined_reward(
+                        self.FEN,
+                        "e2e4",
+                        out,
+                        stage=2,
+                        engine=engine,
+                        move_quality_depth=4,
+                        cache=cache,
+                    )
 
 
 if __name__ == "__main__":
