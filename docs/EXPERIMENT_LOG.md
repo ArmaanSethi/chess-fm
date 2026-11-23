@@ -284,20 +284,20 @@ Every metric in this log is backed by a reproducible CLI command and recorded ma
 | **Strict Legal Rate** | `0.0%` (`0/200`) | `21.0%` (`42/200`) | `32.0%` (`64/200`) | **`63.5%` (`127/200`)** | **`+42.5 pp` (`3.0×`)** |
 | **Strict Format Adherence** | `0.0%` | `100.0%` | `100.0%` | **`100.0%`** | `0.0 pp` |
 | **Strict ACPL** *(legal moves only)* | `—` | `345.07 cp` | `277.16 cp` | `421.31 cp` *(see note)* | `+76.24 cp` *(3× harder set)* |
-| **Strict MAR (`≤50 cp`, legal)** | `0.0%` | `16.7%` | `25.0%` | **`29.1%` (`29.13%`)** | **`+12.4 pp`** |
-| **Strict Exact Match** | `0.0%` | `3.5%` | `7.0%` | **`8.0%`** | **`+4.5 pp`** |
+| **Strict MAR (`≤50 cp`, legal)** | `0.0%` | `11.90%` | `25.00%` | **`29.13%`** | **`+17.23 pp`** |
+| **Strict Exact Match** | `0.0%` | `0.5%` | `1.5%` | **`8.0%`** | **`+7.5 pp`** |
 | **Constrained Legal Rate** | `0.0%` *(512-tok budget)* | `100.0%` | `100.0%` | **`100.0%`** | `0.0 pp` |
 | **Constrained ACPL** *(all 200)* | `—` | `380.10 cp` | `325.88 cp` | **`330.18 cp`** | **`-49.92 cp`** |
-| **Constrained MAR (`≤50 cp`)** | `0.0%` | `16.5%` | `20.5%` | **`27.0%`** | **`+10.5 pp`** |
-| **Constrained Exact Match** | `0.0%` | `6.5%` | `8.5%` | **`11.0%`** | **`+4.5 pp`** |
-| **Tier 2 Overall ChessQA (1,000)** | `44.8%` (`448/1000`) | `36.3%` | `41.7%` | **`57.5%` (`575/1000`)** | **`+21.2 pp`** |
+| **Constrained MAR (`≤50 cp`)** | `0.0%` | `19.50%` | `22.00%` | **`27.00%`** | **`+7.50 pp`** |
+| **Constrained Exact Match** | `0.0%` | `6.5%` | `7.0%` | **`11.0%`** | **`+4.5 pp`** |
+| **Tier 2 Overall ChessQA (1,000)** | `44.8%` (`448/1000`) | `41.4%` | `41.7%` | **`57.5%` (`575/1000`)** | **`+16.1 pp`** |
 | **Tier 2 `piece_on_square` (200)** | **`40.0%` (`80/200`)** | `33.5%` | `34.0%` | **`80.5%` (`161/200`)** | **`+47.0 pp`** |
-| **Tier 2 `side_to_move` (200)** | `79.0%` (`158/200`) | `72.5%` | `79.0%` | **`97.0%` (`194/200`)** | **`+24.5 pp`** |
-| **Tier 2 `move_legality` (400)** | `52.5%` (`210/400`) | `37.0%` | `45.5%` | **`55.0%` (`220/400`)** | **`+18.0 pp`** |
+| **Tier 2 `side_to_move` (200)** | `79.0%` (`158/200`) | `73.5%` | `74.5%` | **`97.0%` (`194/200`)** | **`+23.5 pp`** |
+| **Tier 2 `move_legality` (400)** | `52.5%` (`210/400`) | `50.0%` | `50.0%` | **`55.0%` (`220/400`)** | **`+5.0 pp`** |
 | **CoT Claim Accuracy (Verifier V2)** | `88.89%` (`840/945`) | *N/A* | *N/A* | **`64.02%` (`895/1,398`)** | *(Phase II baseline)* |
-| **Eval Wall-Clock (`batch_size=16`)** | `889.7s` / `620.2s` | `~684s` (`bs=1`) | `~860s` (`bs=1`) | **`197.8s` strict / `82.3s` constr.** | **~5–8× faster** |
+| **Eval Wall-Clock (`batch_size=16`)** | `889.7s` / `620.2s` | `1,115.5s` / `808.7s` (`bs=1`) | `1,062.4s` / `520.3s` (`bs=1`) | **`197.8s` strict / `82.3s` constr.** | **5.6–9.8× faster** |
 
-- **Note on Strict ACPL Selection Effect (Simpson's Paradox):** Strict ACPL is averaged solely over legal predictions. Because `E1a` outputs **3.0× more legal moves** (`127/200` vs `42/200` for `E0 SFT`), its strict set includes 85 harder middlegame/endgame positions where `E0 SFT` emitted illegal moves and was excluded from the mean. On the full 200/200 **Constrained** benchmark (identical denominator), `E1a` cuts ACPL by **`-49.92 cp`** (`380.10 -> 330.18 cp`), boosts MAR by **`+10.5 pp`** (`16.5% -> 27.0%`), and boosts Exact Match by **`+4.5 pp`** (`6.5% -> 11.0%`), matching `E0 GRPO S2` (`325.88 cp`) with SFT alone.
+- **Note on Strict ACPL Selection Effect (Simpson's Paradox):** Strict ACPL is averaged solely over legal predictions. Because `E1a` outputs **3.0× more legal moves** (`127/200` vs `42/200` for `E0 SFT`), its strict set includes 85 harder middlegame/endgame positions where `E0 SFT` emitted illegal moves and was excluded from the mean. On the full 200/200 **Constrained** benchmark (identical denominator), `E1a` cuts ACPL by **`-49.92 cp`** (`380.10 -> 330.18 cp`), boosts MAR by **`+7.50 pp`** (`19.50% -> 27.00%`), and boosts Exact Match by **`+4.5 pp`** (`6.5% -> 11.0%`), matching `E0 GRPO S2` (`325.88 cp`) with SFT alone.
 - **Zero-Shot Piece-List Control Finding:** Simply adding `--include-piece-list` to unmodified Base `Qwen/Qwen3-4B` (before any SFT) raised Tier 2 `piece_on_square` from **`12.5%` -> `40.0%`** (`+27.5 pp`) and overall Tier 2 ChessQA from `41.3%` -> `44.8%`. Fine-tuning on 2.5K piece-list rows then doubled `piece_on_square` again to **`80.5%`** (`161/200`).
 
 #### 2. Phase II Frozen Benchmark Baselines (`E1a`, Strict Mode, `--batch-size 16`)
@@ -428,10 +428,10 @@ Computed via `chessfm.eval.bradley_terry.estimate_bradley_terry_elo(n_bootstrap=
 
 | Anchor Opponent | Anchor Elo | Games | Record (W-L-D) | White (W-L-D) | Black (W-L-D) | Score Rate | 95% Wilson CI | Avg Ply | Draw Cause |
 |---|---:|---:|---|---|---|---:|---|---:|---|
-| Random Bot | `200` | `40` | `1-2-37` | `0-1-19` | `1-1-18` | `48.8%` | `[0.341, 0.637]` | `114.5` | `30 rep3`, `6 max`, `1 stale` |
-| Stockfish Skill 0 (d6) | `800` | `40` | `0-30-10` | `0-14-6` | `0-16-4` | `12.5%` | `[0.055, 0.261]` | `50.3` | `10 rep3` |
-| Stockfish Skill 1 (d6) | `950` | `40` | `0-29-11` | `0-11-9` | `0-18-2` | `13.8%` | `[0.063, 0.276]` | `56.6` | `11 rep3` |
-| Maia-1100 (fallback) | `1100` | `40` | `0-22-18` | `0-8-12` | `0-14-6` | `22.5%` | `[0.123, 0.375]` | `98.8` | `16 rep3`, `2 max` |
+| Random Bot | `200` | `40` | `1-2-37` | `1-1-18` | `0-1-19` | `48.8%` | `[0.341, 0.637]` | `114.5` | `30 rep3`, `6 max`, `1 stale` |
+| Stockfish Skill 0 (d6) | `800` | `40` | `0-30-10` | `0-16-4` | `0-14-6` | `12.5%` | `[0.055, 0.261]` | `50.3` | `10 rep3` |
+| Stockfish Skill 1 (d6) | `950` | `40` | `0-29-11` | `0-18-2` | `0-11-9` | `13.8%` | `[0.063, 0.276]` | `56.6` | `11 rep3` |
+| Maia-1100 (fallback) | `1100` | `40` | `0-22-18` | `0-14-6` | `0-8-12` | `22.5%` | `[0.123, 0.375]` | `98.8` | `16 rep3`, `2 max` |
 | Stockfish `UCI_Elo=1320` (d6) | `1320` | `40` | `0-22-18` | `0-11-9` | `0-11-9` | `22.5%` | `[0.123, 0.375]` | `66.5` | `17 rep3`, `1 max` |
 
 - **Critical Match Diagnostic (Stateless Greedy Repetition Trap):** Inspecting all 200 PGNs revealed that **`84 of 94` draws (89.4%) terminated via threefold repetition (`rep3`)**, including `30/37` draws against the Random bot (`48.8%` score despite vastly stronger per-position move quality). Because `evaluate.py` prompts the model with only a single FEN (zero move history) under deterministic greedy decoding (`do_sample=False`), once the model reaches a quiet or winning position with an oscillating best-move pair, it deterministically loops until threefold repetition instead of converting checkmates. This is a textbook stateless-FEN chess-LLM failure mode and a clean motivation for history-aware prompting or RLVR conversion training.
