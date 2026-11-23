@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T01:05:00Z",
-  "overall_progress_pct": 38,
+  "updated_utc": "2026-11-23T01:28:00Z",
+  "overall_progress_pct": 50,
   "budget": {
     "cap_usd": 30,
-    "spent_usd_est": 0.4,
+    "spent_usd_est": 0.49,
     "currency": "USD",
-    "notes": "Modal Starter $30/mo free credits; only initial L4 smoke test run so far (OOM before training completed). Estimated full P1+P2 GPU budget: ~$13-$14."
+    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke pipeline verified end-to-end (~$0.09, 0 OOMs; ~$0.49 cumulative incl. initial OOM baseline). Estimated full P1+P2 GPU budget: ~$13-$14."
   },
   "test_summary": {
-    "python_tests_note": "580+ unit/integration tests (CI coverage gate >= 80%)",
+    "python_tests_note": "609 unit/integration tests passing (94.25% coverage, CI gate >= 80%)",
     "js_tests_passed": 50,
     "js_tests_files": 9
   },
@@ -56,10 +56,15 @@
       "id": "M1",
       "name": "P1 Pre-Flight Fixes, Eval/HF Plumbing & L4 Smoke Re-run",
       "track": "P1",
-      "status": "IN_PROGRESS",
-      "commit_sha": null,
-      "summary": "Modal vllm_image layer order, gradient checkpointing L4 OOM fix, Qwen3 enable_thinking prompt parity, Stockfish SIGFPE auto-restart, paired opening indexing, unified eval_manifest.json, and L4 smoke re-run.",
-      "verified_metrics": []
+      "status": "DONE",
+      "commit_sha": "4ce81c8",
+      "summary": "Modal vllm_image layer order, gradient checkpointing L4 OOM fix, TRL 0.16 KV-cache GRPO rollout fix (QUIRK-006 in docs/EXPERIMENT_LOG.md), Qwen3 enable_thinking prompt parity, Stockfish SIGFPE auto-restart, paired opening indexing, unified eval_manifest.json, and verified L4 smoke re-run.",
+      "verified_metrics": [
+        "Modal L4 smoke: 0 OOMs (~$0.09)",
+        "SFT 23.4s + GRPO 283.7s + Eval",
+        "QUIRK-006 KV-cache rollout fix",
+        "609 Python tests (94.25% cov)"
+      ]
     },
     {
       "id": "M2",
@@ -79,7 +84,7 @@
       "name": "Public Project & Benchmarks Dashboard",
       "track": "P2",
       "status": "DONE",
-      "commit_sha": null,
+      "commit_sha": "41d590c",
       "summary": "Public-facing architecture, milestone progress, measured benchmark tables, engineering quirks ledger, and W&B/HF/docs links backed by web/data/dashboard.json.",
       "verified_metrics": [
         "50/50 JS unit tests",
@@ -276,16 +281,16 @@
       "title": "vllm_image add_local_dir() layer-order violation",
       "impact": "Modal image builds fail when run_commands/pip_install steps appear after add_local_dir() in the chain.",
       "resolution": "Move add_local_dir() to the final step of vllm_image in scripts/modal_train.py.",
-      "status": "In Progress"
+      "status": "Fixed"
     },
     {
       "id": "QUIRK-002",
       "track": "P1",
       "subsystem": "Training / L4 VRAM",
-      "title": "L4 22 GiB OOM during SFT forward pass without gradient checkpointing",
-      "impact": "Initial L4 smoke test hit torch.OutOfMemoryError (44 MiB allocation over 22.08 GiB) at batch_size=4 with ASCII boards.",
-      "resolution": "Enable gradient_checkpointing=True (use_reentrant=False), use_cache=False, and PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True.",
-      "status": "In Progress"
+      "title": "L4 22 GiB OOM during SFT forward pass & TRL 0.16 KV-cache rollout stall",
+      "impact": "Initial L4 smoke test hit torch.OutOfMemoryError (44 MiB over 22.08 GiB) at batch_size=4; enabling gradient checkpointing then disabled KV caching during TRL 0.16 GRPO rollouts (QUIRK-006 in EXPERIMENT_LOG.md).",
+      "resolution": "Enabled gradient_checkpointing=True (use_reentrant=False), PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True, and _KVCacheGRPOTrainer eval/use_cache toggle during rollouts (0 OOMs; SFT 23.4s, GRPO 283.7s).",
+      "status": "Fixed"
     },
     {
       "id": "QUIRK-003",
@@ -294,7 +299,7 @@
       "title": "Qwen3 enable_thinking=False default causes doubled <think> tokens",
       "impact": "Mismatched chat template defaults between SFT, GRPO, and eval produce broken reasoning prefixes.",
       "resolution": "Pass explicit enable_thinking flag consistently across SFT, GRPO, and evaluate.py with matching require_think_close.",
-      "status": "In Progress"
+      "status": "Fixed"
     },
     {
       "id": "QUIRK-004",
@@ -302,8 +307,8 @@
       "subsystem": "Engine / Stockfish 16",
       "title": "Stockfish 16 SIGFPE (exit -8) crash under repeated search reuse",
       "impact": "Long-running evaluation and pytest suites intermittently crash when reusing a single Stockfish process.",
-      "resolution": "Add automatic process health check and transparent restart resilience in src/chessfm/rl/engine.py.",
-      "status": "In Progress"
+      "resolution": "Wrapped open_engine() and ChessEnv in ResilientEngine auto-restart with preserved UCI options across engine.py, chess_env.py, and all live Stockfish tests.",
+      "status": "Fixed"
     },
     {
       "id": "QUIRK-005",
@@ -311,8 +316,8 @@
       "subsystem": "Eval / Match Pairing",
       "title": "evaluate.py unpaired opening indexing breaks color-balanced pairing",
       "impact": "Using g % len(opening_fens) gives White and Black different openings instead of paired color swaps.",
-      "resolution": "Index openings with (g // 2) % len(opening_fens) and report White/Black splits separately.",
-      "status": "In Progress"
+      "resolution": "Index openings with (g // 2) % len(opening_fens), honor model_color as Game 1 color, and report White/Black splits separately.",
+      "status": "Fixed"
     },
     {
       "id": "QUIRK-006",
