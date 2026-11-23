@@ -61,6 +61,7 @@ DEFAULT_V1_5_MODEL = "Qwen/Qwen3.5-4B"
 DEFAULT_V2_MODEL = "unsloth/gemma-4-E4B-it"
 OFFICIAL_V2_MODEL = "google/gemma-4-E4B-it"
 DEFAULT_STUDENT_MODEL = "Qwen/Qwen3.5-0.8B"
+FALLBACK_STUDENT_MODEL = "Qwen/Qwen3-0.6B"
 DEFAULT_LOCAL_STUDENT_MODEL = "google/gemma-4-E2B-it"
 DEFAULT_TEACHER_MODEL = "google/gemma-4-26B-A4B-it"
 ALT_TEACHER_MODEL = "Qwen/Qwen3.6-35B-A3B"
@@ -72,6 +73,7 @@ TRACK_MODELS: dict[str, str] = {
     "v2": DEFAULT_V2_MODEL,
     "coach": DEFAULT_V2_MODEL,
     "student": DEFAULT_STUDENT_MODEL,
+    "student-qwen3": FALLBACK_STUDENT_MODEL,
     "student-e2b": DEFAULT_LOCAL_STUDENT_MODEL,
     "teacher": DEFAULT_TEACHER_MODEL,
     "teacher-qwen": ALT_TEACHER_MODEL,
@@ -80,12 +82,15 @@ TRACK_MODELS: dict[str, str] = {
 VALID_TASKS = (
     "smoke-pipeline",
     "sft",
+    "sft-student",
     "grpo",
     "eval",
     "static-eval",
     "coach-eval",
+    "coach-benchmark",
     "distill-teacher",
     "export-gguf",
+    "export-onnx",
     "upload-hf",
 )
 
@@ -199,6 +204,24 @@ modern_image = _modern_base_image.add_local_dir(
 # vLLM image for high-throughput open-weight teacher distillation (zero external APIs).
 vllm_image = _modern_base_image.pip_install("vllm").add_local_dir(
     str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE
+)
+
+# Dedicated CPU image for Transformers.js v3 WebGPU ONNX export & 4-bit quantization.
+onnx_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("git")
+    .env(_BASE_ENV)
+    .pip_install(
+        "torch>=2.5.0",
+        "transformers>=4.51.0,<5.0",
+        "optimum[onnxruntime]",
+        "onnx>=1.17.0",
+        "onnxruntime>=1.20.0",
+        "onnxscript>=0.1.0",
+        "huggingface-hub>=0.28.0",
+        "numpy<2.3",
+    )
+    .add_local_dir(str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE)
 )
 
 app = modal.App(APP_NAME, image=image)
@@ -684,6 +707,7 @@ def run_distill_teacher(
     output_name: str = "distilled_coach.jsonl",
     max_attempts: int = 3,
     limit: int = 0,
+    workers: int = 24,
 ) -> str:
     """Serve an open-weight teacher locally via vLLM and generate ACT-Eval-verified traces."""
     import requests
@@ -704,12 +728,16 @@ def run_distill_teacher(
             str(port),
             "--max-model-len",
             "4096",
+            "--gpu-memory-utilization",
+            "0.90",
+            "--dtype",
+            "bfloat16",
         ],
         cwd=REMOTE_REPO,
     )
     try:
         health_url = f"http://127.0.0.1:{port}/health"
-        for _ in range(180):
+        for _ in range(450):
             if server_proc.poll() is not None:
                 raise RuntimeError(f"vLLM server exited early with code {server_proc.returncode}")
             try:
@@ -735,6 +763,8 @@ def run_distill_teacher(
             model,
             "--max-attempts",
             str(max_attempts),
+            "--workers",
+            str(workers),
         ]
         if limit > 0:
             cmd.extend(["--limit", str(limit)])
@@ -794,6 +824,238 @@ def run_export_gguf(
     return out_dir
 
 
+@app.function(
+    image=modern_image,
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_sft_student_l4(
+    model: str = DEFAULT_STUDENT_MODEL,
+    data: str = f"{VOL_MOUNT}/data/distilled_coach.jsonl",
+    output_subdir: str = "sft_student_coach",
+    epochs: int = 3,
+    batch_size: int = 4,
+    grad_accum: int = 4,
+    lr: float = 2e-5,
+    include_ascii: bool = False,
+    merge_and_save: bool = True,
+) -> str:
+    """Fine-tune a small browser-target student model (0.6B-0.8B) on L4."""
+    return _exec_sft(
+        model,
+        data,
+        output_subdir,
+        epochs,
+        batch_size,
+        grad_accum,
+        lr,
+        include_ascii,
+        merge_and_save,
+    )
+
+
+@app.function(
+    image=onnx_image,
+    cpu=4.0,
+    memory=16384,
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60,
+)
+def run_export_onnx(
+    model: str = FALLBACK_STUDENT_MODEL,
+    output_subdir: str = "onnx_webgpu_export",
+    quant: str = "q4f16",
+    opset: int = 17,
+    upload_hf: str = "",
+    dry_run: bool = False,
+) -> str:
+    """Export a merged student model to quantized Transformers.js v3 WebGPU ONNX."""
+    os.makedirs(f"{VOL_MOUNT}/exports", exist_ok=True)
+    os.makedirs(f"{VOL_MOUNT}/hf_cache", exist_ok=True)
+    out_dir = f"{VOL_MOUNT}/exports/{output_subdir}"
+    cmd = [
+        "python",
+        "scripts/export_onnx_webgpu.py",
+        "--model",
+        model,
+        "--output",
+        out_dir,
+        "--quant",
+        quant,
+        "--opset",
+        str(opset),
+    ]
+    if upload_hf:
+        cmd.extend(["--upload-hf", upload_hf])
+    if dry_run:
+        cmd.append("--dry-run")
+    _run(cmd)
+    if not dry_run:
+        volume.commit()
+    return out_dir
+
+
+@app.function(
+    image=modern_image,
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60,
+)
+def run_coach_benchmark_l4(
+    model: str = FALLBACK_STUDENT_MODEL,
+    benchmark: str = "data_generation/coaching_sample.jsonl",
+    output_subdir: str = "coach_benchmark",
+    limit: int = 0,
+) -> str:
+    """Generate coaching outputs on a held-out coaching JSONL and score with ACT-Eval + spoiler checks."""
+    import json
+    from datetime import datetime, timezone
+
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    _ensure_installed()
+
+    from chessfm.coach.socratic import contains_move_spoiler
+    from chessfm.coach.verifier import verify_claims
+    from chessfm.data_generation.distill_open_teacher import (
+        SYSTEM_PROMPT,
+        _is_non_coaching_row,
+        build_teacher_prompt,
+        infer_task_type,
+        strip_reasoning_blocks,
+    )
+    from chessfm.fens import read_jsonl
+
+    bench_path = Path(benchmark)
+    if not bench_path.is_absolute():
+        bench_path = Path(REMOTE_REPO) / bench_path
+    rows = [r for r in read_jsonl(bench_path) if r.get("fen") and not _is_non_coaching_row(r)]
+    if limit > 0:
+        rows = rows[:limit]
+
+    tokenizer = AutoTokenizer.from_pretrained(model)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    lm = AutoModelForCausalLM.from_pretrained(
+        model,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+    lm.eval()
+
+    start_t = time.monotonic()
+    outputs_jsonl: list[dict] = []
+    act_passed = 0
+    socratic_l12_total = 0
+    socratic_l12_clean = 0
+    per_task: dict[str, dict[str, int]] = {}
+
+    for row in rows:
+        fen = row["fen"]
+        task_type = infer_task_type(row)
+        best_move = str(row.get("best_move_uci") or row.get("best_move") or "")
+        messages = row.get("messages")
+        if isinstance(messages, list) and len(messages) >= 2:
+            prompt_messages = [m for m in messages if m.get("role") != "assistant"]
+        else:
+            user_prompt = build_teacher_prompt(row, task_type=task_type)
+            prompt_messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+
+        try:
+            prompt_str = tokenizer.apply_chat_template(
+                prompt_messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        except TypeError:
+            prompt_str = tokenizer.apply_chat_template(
+                prompt_messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+
+        inputs = tokenizer(prompt_str, return_tensors="pt").to(lm.device)
+        with torch.no_grad():
+            gen_ids = lm.generate(
+                **inputs,
+                max_new_tokens=256,
+                do_sample=False,
+                pad_token_id=tokenizer.pad_token_id,
+            )
+        new_tokens = gen_ids[0][inputs["input_ids"].shape[1] :]
+        raw_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
+        cleaned = strip_reasoning_blocks(raw_text)
+
+        report = verify_claims(fen, cleaned, engine=None)
+        passed = bool(report["passed"])
+        if passed:
+            act_passed += 1
+
+        spoiler = False
+        if task_type in ("socratic_l1", "socratic_l2") and best_move:
+            socratic_l12_total += 1
+            spoiler = bool(contains_move_spoiler(cleaned, best_move, fen))
+            if not spoiler:
+                socratic_l12_clean += 1
+
+        bucket = per_task.setdefault(task_type, {"total": 0, "act_passed": 0, "spoiler_free": 0})
+        bucket["total"] += 1
+        if passed:
+            bucket["act_passed"] += 1
+        if not spoiler:
+            bucket["spoiler_free"] += 1
+
+        outputs_jsonl.append(
+            {
+                "fen": fen,
+                "task_type": task_type,
+                "best_move": best_move,
+                "response": cleaned,
+                "act_eval_passed": passed,
+                "violations": report.get("violations", []),
+                "spoiler_free": not spoiler,
+            }
+        )
+
+    wall_s = round(time.monotonic() - start_t, 2)
+    n = max(1, len(outputs_jsonl))
+    summary = {
+        "model": model,
+        "benchmark": str(benchmark),
+        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "wall_clock_seconds": wall_s,
+        "total_cases": len(outputs_jsonl),
+        "act_eval_passed": act_passed,
+        "act_eval_pass_rate": round(act_passed / n, 4),
+        "socratic_l12_total": socratic_l12_total,
+        "socratic_l12_spoiler_free": socratic_l12_clean,
+        "socratic_l12_spoiler_free_rate": (
+            round(socratic_l12_clean / socratic_l12_total, 4) if socratic_l12_total else 1.0
+        ),
+        "per_task_type": per_task,
+    }
+
+    out_jsonl_path = Path(f"{VOL_MOUNT}/results/{output_subdir}.jsonl")
+    out_summary_path = Path(f"{VOL_MOUNT}/results/{output_subdir}_summary.json")
+    out_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_jsonl_path.open("w", encoding="utf-8") as fh:
+        for item in outputs_jsonl:
+            fh.write(json.dumps(item, ensure_ascii=False) + "\n")
+    out_summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    volume.commit()
+    print(json.dumps(summary, indent=2))
+    return str(out_summary_path)
+
+
 @app.local_entrypoint()
 def main(
     task: str = "smoke-pipeline",
@@ -827,6 +1089,8 @@ def main(
     path_in_repo: str = "",
     commit_message: str = "Upload ChessFM artifacts",
     dry_run: bool = False,
+    workers: int = 24,
+    opset: int = 17,
 ) -> None:
     resolved_model = resolve_track_model(
         model=model, track=track, use_official_gemma=use_official_gemma
@@ -847,6 +1111,18 @@ def main(
             merge_and_save=True,
         )
         print(f"SFT merged checkpoint saved to Modal volume: {ckpt}")
+    elif task == "sft-student":
+        ckpt = run_sft_student_l4.remote(
+            model=resolved_model,
+            data=data
+            if data != "data_generation/sft_train.jsonl"
+            else f"{VOL_MOUNT}/data/distilled_coach.jsonl",
+            output_subdir=output_subdir or "sft_student_coach",
+            epochs=epochs,
+            include_ascii=include_ascii,
+            merge_and_save=True,
+        )
+        print(f"Student SFT merged checkpoint saved to Modal volume: {ckpt}")
     elif task == "grpo":
         ckpt = grpo_fn.remote(
             model=resolved_model,
@@ -905,11 +1181,22 @@ def main(
             output_name=output_subdir or "distilled_coach.jsonl",
             max_attempts=max_attempts,
             limit=limit,
+            workers=workers,
         )
         print(f"Verified distillation dataset saved to Modal volume: {out_path}")
     elif task == "coach-eval":
         run_coach_eval.remote()
         print("Coach evaluation suite complete.")
+    elif task == "coach-benchmark":
+        summary_path = run_coach_benchmark_l4.remote(
+            model=resolved_model,
+            benchmark=benchmark
+            if benchmark != "data_generation/eval_benchmark.jsonl"
+            else "data_generation/coaching_sample.jsonl",
+            output_subdir=output_subdir or "coach_benchmark",
+            limit=limit,
+        )
+        print(f"Coach ACT-Eval benchmark summary saved to Modal volume: {summary_path}")
     elif task == "export-gguf":
         export_dir = run_export_gguf.remote(
             model=resolved_model,
@@ -919,6 +1206,20 @@ def main(
         )
         print(
             f"GGUF export artifacts saved to Modal volume: {export_dir}. "
+            "Download with: modal volume get chessfm-artifacts exports ./exports"
+        )
+    elif task == "export-onnx":
+        onnx_quant = "q4f16" if quant == "q4_k_m" else quant
+        export_dir = run_export_onnx.remote(
+            model=resolved_model,
+            output_subdir=output_subdir or "onnx_webgpu_export",
+            quant=onnx_quant,
+            opset=opset,
+            upload_hf=repo_id,
+            dry_run=dry_run,
+        )
+        print(
+            f"ONNX WebGPU export artifacts saved to Modal volume: {export_dir}. "
             "Download with: modal volume get chessfm-artifacts exports ./exports"
         )
     elif task == "smoke-pipeline":

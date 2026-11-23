@@ -14,9 +14,10 @@ USAGE:
 from __future__ import annotations
 
 import argparse
+import inspect
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from trl import SFTConfig
@@ -43,6 +44,122 @@ def get_response_template(model_name: str = DEFAULT_BASE_MODEL) -> str:
     return CHATML_ASSISTANT_OPEN
 
 
+def _format_messages_chatml(
+    messages: list[dict[str, Any]], *, add_generation_prompt: bool = False
+) -> str:
+    """Fallback ChatML renderer when a tokenizer lacks a ``chat_template``."""
+    parts = [f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in messages]
+    if add_generation_prompt:
+        parts.append(CHATML_ASSISTANT_OPEN)
+    return "".join(parts)
+
+
+def _apply_chat_template_safe(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+    *,
+    add_generation_prompt: bool = False,
+    enable_thinking: bool = False,
+) -> str:
+    """Render ``messages`` via ``tokenizer.apply_chat_template`` with graceful fallbacks."""
+    if (
+        tokenizer is not None
+        and hasattr(tokenizer, "apply_chat_template")
+        and getattr(tokenizer, "chat_template", None)
+    ):
+        try:
+            return str(
+                tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=add_generation_prompt,
+                    enable_thinking=enable_thinking,
+                )
+            )
+        except TypeError:
+            return str(
+                tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=add_generation_prompt,
+                )
+            )
+    return _format_messages_chatml(messages, add_generation_prompt=add_generation_prompt)
+
+
+def _is_valid_sft_sample(sample: dict[str, Any]) -> bool:
+    """Return True if ``sample`` has valid ``messages`` or ``prompt``+``completion``."""
+    if not sample.get("is_reasonable", True):
+        return False
+    messages = sample.get("messages")
+    if (
+        isinstance(messages, list)
+        and len(messages) >= 2
+        and all(isinstance(m, dict) and "role" in m and "content" in m for m in messages)
+    ):
+        return True
+    return "prompt" in sample and "completion" in sample
+
+
+def format_sft_example(
+    sample: dict[str, Any],
+    tokenizer: Any,
+    *,
+    include_ascii: bool = False,
+    use_prompt_completion: bool = False,
+) -> dict[str, str]:
+    """Format one SFT example for TRL 0.16 (``text``) or TRL >=1.18 (``prompt``/``completion``).
+
+    Checks ``messages`` FIRST so coaching rows containing ``fen`` are never
+    clobbered by P1 FEN prompts when ``--include-ascii`` is enabled.
+    """
+    messages = sample.get("messages")
+    if isinstance(messages, list) and len(messages) >= 2:
+        full_str = _apply_chat_template_safe(
+            tokenizer,
+            messages,
+            add_generation_prompt=False,
+            enable_thinking=False,
+        )
+        if use_prompt_completion:
+            prompt_str = _apply_chat_template_safe(
+                tokenizer,
+                messages[:-1],
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+            if full_str.startswith(prompt_str):
+                completion_str = full_str[len(prompt_str) :]
+            else:
+                eos_tok = getattr(tokenizer, "eos_token", None) or "<|im_end|>"
+                completion_str = f"{messages[-1]['content']}{eos_tok}"
+            return {"prompt": prompt_str, "completion": completion_str}
+        return {"text": full_str}
+
+    if include_ascii and "fen" in sample:
+        prompt = build_chat_prompt(
+            sample["fen"],
+            tokenizer=tokenizer,
+            include_ascii=True,
+            enable_thinking=True,
+        )
+    else:
+        prompt = sample["prompt"]
+    completion = sample["completion"]
+    if use_prompt_completion:
+        return {"prompt": prompt, "completion": completion}
+    return {"text": f"{prompt}{completion}"}
+
+
+def _sft_config_supports_completion_only_loss() -> bool:
+    """Return True if the installed TRL ``SFTConfig`` accepts ``completion_only_loss``."""
+    try:
+        from trl import SFTConfig
+    except ImportError:
+        return False
+    return "completion_only_loss" in inspect.signature(SFTConfig.__init__).parameters
+
+
 def build_completion_collator(tokenizer, model_name: str = DEFAULT_BASE_MODEL):
     """Build a TRL collator that masks prompt tokens to -100 during SFT.
 
@@ -61,7 +178,7 @@ def build_completion_collator(tokenizer, model_name: str = DEFAULT_BASE_MODEL):
     )
 
 
-def build_sft_config(args) -> SFTConfig:
+def build_sft_config(args, *, completion_only_loss: bool = False) -> SFTConfig:
     """Construct the TRL SFTConfig from parsed CLI args.
 
     Imported lazily so ``read_jsonl`` stays usable without the full torch/trl
@@ -79,6 +196,11 @@ def build_sft_config(args) -> SFTConfig:
     extra_kwargs: dict = {}
     if use_gpu:
         extra_kwargs["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
+    if (
+        completion_only_loss
+        and "completion_only_loss" in inspect.signature(SFTConfig.__init__).parameters
+    ):
+        extra_kwargs["completion_only_loss"] = True
     return SFTConfig(
         output_dir=str(args.output),
         num_train_epochs=args.epochs,
@@ -161,10 +283,8 @@ def main():
     raw_data = read_jsonl(args.data)
     print(f"   Loaded {len(raw_data)} samples")
 
-    # Filter to valid, reasonable samples.
-    valid_data = [
-        s for s in raw_data if "prompt" in s and "completion" in s and s.get("is_reasonable", True)
-    ]
+    # Filter to valid, reasonable samples (supports both messages and prompt/completion rows).
+    valid_data = [s for s in raw_data if _is_valid_sft_sample(s)]
     print(f"   Valid & reasonable samples: {len(valid_data)}/{len(raw_data)}")
 
     if not valid_data:
@@ -172,11 +292,14 @@ def main():
         return
 
     if args.dry_run:
-        bad_tags = sum(
-            1
-            for s in valid_data
-            if s["completion"].count("<think>") != s["completion"].count("</think>")
-        )
+        bad_tags = 0
+        for s in valid_data:
+            comp = s.get("completion")
+            if comp is None and isinstance(s.get("messages"), list) and s["messages"]:
+                comp = str(s["messages"][-1].get("content", ""))
+            comp_str = str(comp or "")
+            if comp_str.count("<think>") != comp_str.count("</think>"):
+                bad_tags += 1
         if bad_tags:
             print(f"   ERROR: {bad_tags} sample(s) with unbalanced <think> tags.")
             print("   Fix the data before training: re-run")
@@ -197,19 +320,19 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    data_collator = build_completion_collator(tokenizer, model_name=args.model)
+    use_prompt_completion = data_collator is None and _sft_config_supports_completion_only_loss()
+
     print("\nPreparing formatted dataset with completion-only loss masking...")
-    formatted_rows = []
-    for sample in valid_data:
-        if args.include_ascii and "fen" in sample:
-            prompt = build_chat_prompt(
-                sample["fen"],
-                tokenizer=tokenizer,
-                include_ascii=True,
-                enable_thinking=True,
-            )
-        else:
-            prompt = sample["prompt"]
-        formatted_rows.append({"text": f"{prompt}{sample['completion']}"})
+    formatted_rows = [
+        format_sft_example(
+            sample,
+            tokenizer,
+            include_ascii=args.include_ascii,
+            use_prompt_completion=use_prompt_completion,
+        )
+        for sample in valid_data
+    ]
     dataset = Dataset.from_list(formatted_rows)
 
     train_indices, val_indices, val_fens = fen_level_split(valid_data)
@@ -225,8 +348,7 @@ def main():
     if hasattr(model, "config"):
         model.config.use_cache = False
 
-    training_args = build_sft_config(args)
-    data_collator = build_completion_collator(tokenizer, model_name=args.model)
+    training_args = build_sft_config(args, completion_only_loss=use_prompt_completion)
 
     trainer = SFTTrainer(
         model=model,
