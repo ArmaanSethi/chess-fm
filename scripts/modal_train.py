@@ -913,12 +913,16 @@ def run_coach_benchmark_l4(
 ) -> str:
     """Generate coaching outputs on a held-out coaching JSONL and score with ACT-Eval + spoiler checks."""
     import json
+    import sys
     from datetime import datetime, timezone
 
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     _ensure_installed()
+    src_path = f"{REMOTE_REPO}/src"
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
 
     from chessfm.coach.socratic import contains_move_spoiler
     from chessfm.coach.verifier import verify_claims

@@ -405,3 +405,49 @@ class TestTrainSftMessagesFormatting:
         )
         assert "a b c d e f g h" in out_ascii["text"]
         assert "<think>Analyze</think>\ne2e4<|im_end|>" in out_ascii["text"]
+
+    def test_build_sft_config_omits_warmup_ratio_when_unsupported(self, monkeypatch):
+        import sys
+        import types
+
+        from chessfm.training.train_sft import build_sft_config
+
+        args = types.SimpleNamespace(
+            output=Path("checkpoints/test"),
+            epochs=2,
+            batch_size=4,
+            grad_accum=2,
+            lr=2e-5,
+            seed=42,
+        )
+
+        class FakeSFTConfigNoWarmup:
+            def __init__(self, *, output_dir: str, **kwargs):
+                if "warmup_ratio" in kwargs:
+                    raise TypeError("unexpected keyword argument 'warmup_ratio'")
+                self.output_dir = output_dir
+                self.kwargs = kwargs
+
+        class FakeSFTConfigWithWarmup:
+            def __init__(self, *, output_dir: str, warmup_ratio: float = 0.0, **kwargs):
+                self.output_dir = output_dir
+                self.warmup_ratio = warmup_ratio
+                self.kwargs = kwargs
+
+        fake_torch = types.SimpleNamespace(
+            cuda=types.SimpleNamespace(is_available=lambda: False, is_bf16_supported=lambda: False)
+        )
+        monkeypatch.setitem(sys.modules, "torch", fake_torch)
+        monkeypatch.setitem(
+            sys.modules, "trl", types.SimpleNamespace(SFTConfig=FakeSFTConfigNoWarmup)
+        )
+
+        cfg_v5 = build_sft_config(args)
+        assert cfg_v5.output_dir == "checkpoints/test"
+        assert "warmup_ratio" not in cfg_v5.kwargs
+
+        monkeypatch.setitem(
+            sys.modules, "trl", types.SimpleNamespace(SFTConfig=FakeSFTConfigWithWarmup)
+        )
+        cfg_v4 = build_sft_config(args)
+        assert cfg_v4.warmup_ratio == 0.1

@@ -193,13 +193,13 @@ def build_sft_config(args, *, completion_only_loss: bool = False) -> SFTConfig:
     use_gpu = torch.cuda.is_available()
     report_to = "wandb" if os.environ.get("WANDB_API_KEY") else "none"
     grad_accum = getattr(args, "grad_accum", 2)
+    sft_params = inspect.signature(SFTConfig.__init__).parameters
     extra_kwargs: dict = {}
     if use_gpu:
         extra_kwargs["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
-    if (
-        completion_only_loss
-        and "completion_only_loss" in inspect.signature(SFTConfig.__init__).parameters
-    ):
+    if "warmup_ratio" in sft_params:
+        extra_kwargs["warmup_ratio"] = 0.1
+    if completion_only_loss and "completion_only_loss" in sft_params:
         extra_kwargs["completion_only_loss"] = True
     return SFTConfig(
         output_dir=str(args.output),
@@ -208,7 +208,6 @@ def build_sft_config(args, *, completion_only_loss: bool = False) -> SFTConfig:
         gradient_accumulation_steps=grad_accum,
         learning_rate=args.lr,
         weight_decay=0.01,
-        warmup_ratio=0.1,
         logging_steps=10,
         save_steps=50,
         save_total_limit=3,
