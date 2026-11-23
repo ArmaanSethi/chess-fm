@@ -43,6 +43,7 @@ from __future__ import annotations
 import inspect
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -241,6 +242,9 @@ def _ensure_installed() -> None:
     os.makedirs(f"{VOL_MOUNT}/exports", exist_ok=True)
     os.makedirs(f"{VOL_MOUNT}/hf_cache", exist_ok=True)
     _run(["pip", "install", "--no-deps", "-e", "."])
+    src_path = str(Path(REMOTE_REPO) / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
 
 
 def _exec_sft(
@@ -467,6 +471,9 @@ def _exec_eval(
 def _suite_supports_flag(flag: str) -> bool:
     """Return True if ``chessfm.eval.suite`` accepts ``flag`` (e.g. ``--include-piece-list``)."""
     param_name = flag.lstrip("-").replace("-", "_")
+    src_path = str(Path(REMOTE_REPO) / "src")
+    if Path(src_path).is_dir() and src_path not in sys.path:
+        sys.path.insert(0, src_path)
     try:
         from chessfm.eval.suite import evaluate_model_suite
     except ImportError:
