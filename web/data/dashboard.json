@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T10:20:00Z",
+  "updated_utc": "2026-11-23T11:35:00Z",
   "overall_progress_pct": 63,
   "budget": {
     "cap_usd": 30,
-    "spent_usd_est": 17.06,
+    "spent_usd_est": 20.48,
     "currency": "USD",
-    "notes": "Modal Starter credits; Phase I (M1 + M3 + M4 distillation/evals) $13.50 + Phase II Gate 1 E1a ($1.29) + Phase II Gate 2 E1b 20K A100 SFT & 3 batched L4 frozen evals ($2.27) = $17.06 verified cumulative spend."
+    "notes": "Modal Starter credits; Phase I ($13.50) + Gate 1 E1a ($1.29) + Gate 2 E1b ($2.27) + Gate 3a E2a r=64 A100 SFT, 3 L4 frozen evals & 5-anchor 200-game BT Elo ($3.42 conservative wall / $3.01 est. active GPU) = $20.48 cumulative."
   },
   "test_summary": {
     "python_tests_note": "766 unit/integration tests passing (94.53% coverage, CI gate >= 80%)",
@@ -106,7 +106,8 @@
         "N=50 Paired SF-L1 Constr.: 0-38-12 (12.0% score, 553.9 Est. Elo, 95% CI [0.056, 0.238])",
         "Tier 2 ChessQA: 41.7% (piece_on_square 12.5% -> 34.0%); private HF checkpoint uploaded",
         "Phase II Gate 1 E1a SFT (EXP-007, 2.5K Piece List + lr=2e-4): 63.5% strict legal (3.0x), 330.2 cp constr. ACPL, 80.5% piece_on_square, 4.7% solved on 900 Puzzles",
-        "Phase II Gate 2 E1b SFT (EXP-008, 20K x 2ep Piece List, r=16): 64.4% strict legal (1,000-FEN), 336.5 cp strict ACPL (-84.8 cp), 18.3% solved on 900 Puzzles (3.9x), 38.8% on 1,000 ChessQA (3.3x), 89.0% English (0% leakage)"
+        "Phase II Gate 2 E1b SFT (EXP-008, 20K x 2ep Piece List, r=16): 64.4% strict legal (1,000-FEN), 336.5 cp strict ACPL (-84.8 cp), 18.3% solved on 900 Puzzles (3.9x), 38.8% on 1,000 ChessQA (3.3x), 89.0% English (0% leakage)",
+        "Phase II Gate 3a E2a SFT (EXP-009, 20K x 2ep Piece List, r=64): 66.2% strict legal (1,000-FEN), 297.6 cp strict ACPL (-39.0 cp), 21.4% solved on 900 Puzzles (72.7% strict legal), 45.2% ChessQA (100% castling_rights, 46% attacks), 90.0% English (0% leakage), 542.4 BT Elo (95% CI [470.8, 610.5], 200g 5-anchor)"
       ]
     },
     {
@@ -175,15 +176,15 @@
         "notes": "200-FEN benchmark + 20g SF L1 (EXP-003); 100% exhaust 512-tok budget before </think>"
       },
       {
-        "stage": "Completion-Masked SFT (E0 -> E1a -> E1b)",
-        "model": "Qwen/Qwen3-4B + LoRA r=16 SFT (20K x 2ep)",
+        "stage": "Completion-Masked SFT (E0 -> E1a -> E1b -> E2a)",
+        "model": "Qwen/Qwen3-4B + All-Linear LoRA r=64 SFT (20K x 2ep)",
         "status": "measured",
-        "strict_legal_pct": 64.4,
+        "strict_legal_pct": 66.2,
         "constrained_legal_pct": 100.0,
-        "acpl": "336.5 (strict) / 393.0 (constr.)",
-        "stockfish_score": "Pending (Phase II E4 5-Anchor BT)",
-        "maia_score": "Pending (Phase II E4 5-Anchor BT)",
-        "notes": "Phase II E1b (EXP-008, 20K Piece List) vs E1a (EXP-007, 2.5K, 63.5% legal, 4.7% puzzles, 11.9% ChessQA) & E0 (EXP-004, 21.0% legal): 64.4% strict legal (1,000-FEN), 336.5 cp strict ACPL (-84.8 cp), 31.5% strict / 29.7% constr. MAR, 11.6% constr. exact, 18.3% (165/900) Puzzles solved (3.9x), 38.8% ChessQA (94% piece_lookup), 60.0% V2 CoT, 89.0% English (0% leakage)"
+        "acpl": "297.6 (strict) / 387.9 (constr.)",
+        "stockfish_score": "12.5% SF0 / 13.8% SF1 / 22.5% SF1320 (40g ea.)",
+        "maia_score": "22.5% Maia-1100 (0-22-18) | 542.4 BT Elo [470.8, 610.5]",
+        "notes": "Phase II E2a r=64 (EXP-009) vs E1b r=16 (EXP-008): 66.2% strict legal (1,000-FEN), 297.6 cp strict ACPL (-39.0 cp), 32.0% strict / 30.2% constr. MAR, 11.8% constr. exact, 21.4% (193/900) Puzzles solved (72.7% strict legal), 45.2% ChessQA (100% castling, 46% attacks), 60.7% V2 CoT, 90.0% English (0% leakage); 5-anchor 200g BT Elo 542.4 (48.8% vs Random, 84/94 draws via stateless greedy 3-fold rep)"
       },
       {
         "stage": "GRPO Stage 0 (Format/Legality)",
