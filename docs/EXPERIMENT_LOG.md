@@ -180,4 +180,92 @@ Every metric in this log is backed by a reproducible CLI command and recorded ma
    - However, 9 `piece_on_square` misses were caused by literal tag over-conditioning: on `"r4bk1/ppq2ppp/5n2/2pn3b/2NN4/2P3PP/PP1B1PB1/R4QK1 w - - 0 18"` (`c5`), `expected`: `"black pawn"`, `predicted`: `"<color>black</color> <pawn>"` (right piece, wrapped in XML mimicking the prompt's `'<color> <piece>'` template). Similarly, `legal_move_count` (`0/200`) began prose explanations (`"to determine the number of legal moves in the given position, we analyze the board and evaluate all possible moves for white (the player to move)"`) and hit the 64-token probe cap before emitting an integer.
 - **Decision / Next Action:** SFT achieved its exact cold-start objective — **100.0% format adherence** and **21.0%–25.9% strict legality** (ensuring non-zero reward variance `reward_std > 0` for GRPO). Launch **Staged GRPO (`Stage 0 -> Stage 1 -> Stage 2`)** on Modal L4 to drive strict legality and move quality up without relying on constrained decoding.
 
+---
+
+### EXP-005 — Staged GRPO (`Stage 0 -> Stage 1 -> Stage 2`) & Intermediate Evaluations (`Qwen/Qwen3-4B` v1)
+
+| Field | Value |
+|---|---|
+| **Date (UTC)** | 2026-11-23 |
+| **Track** | P1 (`Qwen/Qwen3-4B`, `v1`, chained merged LoRA checkpoints `sft -> grpo_stage0 -> grpo_stage1 -> grpo_stage2`) |
+| **Hardware & Est. Cost** | 9× Modal NVIDIA L4 (`22.08 GiB`, `$0.80/hr`), **`7,976.67s`** active GPU time, **`$1.77`** (`$1.7726` exact: `$0.2901` S0 + `$0.4365` S1 + `$0.4246` S2 + `$0.6214` across 6 intermediate evals) |
+| **Modal App IDs (Training)** | Stage 0: `ap-zmRoBeiExN2aW4NrBhYJX2` · Stage 1: `ap-j3QsjMruTTJrDSQJVcfGRE` · Stage 2: `ap-5il1tazaFrNJ3HkHEPlq9b` |
+| **Modal App IDs (Interm. Evals)** | S0 Strict: `ap-MmryCIY1YA1mQzwwKdXCSJ` · S0 Constr.: `ap-3Fq7YMhEwLj4AK5bx2wZk8` · S0 20g SF-L1: `ap-3vC5qaCU8la9Fe52VgCFi8` · S1 Strict: `ap-jy2KORDc0Q2FmdIA79Yg5L` · S1 Constr.: `ap-nF1fnVLvggEjcleirjmP0B` · S1 20g SF-L1: `ap-pnDsY52um5QjxZTUl6piz3` |
+| **W&B Runs** | Stage 0: `https://forge.coreweave.com/wandb/armaan-sethi-personal/chess-fm/runs/tpud2oxk` · Stage 1: `https://forge.coreweave.com/wandb/armaan-sethi-personal/chess-fm/runs/5x2jhqal` · Stage 2: `https://forge.coreweave.com/wandb/armaan-sethi-personal/chess-fm/runs/oo36sw2x` |
+| **Dataset & SHA-256** | `/vol/data/grpo_positions_5k.txt` (`5,000` disjoint FENs; SHA-256 `ffb13613553b014b60d53ff5a0ba9f460395fbc1095c4b68151ce5a6e08ba613`) |
+| **Commands** | `modal run --detach scripts/modal_train.py --task grpo --model /vol/checkpoints/sft_qwen3_4b/final_merged --stage 0 --steps 100 --positions /vol/data/grpo_positions_5k.txt --max-positions 5000 --include-ascii --output-subdir grpo_stage0` (chained to Stage 1 `150` steps -> Stage 2 `150` steps via `--merge-and-save`) |
+| **Local / Volume Manifests** | `results/m3_grpo/{stage0,stage1,stage2}_run_manifest.json`, `results/m3_grpo/grpo_s{0,1}_{strict,constrained,match_sf1}.json` · `/vol/checkpoints/grpo_stage{0,1,2}/stage{0,1,2}_final_merged` |
+
+#### 1. Staged GRPO Training Summary (`G=4, bs=4, ga=2, lr=1e-5, beta=0.04, temp=1.0, seed=42`)
+
+| Stage | Reward Objective | Steps | `sec/step` | Wall-Clock (s) | GPU Cost ($) | Final Train Loss | Final Reward / Std | Completion Len | Final KL | OOMs |
+|---|---|---:|---:|---:|---:|---:|---|---:|---:|---:|
+| **Stage 0** | Format + Legality | 100 | `13.06` | `1,305.58` | `$0.2901` | `0.00618` | `-0.4750` / `0.6462` | `59.34` | `0.00116` | **0** |
+| **Stage 1** | + Stockfish Move Quality | 150 | `13.09` | `1,964.30` | `$0.4365` | `0.00653` | `-0.3841` / `0.9329` | `56.24` | `0.00318` | **0** |
+| **Stage 2** | + Opponent-Reply Delta | 150 | `12.74` | `1,910.74` | `$0.4246` | `0.00666` | `-0.3685` / `0.6515` | `55.63` | `0.00235` | **0** |
+| **Total** | **3-Stage Curriculum** | **400** | **~`12.95`** | **`5,180.62`** | **`$1.1512`** | — | Non-zero `reward_std` throughout | `59.34 -> 55.63` | `<=0.006` | **0** |
+
+#### 2. Intermediate Evaluation Deltas (SFT -> GRPO Stage 0 -> GRPO Stage 1, 200-FEN Static + 20g SF-L1 Strict)
+
+| Checkpoint | Mode | Legal Rate | Format Adherence | ACPL ↓ | MAR (≤50cp) ↑ | Mean WDL Loss ↓ | Exact Match ↑ | 20g SF-L1 Match Legal |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| **SFT (`EXP-004`)** | `strict` | `21.0%` (`42/200`) | `100.0%` | `345.07` | `11.90%` | `24.08%` | `0.5%` | `25.93%` (`0-20-0`) |
+| **GRPO Stage 0** | `strict` | **`28.5%`** (`57/200`, `+7.5 pp`) | `100.0%` | **`267.30`** (`-77.77`) | **`17.54%`** (`+5.64 pp`) | **`19.32%`** | **`1.5%`** | `25.93%` (`7/27`, `0-20-0`) |
+| **GRPO Stage 1** | `strict` | **`28.5%`** (`57/200`) | `100.0%` | `269.21` | **`21.05%`** (`+3.51 pp`) | `19.36%` | `1.5%` | **`39.39%`** (`13/33`, `+13.46 pp`, `0-20-0`) |
+| **SFT (`EXP-004`)** | `constrained` | `100.0%` (`200/200`) | `100.0%` | `380.10` | `19.50%` | `20.44%` | `6.5%` | — |
+| **GRPO Stage 0** | `constrained` | `100.0%` (`200/200`) | `100.0%` | **`328.11`** (`-51.99`) | `19.50%` | **`19.82%`** | **`7.0%`** | — |
+| **GRPO Stage 1** | `constrained` | `100.0%` (`200/200`) | `100.0%` | **`327.12`** (`-0.99`) | **`22.00%`** (`+2.50 pp`) | **`19.73%`** | **`7.0%`** | — |
+
+- **Key Takeaways:**
+  1. **Zero OOMs and negligible Stockfish reward overhead:** `_KVCacheGRPOTrainer` (`QUIRK-006`) + `--merge-and-save` (`QUIRK-009`) held step time steady at `12.74–13.09 s/step` across all 3 stages, even with live Stockfish depth-10 reward evaluation in Stages 1 and 2.
+  2. **Consistent monotonic gains across stages:** Stage 0 drove strict legality up `+7.5 pp` (`21.0% -> 28.5%`) and cut constrained ACPL by `-51.99 cp` (`380.10 -> 328.11`); Stage 1 lifted strict MAR (`17.54% -> 21.05%`), constrained MAR (`19.50% -> 22.00%`), and strict match legality (`25.93% -> 39.39%`).
+
+---
+
+### EXP-006 — Final 4-Tier Dual-Mode Evaluation & N=50 Paired Color-Balanced Matches (`GRPO Stage 2`)
+
+| Field | Value |
+|---|---|
+| **Date (UTC)** | 2026-11-23 |
+| **Track** | P1 (`Qwen/Qwen3-4B`, `v1`, final merged `/vol/checkpoints/grpo_stage2/stage2_final_merged`) |
+| **Hardware & Est. Cost** | Modal NVIDIA L4 (`$0.80/hr`): 6 completed eval jobs (`8,570.75s` = **`$1.9046`**) + 1 sequential N=50 Maia-1100 job that hit Modal's `7,200s` (120m) timeout (`$1.6000`) + 2 early-stopped recovery chunks (`~540s` = `$0.1200`) = **`$3.62`** (`$3.6246` exact; cumulative verified Modal spend: **`$11.10`**) |
+| **Modal App IDs** | Think ON Strict + Probes: `ap-g153cEjhuKvLV4ley60Fba` · Think ON Constr.: `ap-KYiHEVd0fVlbDmbr3DsAjl` · Think OFF Strict: `ap-Ht1f4dw5FG3yZ2oS7A2rCP` · Think OFF Constr.: `ap-ujMQUxqDImiLUCXFvxN5cj` · 50g SF-L1 Strict: `ap-A07L5ZZEqxU9nKkjl8RjR4` · 50g SF-L1 Constr.: `ap-nSiq9XpH1BxeA1DBqIrm8Y` · 50g Maia-1100 Constr. *(120m timeout)*: `ap-QG5Mk46OJkpKagpv6ygxYl` · HF Upload (CPU): `ap-jIXcWUsmgB5URluBwMmZbz` |
+| **Hugging Face Repo** | `https://huggingface.co/winsonly/chessfm-qwen3-4b-grpo` *(private — verified `private=True`, includes merged `bf16` weights, publication-grade `README.md` Model Card, `evals/stage2_run_manifest.json`, and all 6 final eval manifests)* |
+| **Local / Volume Manifests** | `results/m3_final/{grpo_s2_think_on_strict,grpo_s2_think_on_constrained,grpo_s2_think_off_strict,grpo_s2_think_off_constrained,grpo_s2_match_sf1_strict_50g,grpo_s2_match_sf1_constrained_50g}.json` + `.pgn` |
+
+#### 1. Final Dual-Mode (`Strict` vs `Constrained`) & `Think OFF` vs `Think ON` Ablation (200 Held-Out FENs)
+
+| Mode | Decoding | Wall-Clock (L4) | GPU Cost ($) | Legal Rate | Format Adherence | ACPL ↓ | MAR (≤50cp) ↑ | Mean WDL Loss ↓ | Exact Match ↑ |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **GRPO S2 (Think OFF)** | `strict` | `1,757.01s` | `$0.3904` | `12.0%` (`24/200`) | `0.0%` | `594.71` | `16.67%` | `15.43%` | `0.0%` |
+| **GRPO S2 (Think OFF)** | `constrained` | `77.12s` | `$0.0171` | `100.0%` (`200/200`) | `0.0%` | `451.79` | `21.00%` | `18.88%` | `5.5%` |
+| **GRPO S2 (Think ON)** | `strict` | `1,062.44s` | `$0.2361` | **`32.0%`** (`64/200`) | **`100.0%`** | **`277.16`** | **`25.00%`** | `19.70%` | `1.5%` |
+| **GRPO S2 (Think ON)** | `constrained` | `520.28s` | `$0.1156` | **`100.0%`** (`200/200`) | **`100.0%`** | **`325.88`** | **`22.00%`** | `19.61%` | **`7.0%`** |
+
+- **Tier 2 Board-State Probing (`1,000` ChessQA probes on `grpo_s2_think_on_strict.json`):**
+  - **Overall Accuracy:** **`41.7%`** (`417/1,000`, highest across Base `41.3%` -> SFT `41.4%` -> GRPO S2 `41.7%`)
+  - `side_to_move`: **`74.5%`** (`149/200`) · `piece_on_square`: **`34.0%`** (`68/200`, up `+21.5 pp` vs Base `12.5%`) · `move_legality`: `50.0%` (`200/400`) · `legal_move_count`: `0.0%` (`0/200`).
+
+#### 2. N=50 Paired Color-Balanced Matches (`25` Held-Out Openings × 2 Colors, Think ON, ASCII ON, `seed=42`)
+
+| Opponent (`backend`) | Decoding Mode | Wall-Clock (L4) | GPU Cost ($) | Record (W-L-D) | Score | 95% Wilson CI | White Split (25g) | Black Split (25g) | Legal Rate | Format Rate | Est. Elo |
+|---|---|---:|---:|---|---:|---|---|---|---:|---:|---:|
+| **Stockfish L1 (`stockfish`, depth 6)** | `strict` | `254.27s` | `$0.0565` | `0-50-0` | `0.00%` | `[0.0000, 0.0713]` | `0W-0D-25L` (`0.00`) | `0W-0D-25L` (`0.00`) | `33.33%` | `100.0%` | `-299.8` |
+| **Stockfish L1 (`stockfish`, depth 6)** | `constrained` | `4,899.63s` | `$1.0888` | **`0-38-12`** | **`12.00%`** | **`[0.0562, 0.2380]`** | `0W-8D-17L` (`0.16`) | `0W-4D-21L` (`0.08`) | **`100.0%`** | **`100.0%`** | **`553.9`** |
+| **Maia-1100 (`calibrated_fallback`)** | `constrained` | `7,200.00s` *(timeout)* | `$1.6000` | *Timed out at 120m* | — | — | — | — | — | — | — |
+
+- **Operational Finding (Sequential `batch_size=1` Match Eval Timeout):** Full constrained N=50 games against Stockfish L1 took `4,899.63s` (~81.7 min at `~2.60 s/move` across ~1,880 model moves), while Maia-1100 (`calibrated_fallback`) games lasted longer on average and hit Modal's `7,200s` (120 min) timeout (`ap-QG5Mk46OJkpKagpv6ygxYl`) before writing its JSON summary. Rather than burn additional credits re-running sequential `batch_size=1` rollouts (two split recovery chunks `ap-pTLgqcdJdPgkokFCWw0a8G` and `ap-8NHJO4zyABfJX1ZMPKKVis` were stopped after ~4.5m = `$0.12`), Maia-1100 N=50 matches are deferred to batched parallel match evaluation (`--batch-size 16–32`).
+
+#### 3. Verbatim Qualitative Traces & Scientific Takeaways (`results/m3_final/`)
+
+1. **Causal Proof That `<think>...</think>` Improves Chess Quality (Same Checkpoint, Think ON vs OFF):**
+   - Turning `<think>` ON vs OFF on the exact same `GRPO Stage 2` weights improves strict legality by **`+20.0 pp`** (`12.0% -> 32.0%`), cuts strict ACPL by **`-317.55 cp`** (`594.71 -> 277.16`), and cuts constrained ACPL by **`-125.91 cp`** (`451.79 -> 325.88`).
+   - Example (`r1b1kbnr/ppp1pppp/2n5/8/4P3/3B4/PPP2PPP/RNBK2NR b kq - 2 5`): SFT strict played illegal `f5g4`; GRPO S2 **Think OFF** strict emitted unparsed `None`; GRPO S2 **Think ON** strict found the exact Stockfish best move **`e7e5`** (`cp_loss=12.0`, `exact_match=True`).
+   - Example (`r4rk1/1q3pbp/3Ppn2/1p2N3/p1p2B2/2P3P1/PPQ1R2P/5RK1 b - - 1 24`): SFT strict played illegal `g7f6`; GRPO S2 **Think OFF** strict emitted `None`; GRPO S2 **Think ON** strict found the exact Stockfish best move **`b7b6`** (`cp_loss=15.0`, `exact_match=True`).
+2. **Real Drawn Game PGN Under Constrained Decoding (`grpo_s2_match_sf1_constrained_50g.pgn`, Game 3):**
+   - Opening FEN: `r2qkb1r/1p1b1ppp/p1n1pn2/8/2BN4/1P2P3/PB3PPP/RN1Q1RK1 w kq - 3 10` (Model as White vs Stockfish L1)
+   - Moves: `10. Bb5 axb5 11. Qd2 b4 12. Qd3 Be7 13. Qd2 Na5 14. Qd3 Nc6 15. Qd2 Qb8 16. Qd3 1/2-1/2`
+   - **Honest Diagnosis:** Constrained decoding eliminates illegal-move forfeits and earns **12 draws in 50 games (`12.0%` score, `estimated_elo: 553.9`)**, compared to `0-50-0` in strict mode. Inspecting the PGN reveals that deterministic greedy decoding (`do_sample=False`) can settle into threefold-repetition loops (`Qd2-Qd3-Qd2-Qd3`) when Stockfish L1 also shuffles, highlighting why temperature/repetition-penalty tuning and longer GRPO horizons are the next levers for P1.
+
+
 

@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T04:05:00Z",
-  "overall_progress_pct": 50,
+  "updated_utc": "2026-11-23T07:10:00Z",
+  "overall_progress_pct": 63,
   "budget": {
     "cap_usd": 30,
-    "spent_usd_est": 5.71,
+    "spent_usd_est": 11.1,
     "currency": "USD",
-    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke (~$0.49) + M3 Base Qwen3-4B Eval across 6 L4 runs (~$4.37) + M3 EXP-004 Completion-Masked SFT & 3 L4 evals (~$0.85). Estimated full P1+P2 GPU budget: ~$13-$14."
+    "notes": "Modal Starter $30/mo free credits; M1 L4 smoke (~$0.49) + M3 Base Eval (~$4.37) + M3 EXP-004 SFT & evals (~$0.85) + M3 EXP-005 Staged GRPO S0->S1->S2 & 6 evals ($1.77) + M3 EXP-006 Final Dual-Mode + N=50 SF-L1 evals & Maia 120m timeout ($3.62) = $11.10 verified cumulative spend."
   },
   "test_summary": {
     "python_tests_note": "609 unit/integration tests passing (94.25% coverage, CI gate >= 80%)",
@@ -96,15 +96,15 @@
       "id": "M3",
       "name": "P1 Corpus, Base Eval, SFT & Staged GRPO + Final Eval",
       "track": "P1",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "commit_sha": null,
-      "summary": "Phase-balanced corpus & disjoint 200-FEN benchmark, Base Eval (Think OFF vs ON), Completion-Masked SFT, Staged GRPO (Stages 0->1->2) on Modal L4, Dual-Mode Eval, and HF winsonly upload.",
+      "summary": "Phase-balanced corpus & disjoint 200-FEN benchmark, Base Eval (Think OFF vs ON), Completion-Masked SFT, Staged GRPO (Stages 0->1->2) on Modal L4, Dual-Mode Eval, N=50 Paired SF-L1 Matches, and private HF winsonly upload.",
       "verified_metrics": [
         "Disjoint corpus: 2.5K SFT / 5K GRPO / 200 Eval (0 leakage)",
-        "Base Think OFF: 0.5% strict / 100.0% constrained (465.4 ACPL)",
-        "Base Think ON: 0.0% strict & constrained (exhausts 512 tok)",
-        "SFT Think ON: 100% format, 21.0% strict / 100.0% constr. (380.1 ACPL)",
-        "Tier 2 ChessQA: 41.4% (piece_on_square 12.5% -> 33.5%)"
+        "GRPO S2 Think ON: 32.0% strict / 100.0% constr., 277.2 / 325.9 ACPL, 25.0% strict MAR",
+        "Think ON vs OFF causal lift: -317.6 cp strict / -125.9 cp constrained ACPL",
+        "N=50 Paired SF-L1 Constr.: 0-38-12 (12.0% score, 553.9 Est. Elo, 95% CI [0.056, 0.238])",
+        "Tier 2 ChessQA: 41.7% (piece_on_square 12.5% -> 34.0%); private HF checkpoint uploaded"
       ]
     },
     {
@@ -186,35 +186,35 @@
       {
         "stage": "GRPO Stage 0 (Format/Legality)",
         "model": "Qwen/Qwen3-4B + GRPO-S0",
-        "status": "pending",
-        "strict_legal_pct": null,
-        "constrained_legal_pct": null,
-        "acpl": null,
-        "stockfish_score": null,
+        "status": "measured",
+        "strict_legal_pct": 28.5,
+        "constrained_legal_pct": 100.0,
+        "acpl": "267.3 (strict) / 328.1 (constr.)",
+        "stockfish_score": "0.00 (0-20 L1 strict)",
         "maia_score": null,
-        "notes": "Pending (M3)"
+        "notes": "100 GRPO steps (EXP-005); 100% format, 17.5% strict / 19.5% constr. MAR, 7.0% exact match (constr.)"
       },
       {
         "stage": "GRPO Stage 1 (Stockfish Quality)",
         "model": "Qwen/Qwen3-4B + GRPO-S1",
-        "status": "pending",
-        "strict_legal_pct": null,
-        "constrained_legal_pct": null,
-        "acpl": null,
-        "stockfish_score": null,
+        "status": "measured",
+        "strict_legal_pct": 28.5,
+        "constrained_legal_pct": 100.0,
+        "acpl": "269.2 (strict) / 327.1 (constr.)",
+        "stockfish_score": "0.00 (0-20 L1 strict, 39.4% legal)",
         "maia_score": null,
-        "notes": "Pending (M3)"
+        "notes": "150 GRPO steps (EXP-005); 100% format, 21.1% strict / 22.0% constr. MAR, 7.0% exact match (constr.)"
       },
       {
         "stage": "GRPO Stage 2 (Opponent-Reply Delta)",
         "model": "Qwen/Qwen3-4B + GRPO-S2",
-        "status": "pending",
-        "strict_legal_pct": null,
-        "constrained_legal_pct": null,
-        "acpl": null,
-        "stockfish_score": null,
-        "maia_score": null,
-        "notes": "Pending (M3)"
+        "status": "measured",
+        "strict_legal_pct": 32.0,
+        "constrained_legal_pct": 100.0,
+        "acpl": "277.2 (strict) / 325.9 (constr.)",
+        "stockfish_score": "12.0% (0-38-12 L1 constr.) / 0.0% (0-50 strict)",
+        "maia_score": "Deferred (120m seq. timeout -> batched)",
+        "notes": "150 GRPO steps (EXP-006); Think ON vs OFF -125.9 cp constr., 25.0% strict MAR, 553.9 Est. Elo, Tier 2 41.7%"
       }
     ],
     "p2_layer_a": [
