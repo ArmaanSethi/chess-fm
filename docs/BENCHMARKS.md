@@ -125,3 +125,85 @@ modal run --detach scripts/modal_train.py --task eval \
 | **Stockfish L1 (`stockfish`, d6)** | `constrained` | 50 (25W / 25B) | **`0-38-12`** | **`12.00%`** | **`[0.0562, 0.2380]`** | `0-17-8` (`0.16`) | `0-21-4` (`0.08`) | **`100.0%`** | **`553.9`** |
 | **Maia-1100 (`calibrated_fallback`)** | `constrained` | 50 *(120m timeout)* | *Deferred to batched eval* | — | — | — | — | — | — |
 
+---
+
+## 4. Phase II Controlled Ablation Ladder — `Qwen/Qwen3-4B` (`E0 -> E1a -> E1b -> E2a -> E2b`)
+
+Phase II isolates four axes on frozen, **0.00% normalized-FEN-overlap** benchmarks (`test_fens_1000.jsonl`, `test_puzzles_900.jsonl`, `test_chessqa_1000.jsonl`, `test_english_100.jsonl`, and 5-anchor 200-game paired matches over `test_openings_20.txt`):
+1. **Board Representation & LR (`E0 -> E1a`):** Lossless Piece-by-Square coordinate list (`--include-piece-list`) + All-Linear LoRA `lr=2e-4` (10× `E0`'s `2e-5`).
+2. **Corpus Scaling & Mixing (`E1a -> E1b`):** Scaling `2.5K` game-only SFT -> `20,000` mixed rows (elite games + theme-balanced Lichess puzzles + 5-category ChessQA, 2 epochs, `7,030,121` tokens).
+3. **LoRA Rank Scaling (`E1b -> E2a`):** All-Linear LoRA `r=16` (`alpha=32`) -> `r=64` (`alpha=128`) on identical data (`seed=42`).
+4. **Full Fine-Tuning Control (`E2a -> E2b`):** 100%-parameter Full Fine-Tuning (`--full-ft`, `lr=2e-5`, `paged_adamw_8bit`, H100-80GB) vs All-Linear LoRA `r=64` (`lr=2e-4`, A100-80GB).
+
+### 4.1 Reproducible Phase II CLI Commands
+
+```bash
+# Train E2a (All-Linear LoRA r=64, A100-80GB) or E2b (Full-FT, H100-80GB)
+modal run --detach scripts/modal_train.py --task sft --track v1 --gpu a100 \
+  --data /vol/data/phase2/sft_phase2_20k.jsonl --include-piece-list \
+  --lora-r 64 --all-linear --lr 2e-4 --epochs 2 --batch-size 8 --grad-accum 4 \
+  --output-subdir sft_e2a_20k_r64
+
+modal run --detach scripts/modal_train.py --task sft --track v1 --gpu h100 --full-ft \
+  --data /vol/data/phase2/sft_phase2_20k.jsonl --include-piece-list \
+  --lr 2e-5 --epochs 2 --batch-size 8 --grad-accum 4 \
+  --output-subdir sft_e2b_20k_fullft
+
+# Frozen Static 1,000-FEN + CoT Verifier V2 (Strict & Constrained, --batch-size 16)
+modal run --detach scripts/modal_train.py --task static-eval \
+  --model /vol/checkpoints/sft_e2a_20k_r64/final_merged \
+  --benchmark /vol/data/phase2/test_fens_1000.jsonl \
+  --decoding-mode strict --enable-thinking --include-piece-list \
+  --skip-probes --batch-size 16 \
+  --output /vol/results/phase2/e2a_test_fens_1000_strict.json
+
+# Frozen 900 Puzzles + 1,000 ChessQA + 100 General-English Forgetting Probe
+modal run --detach scripts/modal_train.py --task static-eval \
+  --model /vol/checkpoints/sft_e2a_20k_r64/final_merged --benchmark "" \
+  --puzzles /vol/data/phase2/test_puzzles_900.jsonl \
+  --chessqa /vol/data/phase2/test_chessqa_1000.jsonl \
+  --english-forgetting /vol/data/phase2/test_english_100.jsonl \
+  --decoding-mode strict --enable-thinking --include-piece-list \
+  --skip-probes --batch-size 16 \
+  --output /vol/results/phase2/e2a_puzzles_chessqa_english.json
+
+# Batched 40-Game Paired Anchor Match (repeat for random, sf0, sf1, maia1100, sf1320)
+modal run --detach scripts/modal_train.py --task eval \
+  --model /vol/checkpoints/sft_e2a_20k_r64/final_merged \
+  --games 40 --stockfish-level 1 --decoding-mode constrained \
+  --enable-thinking --include-piece-list \
+  --openings /vol/data/phase2/test_openings_20.txt --batch-size 20 \
+  --manifest-output /vol/results/phase2/e2a_bt_sf1.json
+```
+
+### 4.2 Complete Phase II Ablation Ladder (`Think ON`, Deterministic Greedy)
+
+| Stage (Exp ID) | Setup | Val Loss | Strict Legal ↑ | Strict ACPL ↓ | Strict MAR ↑ | Constr. ACPL ↓ | CoT V2 Acc ↑ | 900 Puzzles Solved ↑ | 1,000 ChessQA ↑ | English (`Leak`) ↑ | 5-Anchor BT Elo (`95% CI`) |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| **`E0` SFT** (`EXP-004`) | 2.5K ASCII, `r=16`, `2e-5` | `0.5181` | `21.0%` *(200)* | `345.07` | `11.90%` | `380.10` | *N/A* | *N/A* | *N/A* | *N/A* | *N/A* |
+| **`E0` GRPO S2** (`EXP-006`) | +400 GRPO steps, ASCII | — | `32.0%` *(200)* | `277.16` | `25.00%` | `325.88` | *N/A* | *N/A* | *N/A* | *N/A* | `553.9` *(SF L1 only)* |
+| **`E1a` SFT** (`EXP-007`) | 2.5K Piece List, `r=16`, `2e-4` | `0.4302` | `63.5%` *(200)* | `421.31` | `29.13%` | `330.18` | `64.02%` | `4.67%` (`42`) | `11.9%` | *N/A* | *N/A* |
+| **`E1b` SFT** (`EXP-008`) | 20K Mix, Piece List, `r=16`, `2e-4` | `0.2775` | `64.4%` *(1,000)* | `336.51` | `31.52%` | `393.00` | `60.02%` | `18.33%` (`165`) | `38.8%` | `89.0%` (`0%`) | *N/A* |
+| **`E2a` SFT** (`EXP-009`) | 20K Mix, Piece List, **`r=64`, `2e-4`** | **`0.2660`** | **`66.2%`** *(1,000)* | **`297.56`** | `32.02%` | **`387.90`** | **`60.66%`** | **`21.44%`** (`193`) | **`45.2%`** | **`90.0%`** (`0%`) | **`542.35`** `[470.8, 610.5]` |
+| **`E2b` SFT** (`EXP-010`) | 20K Mix, Piece List, **Full-FT, `2e-5`** | `0.2842` | `62.4%` *(1,000)* | `322.13` | **`32.53%`** | `410.67` | `57.74%` | `17.44%` (`157`) | `31.2%` | `89.0%` (`0%`) | **`530.98`** `[458.2, 595.6]` |
+
+### 4.3 5-Anchor 200-Game Paired Bradley-Terry Elo (`E2a` vs `E2b`, Constrained Decoding)
+
+| Anchor Opponent (Calibrated Elo) | `E2a` (`r=64`) W-L-D | `E2a` Score | `E2b` (Full-FT) W-L-D | `E2b` Score |
+|---|---:|---:|---:|---:|
+| Random Bot (`200`) | `1-2-37` | `48.8%` | `3-0-37` | **`53.8%`** |
+| Stockfish Skill 0, d6 (`800`) | `0-30-10` | `12.5%` | `0-27-13` | **`16.2%`** |
+| Stockfish Skill 1, d6 (`950`) | `0-29-11` | **`13.8%`** | `0-30-10` | `12.5%` |
+| Maia-1100 fallback (`1100`) | `0-22-18` | `22.5%` | `0-22-18` | `22.5%` |
+| Stockfish `UCI_Elo=1320`, d6 (`1320`) | `0-22-18` | **`22.5%`** | `0-30-10` | `12.5%` |
+| **Bradley-Terry Elo ± 95% Bootstrap CI** | **`542.35`** | **`[470.81, 610.53]`** | **`530.98`** | **`[458.17, 595.64]`** |
+
+### 4.4 Key Phase II Takeaways & Sample Verified Traces
+- **Piece-by-Square Coordinate List + Proper LoRA LR (`E0 -> E1a`)** tripled strict legality (`21.0% -> 63.5%`) and raised `piece_on_square` probing from `33.5% -> 80.5%` on the exact same `2.5K` rows.
+- **20K Mixed-Corpus Scaling (`E1a -> E1b`)** increased 900-puzzle solve rate `3.93×` (`4.67% -> 18.33%`) and 1,000-ChessQA `3.26×` (`11.9% -> 38.8%`) with `0.0%` English leakage.
+- **All-Linear LoRA `r=64` (`lr=2e-4`) vs Full-FT (`lr=2e-5`) (*LoRA Without Regret*):** In the 20K-sample / 7M-token regime, `E2a` (`r=64`) beat `E2b` (Full-FT) on held-out loss (`0.2660` vs `0.2842`), strict ACPL (`297.56` vs `322.13 cp`), 900 puzzles (`21.44%` vs `17.44%`), and 1,000 ChessQA (`45.2%` vs `31.2%`), while both preserved `89–90%` general English with `0.0%` chess leakage.
+- **Stateless Greedy Repetition Trap:** Across 400 combined `E2a` + `E2b` match games, `89.0%` of draws (`84/94` for `E2a`, `78/88` for `E2b`) ended by threefold repetition under single-FEN greedy decoding, motivating history-aware prompting and RLVR post-training.
+- **Sample Exact-Match + Zero-Violation CoT Verifier V2 Traces:**
+  - `E2a`: `1r3r1k/1R2R2p/1p6/p2B1bp1/8/8/PP4PP/6K1 b - - 1 31` -> `b8b7` (`cp_loss=0.0`, `6/6` V2 CoT claims verified).
+  - `E2b`: `rn1qkbnr/ppp2pp1/8/3p3p/3P3P/2Nb1P2/PPP3P1/R1BQK1NR w KQkq - 0 8` -> `d1d3` (`cp_loss=0.0`, `7/7` V2 CoT claims verified).
+  - `E2b`: `2r5/1R2pk2/3pp3/6p1/3NP2p/1RPn1P1P/4K1P1/r7 b - - 3 33` -> `d3c1` (`cp_loss=0.0`, `6/6` V2 CoT claims verified).

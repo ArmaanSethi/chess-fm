@@ -463,6 +463,88 @@ Computed via `chessfm.eval.bradley_terry.estimate_bradley_terry_elo(n_bootstrap=
 
 *Note:* Modal Starter allows 3 concurrent L4 GPU containers; queued L4 eval apps (`tasks=0` while waiting for a slot) are unbilled during queueing (`Est. GPU Cost = active + 60s boot = $3.007`; `Conservative Wall Cost = created->stopped = $3.422`).
 
+---
+
+### EXP-010 — Phase II Gate 3b (`E2b`): Full Fine-Tuning (`--full-ft`, `lr=2e-5`, `20K × 2 ep`, Piece List) on H100-80GB + Full Frozen Evals & 5-Anchor 200-Game Bradley-Terry Elo
+- **Date:** 2026-11-23
+- **Hypothesis:** Updating 100% of `Qwen/Qwen3-4B` parameters via Full Fine-Tuning (`--full-ft`, `lr=2e-5`, `paged_adamw_8bit`) on the identical `20,000`-row mixed Phase II corpus (`sft_phase2_20k.jsonl`, 2 epochs, `seed=42`) tests whether full-parameter updates outperform All-Linear LoRA `r=64` (`lr=2e-4`, `E2a`) on strict move legality, ray-geometry/ChessQA probing, tactical puzzles, and 5-anchor Bradley-Terry Elo — or whether Schulman's *LoRA Without Regret* holds in the 20K-sample / 7M-token regime, and whether Full-FT induces general-English catastrophic forgetting (`test_english_100`).
+- **Training Configuration (`ap-t3bF465vGB8KdWT4rnj9Pp`, Modal H100-80GB HBM3):**
+  - Command: `modal run --detach scripts/modal_train.py --task sft --track v1 --gpu h100 --full-ft --data /vol/data/phase2/sft_phase2_20k.jsonl --include-piece-list --lr 2e-5 --epochs 2 --batch-size 8 --grad-accum 4 --output-subdir sft_e2b_20k_fullft`
+  - Saved checkpoint: `/vol/checkpoints/sft_e2b_20k_fullft/final` (`dataset_sha256: 7b67347aa1d63d5a53d51300601e3f17e0a2cecdc5bb4c1309cd6b0537cc24d2`, `seed=42`, `full_ft=true`, `optim=paged_adamw_8bit`, `17,000` train / `3,000` FEN-disjoint val, `1,062` steps, `7,030,121` tokens, 0 OOMs).
+  - Private Hugging Face Archive (`private=True`, with Model Card + 10 verified manifests): `https://huggingface.co/winsonly/chessfm-qwen3-4b-e2b-fullft`
+  - Training metrics: `train_runtime=1,848.66s` (`wall_clock_seconds=1,850.13s`, **`18.392 rows/sec`**, `0.574 steps/sec`), `train_loss=0.4065` (`mean_token_accuracy=91.39%`), **`eval_loss=0.2842`** (`+0.0182` higher than `E2a`'s `0.2660` and `+0.0067` higher than `E1b`'s `0.2775`), **`eval_mean_token_accuracy=90.07%`** (vs `E2a` `90.61%`, `E1b` `90.27%`).
+
+#### 1. Controlled Capacity Comparison: LoRA `r=16` (`E1b`) vs LoRA `r=64` (`E2a`) vs Full-FT (`E2b`)
+
+All 8 `E2b` evaluation manifests strictly verified `"model_id": "/vol/checkpoints/sft_e2b_20k_fullft/final"` (`--batch-size 16`, Think ON, Piece List, deterministic greedy decoding).
+
+| Benchmark & Metric | `E1b` (LoRA `r=16`, `2e-4`) | `E2a` (LoRA `r=64`, `2e-4`) | **`E2b` (Full-FT, `2e-5`)** | **Delta (`E2b` vs `E2a`)** |
+|---|---:|---:|---:|---:|
+| **Held-Out Val Loss / Token Acc** | `0.2775` / `90.27%` | **`0.2660` / `90.61%`** | `0.2842` / `90.07%` | `+0.0182` / `-0.54 pp` |
+| **Static `test_fens_1000` — Strict Legal Rate** | `64.4%` (`644/1,000`) | **`66.2%` (`662/1,000`)** | `62.4%` (`624/1,000`) | `-3.8 pp` |
+| **Static `test_fens_1000` — Strict Format Adherence** | `100.0%` | `100.0%` | `100.0%` | `0.0 pp` |
+| **Static `test_fens_1000` — Strict ACPL** *(legal only)* | `336.51 cp` | **`297.56 cp`** | `322.13 cp` | `+24.57 cp` |
+| **Static `test_fens_1000` — Strict MAR (`≤50 cp`) / WDL Loss** | `31.52%` / `18.91%` | `32.02%` / **`17.30%`** | **`32.53%`** / `18.85%` | **`+0.51 pp`** / `+1.55 pp` |
+| **Static `test_fens_1000` — Strict Exact Match** | `7.8%` | **`8.1%`** | `6.8%` | `-1.3 pp` |
+| **Static `test_fens_1000` — Constrained Legal / Format** | `100.0%` / `100.0%` | `100.0%` / `100.0%` | `100.0%` / `100.0%` | `0.0 pp` |
+| **Static `test_fens_1000` — Constrained ACPL / WDL Loss** | `393.00 cp` / `19.99%` | **`387.90 cp` / `19.04%`** | `410.67 cp` / `20.54%` | `+22.77 cp` / `+1.50 pp` |
+| **Static `test_fens_1000` — Constrained MAR / Exact Match** | `29.7%` / `11.6%` | **`30.2%` / `11.8%`** | `27.5%` / `9.9%` | `-2.7 pp` / `-1.9 pp` |
+| **Static `test_fens_1000` — CoT V2 Claim Accuracy** | `60.02%` (`3,925/6,539`) | **`60.66%` (`3,985/6,569`)** | `57.74%` (`3,807/6,593`, 19.8% zero-viol) | `-2.92 pp` |
+| **900 Frozen Puzzles — Strict Legal / Format** | `67.11%` / `100.0%` | **`72.67%` (`654/900`) / `100.0%`** | `66.33%` (`597/900`) / `100.0%` | `-6.34 pp` |
+| **900 Frozen Puzzles — Tactical Solved** | `18.33%` (`165/900`) | **`21.44%` (`193/900`)** | `17.44%` (`157/900`, 95% CI `[15.1%, 20.1%]`) | `-4.00 pp` |
+| **900 Frozen Puzzles — Theme (500) / Diff (400)** | `21.2%` / `14.75%` | **`25.4%` / `16.5%`** | `21.0%` (`105/500`) / `13.0%` (`52/400`) | `-4.4 pp` / `-3.5 pp` |
+| **900 Frozen Puzzles — CoT V2 Claim Accuracy** | `52.79%` (`3,034/5,747`) | **`57.60%` (`3,283/5,700`)** | `51.38%` (`2,985/5,810`, 12.1% zero-viol) | `-6.22 pp` |
+| **1,000 Frozen ChessQA — Overall Accuracy** | `38.8%` (`388/1,000`) | **`45.2%` (`452/1,000`)** | `31.2%` (`312/1,000`) | `-14.0 pp` |
+| **ChessQA — Structural (200) / `attacks` (50)** | `66.0%` / `24.0%` | **`72.5%` / `46.0%`** | `62.0%` / `20.0%` | `-10.5 pp` / `-26.0 pp` |
+| **ChessQA — Semantic (200) / `castling_rights` (50)** | `55.0%` / `40.0%` | **`80.5%` / `100.0%`** | `27.5%` / `0.0%` | `-53.0 pp` / `-100.0 pp` |
+| **ChessQA — Position Judgment / Motifs / Short Tactics** | `54.5%` / `10.5%` / `8.0%` | **`56.0%`** / `10.0%` / `7.0%` | `53.0%` / **`13.0%`** / `0.5%` | `-3.0 pp` / **`+3.0 pp`** / `-6.5 pp` |
+| **100-Item General English Forgetting Probe** | `89.0%` (`0.0%` leakage) | **`90.0%` (`90/100`), `0.0%` leakage** | `89.0%` (`89/100`), `0.0%` leakage | `-1.0 pp` (`0%` forgetting) |
+| **5-Anchor 200-Game Bradley-Terry Elo (`95% CI`)** | *Not run on E1b* | **`542.35`** (`[470.81, 610.53]`) | **`530.98`** (`[458.17, 595.64]`) | `-11.37 Elo` *(within 0.3 SE)* |
+
+#### 2. 5-Anchor 200-Game Paired Bradley-Terry Elo (`test_openings_20.txt` × 2 Colors, Constrained, `--batch-size 20`)
+
+Computed via `chessfm.eval.bradley_terry.estimate_bradley_terry_elo(n_bootstrap=5000, ci_level=0.95, seed=42)` (`results/phase2/e2b/e2b_bradley_terry_elo.json`):
+- **Bradley-Terry Elo Estimate:** **`530.98`** (**95% Bootstrap CI: `[458.17, 595.64]`**, `SE = 34.86`, `47.0/200 = 23.5%` total score, `100.0%` legal, `100.0%` formatted).
+
+| Anchor Opponent | Anchor Elo | Games | Record (W-L-D) | White (W-L-D) | Black (W-L-D) | Score Rate | 95% Wilson CI | Avg Ply | Draw Cause |
+|---|---:|---:|---|---|---|---:|---|---:|---|
+| Random Bot | `200` | `40` | `3-0-37` | `1-0-19` | `2-0-18` | `53.8%` | `[0.387, 0.682]` | `112.6` | `32 rep3`, `5 max` |
+| Stockfish Skill 0 (d6) | `800` | `40` | `0-27-13` | `0-15-5` | `0-12-8` | `16.2%` | `[0.079, 0.305]` | `51.5` | `13 rep3` |
+| Stockfish Skill 1 (d6) | `950` | `40` | `0-30-10` | `0-17-3` | `0-13-7` | `12.5%` | `[0.055, 0.261]` | `53.7` | `10 rep3` |
+| Maia-1100 (fallback) | `1100` | `40` | `0-22-18` | `0-8-12` | `0-14-6` | `22.5%` | `[0.123, 0.375]` | `115.5` | `13 rep3`, `4 max`, `1 stale` |
+| Stockfish `UCI_Elo=1320` (d6) | `1320` | `40` | `0-30-10` | `0-13-7` | `0-17-3` | `12.5%` | `[0.055, 0.261]` | `58.0` | `10 rep3` |
+
+- **Match Diagnostic:** Across all 200 PGNs (`results/phase2/e2b/pgns/*.pgn`), **`78 of 88` draws (88.6%) terminated by threefold repetition (`rep3`)**, `9/88` by `max_moves`, and `1/88` by stalemate — reproducing the exact stateless single-FEN greedy repetition trap observed in `E2a` (`84/94 = 89.4%`). Notably, `E2b` went undefeated against the Random bot (`3-0-37`, `53.8%` vs `E2a`'s `1-2-37`, `48.8%`) and drew `13/40` vs SF Skill 0 (`16.2%`), while losing slightly more games to SF `UCI_Elo=1320` (`12.5%` vs `E2a`'s `22.5%`).
+
+#### 3. Scientific Findings, Format Diagnostics & Sample Verified Traces
+- **Empirical Validation of *LoRA Without Regret* (`E2a r=64` > `E2b Full-FT` at 20K / 7M tokens):** On identical data (`20,000` rows, `7.03M` tokens, `1,062` steps), **All-Linear LoRA `r=64` at `lr=2e-4` (`E2a`) outperformed Full Fine-Tuning at `lr=2e-5` (`E2b`) on held-out loss (`0.2660` vs `0.2842`), strict legality (`66.2%` vs `62.4%`), strict ACPL (`297.56` vs `322.13 cp`), constrained ACPL (`387.90` vs `410.67 cp`), 900 puzzles (`21.44%` vs `17.44%`), 1,000 ChessQA (`45.2%` vs `31.2%`), CoT V2 faithfulness (`60.66%` vs `57.74%`), and training cost (`$1.95` A100 vs `$2.09` H100)**, with overlapping 5-anchor Bradley-Terry Elo (`542.35` vs `530.98`).
+- **Zero General-English Catastrophic Forgetting:** Neither LoRA nor Full-FT degraded general-English capability (`E1b 89.0%`, `E2a 90.0%`, `E2b 89.0%`, all with **`0.0%` chess leakage**; `E2b` breakdown: `world_knowledge 100%`, `reading_comprehension 96%`, `instruction_following 92%`, `logical_reasoning 68%`).
+- **Root Cause of `E2b`'s ChessQA `castling_rights` (`0%`), `game_phase` (`0%`), and `Short Tactics` (`0.5%`) Drop:** Direct inspection of `e2b_puzzles_chessqa_english.json` revealed **format under-adaptation at `lr=2e-5`**, not knowledge collapse: on `game_phase`, `E2b` repeatedly predicted the correct answer wrapped in verbose Qwen3 prose (`"the game phase of this position is **middlegame**"` instead of `"middlegame"`); on `castling_rights` it wrote `"In the given FEN notation: ..."`; and on `best_tactical_move` it wrote `"the best tactical move for white in the given position is **Qxe8+** (d5e8)"` instead of bare UCI. By contrast, `E2a` (`r=64`, `lr=2e-4`) cleanly absorbed both chess content and concise output formatting (`castling_rights 100%`, `game_phase 100%`).
+- **900-Puzzle Theme & Difficulty Highlights (`E2b`):** `backRankMate` **`60.0%`** (`15/25`), `smotheredMate` **`44.0%`** (`11/25`, highest across all checkpoints!), `skewer` **`40.0%`** (`10/25`), `xRayAttack` `32.0%` (`8/25`), `promotion` `28.0%` (`7/25`). Difficulty tiers: `<1200` `29.51%` (`85/288`), `1200-1599` `13.84%` (`31/224`), `1600-1999` `10.48%` (`22/210`), `>=2000` `10.67%` (`19/178`).
+- **Sample Exact-Match + Zero-Violation CoT Traces (`21/1,000` strict positions):**
+  - `r2q1rk1/pp2ppbp/2p3p1/2n1P3/5P2/2n2BPP/PPP5/R1B1QRK1 w - - 0 14` -> `e1c3` (`best_move=e1c3`, `cp_loss=0.0`, `6/6` V2 CoT claims verified).
+  - `rn1qkbnr/ppp2pp1/8/3p3p/3P3P/2Nb1P2/PPP3P1/R1BQK1NR w KQkq - 0 8` -> `d1d3` (`best_move=d1d3`, `cp_loss=0.0`, `7/7` V2 CoT claims verified).
+  - `2r5/1R2pk2/3pp3/6p1/3NP2p/1RPn1P1P/4K1P1/r7 b - - 3 33` -> `d3c1` (`best_move=d3c1`, `cp_loss=0.0`, `6/6` V2 CoT claims verified).
+  - *Check-evasion failure (`376/1,000` illegal strict moves):* On `rnbqk1nr/ppp2ppp/4p3/3p4/2PP4/P1b5/1P2PPPP/R1BQKBNR w KQkq - 0 5` (`Bc3+`), `E2b` reverted to `E1b`'s `g1f3` (`Nf3`), ignoring check (`1/7` V2 CoT claims verified).
+
+#### 4. Exact Gate 3b Modal GPU Accounting (`H100-80GB @ $3.95/hr`, `L4 @ $0.80/hr`)
+| Modal App ID | Task | GPU | Active (s) | Wall-Clock (s) | Est. GPU Cost ($) | Conservative Wall Cost ($) |
+|---|---|---|---:|---:|---:|---:|
+| `ap-t3bF465vGB8KdWT4rnj9Pp` | `E2b` SFT (`20K × 2 ep`, Full-FT, `lr=2e-5`, `bs=8, ga=4`) | H100-80GB | `1,850.13` | `1,904` | `$2.089` | `$2.089` |
+| `ap-YqwU42KzICqvtYMfDhrS8X` | `E2b` Frozen `test_fens_1000` Strict + CoT V2 (`bs=16`) | L4 | `414.04` | `488` | `$0.105` | `$0.108` |
+| `ap-Mad5Frifi2507k5OtJffnV` | `E2b` Frozen `test_fens_1000` Constrained (`bs=16`) | L4 | `403.59` | `552` | `$0.103` | `$0.123` |
+| `ap-X7Vyq3W8i4nJpiHbbb6Ma4` | `E2b` 900 Puzzles + 1,000 ChessQA + 100 English (`bs=16`) | L4 | `595.95` | `1,148` | `$0.146` | `$0.255` |
+| `ap-TYvfpyNjtnibO0O3NAaiqI` | `E2b` BT Match vs Random (`40g`, `bs=20`) | L4 | `1,006.19` | `1,680` | `$0.237` | `$0.373` |
+| `ap-a6Ido6VRBiO1PQvWHsGd8L` | `E2b` BT Match vs SF Skill 0 (`40g`, `bs=20`) | L4 | `439.74` | `490` | `$0.109` | `$0.109` |
+| `ap-kJoDk13sOjxZsf7VeAQRqc` | `E2b` BT Match vs SF Skill 1 (`40g`, `bs=20`) | L4 | `511.40` | `618` | `$0.127` | `$0.137` |
+| `ap-tqC04pKulvU0WT1XA0ctov` | `E2b` BT Match vs Maia-1100 (`40g`, `bs=20`) | L4 | `987.20` | `1,024` | `$0.228` | `$0.228` |
+| `ap-uOYXA7A9pVxpo3XsqSrjxV` | `E2b` BT Match vs SF `UCI_Elo=1320` (`40g`, `bs=20`) | L4 | `668.87` | `1,344` | `$0.162` | `$0.299` |
+| `ap-XBuCJkddDc4SfSoyhJokox` | `E2b` Private HF Upload (`final`) | CPU | `~75` | `~75` | `$0.000` | `$0.000` |
+| **Gate 3b (`E2b`) Total** | | **H100 + L4** | **`6,877.11`** | **`9,248`** | **`$3.306`** | **`$3.721`** |
+
+- **Phase I + Phase II Cumulative Modal Spend (`E0 -> E1a -> E1b -> E2a -> E2b`):** **`$24.20`** conservative wall-clock (`$23.37` est. active GPU).
+
+
 
 
 
