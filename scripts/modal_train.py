@@ -474,8 +474,11 @@ def _suite_supports_flag(flag: str) -> bool:
     """Return True if ``chessfm.eval.suite`` accepts ``flag`` (e.g. ``--include-piece-list``)."""
     param_name = flag.lstrip("-").replace("-", "_")
     src_path = str(Path(REMOTE_REPO) / "src")
-    if Path(src_path).is_dir() and src_path not in sys.path:
-        sys.path.insert(0, src_path)
+    try:
+        if Path(src_path).is_dir() and src_path not in sys.path:
+            sys.path.insert(0, src_path)
+    except OSError:
+        pass
     try:
         from chessfm.eval.suite import evaluate_model_suite
     except ImportError:
