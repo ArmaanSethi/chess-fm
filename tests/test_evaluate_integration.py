@@ -23,15 +23,16 @@ class TestStockfishRewards(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import chess.engine
+        from chessfm.rl.engine import open_engine
 
-        path = next(p for p in STOCKFISH_PATHS if shutil.which(p))
-        cls.engine = chess.engine.SimpleEngine.popen_uci(path)
-        cls.engine.configure({"Threads": 1, "Hash": 16})
+        cls.engine = open_engine(threads=1, hash_mb=16)
+        assert cls.engine is not None
 
     @classmethod
     def tearDownClass(cls):
-        cls.engine.quit()
+        from chessfm.rl.engine import close_engine
+
+        close_engine(cls.engine)
 
     def test_best_move_scores_high(self):
         from chessfm.rl.rewards import reward_move_quality
@@ -617,6 +618,98 @@ def test_evaluate_model_maia_opponent_prompt_parity_and_manifest(tmp_path, monke
     assert manifest["timestamp_utc"].endswith("Z")
     assert manifest["tiers"]["tier4_match"]["opponent_elo"] == 1200
     assert manifest["tiers"]["tier4_match"]["color_balanced"] is True
+
+
+def test_evaluate_model_rejects_non_positive_maia_elo(tmp_path, monkeypatch):
+    import pytest
+
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    for bad_elo in (0, -100):
+        with pytest.raises(ValueError, match="maia_elo must be a positive integer"):
+            evaluate.evaluate_model(
+                _FakeModel(),
+                _MoveTokenizer(),
+                "fake",
+                num_games=1,
+                maia_elo=bad_elo,
+            )
+
+    monkeypatch.setattr("sys.argv", ["evaluate", "--maia-elo", "0"])
+    with pytest.raises(SystemExit) as exc_info:
+        evaluate.main()
+    assert exc_info.value.code == 2
+
+
+def test_evaluate_model_closes_env_on_exception(tmp_path, monkeypatch):
+    import pytest
+
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    closed = {"called": False}
+
+    class _TrackingEnv:
+        engine = None
+
+        def reset(self, fen=None):
+            return fen or ""
+
+        def close(self):
+            closed["called"] = True
+
+    monkeypatch.setattr(evaluate, "ChessEnv", _TrackingEnv)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated play_game failure")
+
+    monkeypatch.setattr(evaluate, "play_game", _boom)
+
+    with pytest.raises(RuntimeError, match="simulated play_game failure"):
+        evaluate.evaluate_model(
+            _FakeModel(),
+            _MoveTokenizer(),
+            "fake",
+            num_games=1,
+            use_random_opponent=True,
+        )
+    assert closed["called"] is True
+
+
+def test_evaluate_model_alternate_colors_starts_with_black(tmp_path, monkeypatch):
+    import chessfm.rl.evaluate as evaluate
+
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    seen_colors: list[str] = []
+    orig_play_game = evaluate.play_game
+
+    def _spy_play_game(model, tokenizer, env, model_color, *args, **kwargs):
+        seen_colors.append(model_color)
+        return orig_play_game(model, tokenizer, env, model_color, *args, **kwargs)
+
+    monkeypatch.setattr(evaluate, "play_game", _spy_play_game)
+
+    results = evaluate.evaluate_model(
+        _FakeModel(),
+        _MoveTokenizer(),
+        "fake",
+        num_games=4,
+        model_color="black",
+        alternate_colors=True,
+        use_random_opponent=True,
+        seed=7,
+    )
+    assert seen_colors == ["black", "white", "black", "white"]
+    assert results["color_balanced"] is True
+    assert results["white"]["games"] == 2
+    assert results["black"]["games"] == 2
 
 
 if __name__ == "__main__":

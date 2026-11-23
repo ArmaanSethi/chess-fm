@@ -17,6 +17,7 @@ from chessfm.coach import (
     win_prob_from_cp,
 )
 from chessfm.config import STOCKFISH_PATHS
+from chessfm.rl.engine import close_engine, open_engine
 
 STOCKFISH_PATH = next((p for p in STOCKFISH_PATHS if shutil.which(p)), None)
 START_FEN = chess.STARTING_FEN
@@ -238,9 +239,9 @@ def test_build_partial_strategy_tree_edge_cases():
 
 @pytest.mark.skipif(STOCKFISH_PATH is None, reason="Stockfish not available")
 def test_build_partial_strategy_tree_live_stockfish():
-    engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+    engine = open_engine(threads=1, hash_mb=16, stockfish_path=STOCKFISH_PATH)
+    assert engine is not None
     try:
-        engine.configure({"Threads": 1, "Hash": 16})
         tree = build_partial_strategy_tree(
             START_FEN,
             engine,
@@ -270,4 +271,4 @@ def test_build_partial_strategy_tree_live_stockfish():
             "Blunder",
         }
     finally:
-        engine.quit()
+        close_engine(engine)

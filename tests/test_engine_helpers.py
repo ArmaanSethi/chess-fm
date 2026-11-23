@@ -257,3 +257,55 @@ def test_resilient_engine_stops_after_max_restarts(monkeypatch):
     # best_cp converts EngineTerminatedError (subclass of EngineError) to None after bounded retries.
     assert best_cp(resilient, chess.Board(), depth=4) is None
     assert resilient.restart_count == 2
+
+
+def test_resilient_engine_configure_does_not_poison_options_on_error():
+    import chess.engine
+
+    from chessfm.rl.engine import ResilientEngine
+
+    class _RejectingEngine:
+        def configure(self, opts):
+            if "BadOption" in opts:
+                raise chess.engine.EngineError("unknown option")
+
+        def quit(self):
+            pass
+
+    resilient = ResilientEngine(
+        "/usr/games/stockfish",
+        _RejectingEngine(),
+        threads=1,
+        hash_mb=16,
+    )
+    with pytest.raises(chess.engine.EngineError):
+        resilient.configure({"BadOption": 999})
+
+    assert "BadOption" not in resilient._options
+    assert resilient._options == {"Threads": 1, "Hash": 16}
+
+
+def test_open_engine_with_explicit_stockfish_path_wraps_resilient(monkeypatch):
+    import chess.engine
+
+    from chessfm.rl.engine import ResilientEngine
+
+    opened_paths: list[str] = []
+
+    class _StubEngine:
+        def configure(self, opts):
+            pass
+
+        def quit(self):
+            pass
+
+    def _fake_popen(path):
+        opened_paths.append(path)
+        return _StubEngine()
+
+    monkeypatch.setattr(chess.engine.SimpleEngine, "popen_uci", _fake_popen)
+    engine = open_engine(threads=2, hash_mb=32, stockfish_path="/custom/sf")
+    assert isinstance(engine, ResilientEngine)
+    assert opened_paths == ["/custom/sf"]
+    assert engine._options == {"Threads": 2, "Hash": 32}
+    close_engine(engine)

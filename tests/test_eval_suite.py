@@ -23,6 +23,7 @@ from chessfm.eval import (
     summarize_paired_match,
 )
 from chessfm.eval.suite import main
+from chessfm.rl.engine import open_engine
 
 STOCKFISH_PATH = next((p for p in STOCKFISH_PATHS if shutil.which(p)), None)
 
@@ -171,7 +172,9 @@ def test_tier1_with_fake_engine_cp_wdl_mate_and_stalemate():
 @pytest.mark.skipif(STOCKFISH_PATH is None, reason="Stockfish binary not installed")
 def test_tier1_live_stockfish():
     assert STOCKFISH_PATH is not None
-    with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
+    engine = open_engine(stockfish_path=STOCKFISH_PATH)
+    assert engine is not None
+    with engine:
         positions = [
             {"fen": SCHOLARS_MATE_FEN, "best_move": "h5f7"},
             {"fen": chess.STARTING_FEN},
@@ -317,7 +320,9 @@ def test_tier3_live_stockfish_blunder_detection():
     assert STOCKFISH_PATH is not None
     # In Scholar's mate position, playing Qxf7# is mate while Qh5-h4 misses mate-in-1.
     cases = [{"fen": SCHOLARS_MATE_FEN, "level": 3}]
-    with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
+    engine = open_engine(stockfish_path=STOCKFISH_PATH)
+    assert engine is not None
+    with engine:
         res = evaluate_coaching_faithfulness(
             cases,
             lambda _c: "Retreat the queen with Qh4 to stay safe.",
@@ -574,3 +579,64 @@ def test_cli_model_mode_with_fakes(tmp_path, monkeypatch, capsys):
     assert manifest["tiers"]["tier1_static"]["legal_rate"] == 1.0
     assert manifest["tiers"]["tier1_static"]["puzzle_accuracy"] == 1.0
     assert out_file.is_file()
+
+
+def test_extract_coach_text_supports_completion_key():
+    from chessfm.eval.suite import _extract_coach_text
+
+    row = {
+        "prompt": "Position (FEN): ...",
+        "completion": "Develop your kingside knight to control the center.",
+    }
+    assert _extract_coach_text(row) == "Develop your kingside knight to control the center."
+
+
+def test_evaluate_model_suite_audits_completion_key_in_coaching_cases():
+    from chessfm.eval.suite import evaluate_model_suite
+
+    class _FakeInputs(dict):
+        def __init__(self):
+            super().__init__(input_ids=[[1, 2, 3]])
+            self.input_ids = self
+
+        @property
+        def shape(self):
+            return (1, 3)
+
+        def to(self, _device):
+            return self
+
+    class _FakeTok:
+        eos_token_id = 0
+
+        def __call__(self, _prompt, return_tensors=None):
+            return _FakeInputs()
+
+        def decode(self, _ids, skip_special_tokens=True):
+            return "<think>Control the center.</think>\ne2e4"
+
+    class _FakeModel:
+        device = "cpu"
+
+        def generate(self, **_kwargs):
+            return [[1, 2, 3, 4]]
+
+    coaching_cases = [
+        {
+            "fen": chess.STARTING_FEN,
+            "prompt": "<|im_start|>user\nPosition (FEN): ...",
+            "completion": "Develop your pieces toward the center squares.",
+            "level": 3,
+        }
+    ]
+    manifest = evaluate_model_suite(
+        _FakeModel(),
+        _FakeTok(),
+        model_id="fake/model",
+        positions=[{"fen": chess.STARTING_FEN}],
+        run_probes=False,
+        coaching_cases=coaching_cases,
+    )
+    audited_response = manifest["tiers"]["tier3_act_eval"]["cases"][0]["response"]
+    assert audited_response == "Develop your pieces toward the center squares."
+    assert not audited_response.startswith("{'prompt':")

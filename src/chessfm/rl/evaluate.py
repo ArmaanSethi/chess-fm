@@ -365,111 +365,113 @@ def evaluate_model(
         raise ValueError(
             f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
         )
+    if maia_elo is not None and maia_elo <= 0:
+        raise ValueError(f"maia_elo must be a positive integer, got {maia_elo}")
 
     eval_start = time.monotonic()
     random.seed(seed)
 
     env = ChessEnv()
-    maia_sidecar: MaiaSidecar | None = None
-    if maia_elo is not None:
-        maia_sidecar = MaiaSidecar(use_neural=True, engine=env.engine)
-        opponent_backend = maia_sidecar.backend
-        opponent = f"Maia-{maia_elo} ({opponent_backend})"
-    elif use_random_opponent:
-        opponent_backend = "random"
-        opponent = "Random bot"
-    else:
-        opponent_backend = "stockfish"
-        opponent = f"Stockfish L{stockfish_level} (depth {opponent_depth})"
-        if env.engine is None:
-            env.close()
-            raise SystemExit(
-                "Stockfish engine not found; it is required for evaluation "
-                "unless --random-opponent or --maia-elo is passed."
-            )
-        try:
-            env.engine.configure({"Skill Level": stockfish_level})
-        except chess.engine.EngineError as e:
-            env.close()
-            raise SystemExit(f"Stockfish rejected Skill Level {stockfish_level}: {e}") from e
-
-    print("=" * 60)
-    print(f"ChessFM Evaluation: {model_name} vs {opponent}")
-    color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
-    print(f"Model color: {color_desc}")
-    print(f"Decoding mode: {decoding_mode}")
-    print(f"Include ASCII: {include_ascii} | Enable thinking: {enable_thinking}")
-    print(f"Seed: {seed}")
-    print("=" * 60)
-
-    opening_fens = load_openings(openings)
-    if opening_fens:
-        print(f"Using {len(opening_fens)} opening positions from {openings}")
-
-    total_moves = 0
-    legal_moves = 0
-    formatted_outputs = 0
-    wins = 0
-    losses = 0
-    draws = 0
-    illegal_by_model = 0
-    color_buckets = {
-        "white": {"wins": 0, "losses": 0, "draws": 0},
-        "black": {"wins": 0, "losses": 0, "draws": 0},
-    }
-    games_list = []
-
-    for g in range(num_games):
-        if alternate_colors:
-            game_color = "white" if g % 2 == 0 else "black"
+    try:
+        maia_sidecar: MaiaSidecar | None = None
+        if maia_elo is not None:
+            maia_sidecar = MaiaSidecar(use_neural=True, engine=env.engine)
+            opponent_backend = maia_sidecar.backend
+            opponent = f"Maia-{maia_elo} ({opponent_backend})"
+        elif use_random_opponent:
+            opponent_backend = "random"
+            opponent = "Random bot"
         else:
-            game_color = model_color
+            opponent_backend = "stockfish"
+            opponent = f"Stockfish L{stockfish_level} (depth {opponent_depth})"
+            if env.engine is None:
+                raise SystemExit(
+                    "Stockfish engine not found; it is required for evaluation "
+                    "unless --random-opponent or --maia-elo is passed."
+                )
+            try:
+                env.engine.configure({"Skill Level": stockfish_level})
+            except chess.engine.EngineError as e:
+                raise SystemExit(f"Stockfish rejected Skill Level {stockfish_level}: {e}") from e
+
+        print("=" * 60)
+        print(f"ChessFM Evaluation: {model_name} vs {opponent}")
+        color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
+        print(f"Model color: {color_desc}")
+        print(f"Decoding mode: {decoding_mode}")
+        print(f"Include ASCII: {include_ascii} | Enable thinking: {enable_thinking}")
+        print(f"Seed: {seed}")
+        print("=" * 60)
+
+        opening_fens = load_openings(openings)
         if opening_fens:
-            opening_idx = (
-                (g // 2) % len(opening_fens) if alternate_colors else g % len(opening_fens)
+            print(f"Using {len(opening_fens)} opening positions from {openings}")
+
+        total_moves = 0
+        legal_moves = 0
+        formatted_outputs = 0
+        wins = 0
+        losses = 0
+        draws = 0
+        illegal_by_model = 0
+        color_buckets = {
+            "white": {"wins": 0, "losses": 0, "draws": 0},
+            "black": {"wins": 0, "losses": 0, "draws": 0},
+        }
+        games_list = []
+
+        other_color = "black" if model_color == "white" else "white"
+        for g in range(num_games):
+            if alternate_colors:
+                game_color = model_color if g % 2 == 0 else other_color
+            else:
+                game_color = model_color
+            if opening_fens:
+                opening_idx = (
+                    (g // 2) % len(opening_fens) if alternate_colors else g % len(opening_fens)
+                )
+                env.reset(opening_fens[opening_idx])
+            else:
+                env.reset()
+            print(f"\nGame {g + 1}/{num_games} ({game_color})")
+
+            game, stats = play_game(
+                model,
+                tokenizer,
+                env,
+                game_color,
+                use_random_opponent=use_random_opponent,
+                opponent_depth=opponent_depth,
+                decoding_mode=decoding_mode,
+                include_ascii=include_ascii,
+                enable_thinking=enable_thinking,
+                maia_sidecar=maia_sidecar,
+                maia_elo=maia_elo,
             )
-            env.reset(opening_fens[opening_idx])
-        else:
-            env.reset()
-        print(f"\nGame {g + 1}/{num_games} ({game_color})")
 
-        game, stats = play_game(
-            model,
-            tokenizer,
-            env,
-            game_color,
-            use_random_opponent=use_random_opponent,
-            opponent_depth=opponent_depth,
-            decoding_mode=decoding_mode,
-            include_ascii=include_ascii,
-            enable_thinking=enable_thinking,
-            maia_sidecar=maia_sidecar,
-            maia_elo=maia_elo,
-        )
+            game.headers["Event"] = f"ChessFM Eval game {g + 1}"
+            game.headers["Model"] = model_name
+            game.headers["Opponent"] = opponent
+            game.headers["ModelColor"] = game_color
+            game.headers["Seed"] = str(seed)
+            game.headers["Result"] = stats["result"]
 
-        game.headers["Event"] = f"ChessFM Eval game {g + 1}"
-        game.headers["Model"] = model_name
-        game.headers["Opponent"] = opponent
-        game.headers["ModelColor"] = game_color
-        game.headers["Seed"] = str(seed)
-        game.headers["Result"] = stats["result"]
+            games_list.append(game)
+            total_moves += stats["total_moves"]
+            legal_moves += stats["legal_moves"]
+            formatted_outputs += stats["formatted_outputs"]
+            wins += stats["wins"]
+            losses += stats["losses"]
+            draws += stats["draws"]
+            illegal_by_model += stats["illegal_by_model"]
+            color_buckets[game_color]["wins"] += stats["wins"]
+            color_buckets[game_color]["losses"] += stats["losses"]
+            color_buckets[game_color]["draws"] += stats["draws"]
 
-        games_list.append(game)
-        total_moves += stats["total_moves"]
-        legal_moves += stats["legal_moves"]
-        formatted_outputs += stats["formatted_outputs"]
-        wins += stats["wins"]
-        losses += stats["losses"]
-        draws += stats["draws"]
-        illegal_by_model += stats["illegal_by_model"]
-        color_buckets[game_color]["wins"] += stats["wins"]
-        color_buckets[game_color]["losses"] += stats["losses"]
-        color_buckets[game_color]["draws"] += stats["draws"]
-
-        if stats["illegal_by_model"]:
-            print(f"   (model forfeited via illegal move: {stats['result']})")
-
-    env.close()
+            if stats["illegal_by_model"]:
+                print(f"   (model forfeited via illegal move: {stats['result']})")
+    finally:
+        env.close()
     wall_clock_seconds = round(time.monotonic() - eval_start, 2)
 
     now_utc = datetime.now(timezone.utc)
@@ -664,6 +666,8 @@ def main():
         help="Optional path to write standardized eval_manifest.json (schema_version 1.0)",
     )
     args = parser.parse_args()
+    if args.maia_elo is not None and args.maia_elo <= 0:
+        parser.error(f"--maia-elo must be a positive integer, got {args.maia_elo}")
 
     logging.basicConfig(level=logging.INFO)
 

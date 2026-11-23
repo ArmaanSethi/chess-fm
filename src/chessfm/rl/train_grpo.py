@@ -222,6 +222,39 @@ def build_grpo_config(args) -> GRPOConfig:
     )
 
 
+class _KVCacheGenerationMixin:
+    """Temporarily switch to eval + use_cache=True during rollout generation.
+
+    TRL 0.16 calls ``model.generate()`` while ``model.training`` is True,
+    causing Qwen3's forward pass to force ``use_cache=False`` whenever
+    ``gradient_checkpointing=True`` (~10-20x slower rollouts). Switching to
+    eval mode strictly inside ``_generate_and_score_completions`` restores
+    KV-cached generation while preserving gradient checkpointing and
+    ``use_cache=False`` during ``compute_loss()`` backward passes.
+    """
+
+    def _generate_and_score_completions(self, inputs):
+        accelerator = getattr(self, "accelerator", None)
+        unwrapped = (
+            accelerator.unwrap_model(self.model)
+            if accelerator is not None and hasattr(accelerator, "unwrap_model")
+            else self.model
+        )
+        cfg = getattr(unwrapped, "config", None)
+        was_training = self.model.training
+        prev_use_cache = getattr(cfg, "use_cache", False) if cfg is not None else False
+        self.model.eval()
+        if cfg is not None:
+            cfg.use_cache = True
+        try:
+            return super()._generate_and_score_completions(inputs)
+        finally:
+            if cfg is not None:
+                cfg.use_cache = prev_use_cache
+            if was_training:
+                self.model.train()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train ChessFM with GRPO")
     parser.add_argument(
@@ -347,30 +380,8 @@ def main():
 
     reward_fn = make_reward_func(args.stage, engine=engine)
 
-    class _KVCacheGRPOTrainer(GRPOTrainer):
-        """Temporarily switch to eval + use_cache=True during rollout generation.
-
-        TRL 0.16 calls ``model.generate()`` while ``model.training`` is True,
-        causing Qwen3's forward pass to force ``use_cache=False`` whenever
-        ``gradient_checkpointing=True`` (~10-20x slower rollouts). Switching to
-        eval mode strictly inside ``_generate_and_score_completions`` restores
-        KV-cached generation while preserving gradient checkpointing and
-        ``use_cache=False`` during ``compute_loss()`` backward passes.
-        """
-
-        def _generate_and_score_completions(self, inputs):
-            was_training = self.model.training
-            prev_use_cache = getattr(self.model.config, "use_cache", False)
-            self.model.eval()
-            if hasattr(self.model, "config"):
-                self.model.config.use_cache = True
-            try:
-                return super()._generate_and_score_completions(inputs)
-            finally:
-                if hasattr(self.model, "config"):
-                    self.model.config.use_cache = prev_use_cache
-                if was_training:
-                    self.model.train()
+    class _KVCacheGRPOTrainer(_KVCacheGenerationMixin, GRPOTrainer):
+        pass
 
     trainer = _KVCacheGRPOTrainer(
         model=model,

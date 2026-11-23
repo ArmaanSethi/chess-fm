@@ -162,3 +162,83 @@ def test_grpo_load_positions_passes_enable_thinking_true(tmp_path):
     assert len(rows) == 1
     assert captured_kwargs and captured_kwargs[0].get("enable_thinking") is True
     assert "Board:\n" in rows[0]["prompt"]
+
+
+def test_kv_cache_generation_mixin_unwraps_ddp_and_restores_on_error():
+    from types import SimpleNamespace
+
+    from chessfm.rl.train_grpo import _KVCacheGenerationMixin
+
+    class _InnerModel:
+        def __init__(self):
+            self.config = SimpleNamespace(use_cache=False)
+
+    class _DDPWrapper:
+        """Simulates DistributedDataParallel (no direct .config attribute)."""
+
+        def __init__(self, module):
+            self.module = module
+            self.training = True
+
+        def eval(self):
+            self.training = False
+
+        def train(self):
+            self.training = True
+
+    class _FakeAccelerator:
+        def unwrap_model(self, model):
+            return model.module
+
+    observed: list[tuple[bool, bool]] = []
+
+    class _BaseTrainer:
+        def __init__(self, model, accelerator=None, fail=False):
+            self.model = model
+            self.accelerator = accelerator
+            self._fail = fail
+
+        def _generate_and_score_completions(self, inputs):
+            unwrapped = (
+                self.accelerator.unwrap_model(self.model) if self.accelerator else self.model
+            )
+            cfg = getattr(unwrapped, "config", None)
+            observed.append((self.model.training, getattr(cfg, "use_cache", None)))
+            if self._fail:
+                raise RuntimeError("boom")
+            return inputs
+
+    class _TestTrainer(_KVCacheGenerationMixin, _BaseTrainer):
+        pass
+
+    inner = _InnerModel()
+    ddp_model = _DDPWrapper(inner)
+    assert not hasattr(ddp_model, "config")
+
+    trainer = _TestTrainer(ddp_model, accelerator=_FakeAccelerator(), fail=False)
+    assert trainer._generate_and_score_completions("ok") == "ok"
+    assert observed == [(False, True)]
+    assert ddp_model.training is True
+    assert inner.config.use_cache is False
+
+    # Exception safety: restores training=True and use_cache=False even if generation raises.
+    failing_trainer = _TestTrainer(ddp_model, accelerator=_FakeAccelerator(), fail=True)
+    with pytest.raises(RuntimeError, match="boom"):
+        failing_trainer._generate_and_score_completions("x")
+    assert ddp_model.training is True
+    assert inner.config.use_cache is False
+
+    # Config-less model without accelerator must not raise AttributeError.
+    class _NoConfigModel:
+        training = True
+
+        def eval(self):
+            self.training = False
+
+        def train(self):
+            self.training = True
+
+    no_cfg_model = _NoConfigModel()
+    no_cfg_trainer = _TestTrainer(no_cfg_model, accelerator=None, fail=False)
+    assert no_cfg_trainer._generate_and_score_completions("ok") == "ok"
+    assert no_cfg_model.training is True

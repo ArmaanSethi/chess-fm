@@ -75,8 +75,8 @@ class ResilientEngine:
                 self._restart()
 
     def configure(self, options: dict) -> None:
-        self._options.update(options)
         self._engine.configure(options)
+        self._options.update(options)
 
     def analyse(self, *args, **kwargs):
         return self._call_with_restart("analyse", *args, **kwargs)
@@ -104,9 +104,11 @@ def open_engine(
     threads: int = 1,
     hash_mb: int = 16,
     max_restarts: int = 2,
+    stockfish_path: str | None = None,
 ) -> ResilientEngine | None:
-    """Open a Stockfish engine from the configured paths, or None if unavailable."""
-    for path in STOCKFISH_PATHS:
+    """Open a Stockfish engine from ``stockfish_path`` or configured paths, or None."""
+    paths = [stockfish_path] if stockfish_path is not None else STOCKFISH_PATHS
+    for path in paths:
         try:
             engine = chess.engine.SimpleEngine.popen_uci(path)
             engine.configure({"Threads": threads, "Hash": hash_mb})

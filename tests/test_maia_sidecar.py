@@ -14,6 +14,7 @@ import pytest
 from chessfm.coach import MaiaSidecar
 from chessfm.coach.maia_sidecar import ELO_BRACKETS, snap_elo_bracket
 from chessfm.config import STOCKFISH_PATHS
+from chessfm.rl.engine import close_engine, open_engine
 
 STOCKFISH_PATH = next((p for p in STOCKFISH_PATHS if shutil.which(p)), None)
 START_FEN = chess.STARTING_FEN
@@ -190,9 +191,9 @@ def test_detect_human_trap_categories(monkeypatch):
 
 @pytest.mark.skipif(STOCKFISH_PATH is None, reason="Stockfish not available")
 def test_sidecar_with_live_stockfish():
-    engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+    engine = open_engine(threads=1, hash_mb=16, stockfish_path=STOCKFISH_PATH)
+    assert engine is not None
     try:
-        engine.configure({"Threads": 1, "Hash": 16})
         sidecar = MaiaSidecar(use_neural=False, engine=engine, engine_depth=5)
         res_low = sidecar.predict_human_moves(START_FEN, student_elo=800, top_k=5)
         res_high = sidecar.predict_human_moves(START_FEN, student_elo=2400, top_k=5)
@@ -202,4 +203,4 @@ def test_sidecar_with_live_stockfish():
         assert math.isclose(sum(res_high["move_probs"].values()), 1.0, rel_tol=1e-9)
         assert _entropy(res_high["move_probs"]) < _entropy(res_low["move_probs"])
     finally:
-        engine.quit()
+        close_engine(engine)

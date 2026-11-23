@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import chess
 
 from chessfm.config import MAX_GAME_MOVES
-from chessfm.rl.engine import _ENGINE_ERRORS, best_cp, close_engine, open_engine
+from chessfm.rl.engine import best_cp, close_engine, open_engine
 
 
 @dataclass
@@ -50,15 +50,10 @@ class ChessEnv:
             self.engine = open_engine()
 
     def _init_named(self, path: str):
-        import chess.engine
-
-        try:
-            engine = chess.engine.SimpleEngine.popen_uci(path)
-            engine.configure({"Threads": 1, "Hash": 16})
-            return engine
-        except _ENGINE_ERRORS as e:
-            print(f"Warning: could not init Stockfish at {path}: {e}")
-            return None
+        engine = open_engine(stockfish_path=path)
+        if engine is None:
+            print(f"Warning: could not init Stockfish at {path}")
+        return engine
 
     def set_skill_level(self, level: int = 1):
         """Configure Stockfish skill level (0-20). Lower = weaker.

@@ -466,7 +466,7 @@ def evaluate_board_probes(
 def _extract_coach_text(output: Any) -> str:
     """Normalize ``coach_fn`` return values (plain string or hint dict) to text."""
     if isinstance(output, dict):
-        for key in ("hint", "text", "explanation", "response"):
+        for key in ("hint", "text", "explanation", "response", "completion"):
             if key in output and isinstance(output[key], str):
                 return output[key]
         return str(output)
