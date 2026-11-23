@@ -106,12 +106,14 @@ def requires_modern_stack(model_name: str) -> bool:
 
 
 def resolve_track_model(model: str = "", track: str = "", use_official_gemma: bool = False) -> str:
-    """Resolve the Hugging Face model ID from ``--model`` / ``--track`` flags.
+    """Resolve the model ID or checkpoint path from ``--model`` / ``--track`` flags.
 
-    An explicit ``track`` selects the curated model for that track. For
-    ``v2``/``coach``, setting ``use_official_gemma=True`` selects
-    ``google/gemma-4-E4B-it`` (Apache-2.0, ungated).
+    An explicit ``--model`` (e.g. a checkpoint path on the Modal volume) always
+    takes precedence over ``--track`` so combining ``--track v1 --model /vol/...``
+    never silently evaluates the base model instead of the checkpoint.
     """
+    if model:
+        return model
     if track:
         key = track.strip().lower()
         if key not in TRACK_MODELS:
@@ -121,7 +123,7 @@ def resolve_track_model(model: str = "", track: str = "", use_official_gemma: bo
         if key in {"v2", "coach"} and use_official_gemma:
             return OFFICIAL_V2_MODEL
         return TRACK_MODELS[key]
-    return model or DEFAULT_V1_MODEL
+    return DEFAULT_V1_MODEL
 
 
 # Forward optional runtime secrets (HF_TOKEN for Hub uploads / private repos,

@@ -627,6 +627,13 @@ class TestModalTrainRouting:
         assert ec["seed"] == 7
         assert ec["include_piece_list"] is True
 
+    def test_resolve_track_model_prioritizes_explicit_model(self):
+        mt = self._load_modal_train()
+        ckpt = "/vol/checkpoints/sft_e1a_piece_list/final_merged"
+        assert mt.resolve_track_model(model=ckpt, track="v1") == ckpt
+        assert mt.resolve_track_model(model="", track="v1") == "Qwen/Qwen3-4B"
+        assert mt.resolve_track_model(model="", track="") == "Qwen/Qwen3-4B"
+
 
 # ---------------------------------------------------------------------------
 # upload_hf tests
