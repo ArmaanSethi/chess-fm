@@ -2154,6 +2154,37 @@ def run_coach_benchmark_batch_l4(jobs_json: str) -> str:
     return json.dumps(outputs)
 
 
+@app.function(
+    gpu="A100-80GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_coach_benchmark_batch_a100(jobs_json: str) -> str:
+    """Execute multiple high-batch coach evaluations sequentially on one warm A100-80GB."""
+    import gc
+    import json
+
+    import torch
+
+    jobs = json.loads(jobs_json)
+    if not isinstance(jobs, list) or not jobs:
+        raise ValueError("jobs_json must be a non-empty JSON list of coach benchmark job dicts")
+    outputs: list[str] = []
+    for idx, job in enumerate(jobs, start=1):
+        print(
+            f"\n========== COACH BENCHMARK BATCH (A100) JOB {idx}/{len(jobs)}: "
+            f"{job.get('output_subdir')} ==========\n",
+            flush=True,
+        )
+        summary_path = _exec_coach_benchmark(**job)
+        outputs.append(summary_path)
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    return json.dumps(outputs)
+
+
 @app.local_entrypoint()
 def main(
     task: str = "smoke-pipeline",
@@ -2259,7 +2290,7 @@ def main(
                 f"model {resolved_model!r}. Use --gpu l4 for modern tracks."
             )
     elif gpu_tier == "a100":
-        a100_tasks = {"sft", "grpo", "grpo-batch", "smoke-pipeline"}
+        a100_tasks = {"sft", "grpo", "grpo-batch", "coach-benchmark-batch", "smoke-pipeline"}
         if task not in a100_tasks:
             raise ValueError(
                 f"--gpu a100 is only supported for tasks {sorted(a100_tasks)} "
@@ -2518,7 +2549,10 @@ def main(
         payload = (
             Path(jobs_json).read_text(encoding="utf-8") if Path(jobs_json).is_file() else jobs_json
         )
-        res = run_coach_benchmark_batch_l4.remote(jobs_json=payload)
+        batch_eval_fn = (
+            run_coach_benchmark_batch_a100 if gpu_tier == "a100" else run_coach_benchmark_batch_l4
+        )
+        res = batch_eval_fn.remote(jobs_json=payload)
         print(f"Coach benchmark batch completed: {res}")
     elif task == "export-gguf":
         export_dir = run_export_gguf.remote(

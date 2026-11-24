@@ -996,3 +996,9 @@ class TestPhase4ACloudAndExportPlumbing:
         mt.main(task="coach-benchmark-batch", gpu="l4", jobs_json=inline)
         assert len(eval_batch_calls) == 1
         assert eval_batch_calls[0]["jobs_json"] == inline
+
+        a100_eval_calls: list[dict] = []
+        monkeypatch.setattr(mt, "run_coach_benchmark_batch_a100", _Rec(a100_eval_calls))
+        mt.main(task="coach-benchmark-batch", gpu="a100", jobs_json=inline)
+        assert len(a100_eval_calls) == 1
+        assert a100_eval_calls[0]["jobs_json"] == inline
