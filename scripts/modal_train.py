@@ -1396,6 +1396,7 @@ def run_p4a_vllm_batch(
     out_dir: str = f"{VOL_MOUNT}/results/phase2/e5",
     workers: int = 24,
     eval_workers: int = 32,
+    skip_coach: bool = False,
 ) -> str:
     """Execute all 3 Phase 4A vLLM workloads in ONE warm A100-80GB container boot.
 
@@ -1464,66 +1465,69 @@ def run_p4a_vllm_batch(
         vllm_startup_s = round(vllm_ready_t - container_t0, 2)
         print(f"[p4a-vllm-batch] vLLM ready in {vllm_startup_s}s", flush=True)
 
-        # Stage 1: Row 6 Teacher single-shot on test_coach_300.jsonl
-        t_s1 = time.monotonic()
         row6_out = str(out_root / "coach_eval_teacher_26b.jsonl")
-        _run(
-            [
-                "python",
-                "-m",
-                "chessfm.data_generation.distill_open_teacher",
-                "--input",
-                coach_test_path,
-                "--output",
-                row6_out,
-                "--base-url",
-                base_url,
-                "--model",
-                model,
-                "--include-tactical-facts",
-                "--single-shot",
-                "--temperature",
-                "0.2",
-                "--workers",
-                str(workers),
-            ]
-        )
-        stage_timings["row6_teacher_300_s"] = round(time.monotonic() - t_s1, 2)
-        volume.commit()
-        print(
-            f"[p4a-vllm-batch] Stage 1 (Row 6 Teacher 300) done in {stage_timings['row6_teacher_300_s']}s",
-            flush=True,
-        )
-
-        # Stage 2: Distill 1,000 fresh tactical-fact-grounded traces
-        t_s2 = time.monotonic()
         fresh_out = str(out_root / "coach_fresh_1k_distilled.jsonl")
-        _run(
-            [
-                "python",
-                "-m",
-                "chessfm.data_generation.distill_open_teacher",
-                "--input",
-                fresh_seed_path,
-                "--output",
-                fresh_out,
-                "--base-url",
-                base_url,
-                "--model",
-                model,
-                "--include-tactical-facts",
-                "--max-attempts",
-                "3",
-                "--workers",
-                str(workers),
-            ]
-        )
-        stage_timings["fresh_1k_distill_s"] = round(time.monotonic() - t_s2, 2)
-        volume.commit()
-        print(
-            f"[p4a-vllm-batch] Stage 2 (Fresh 1K distill) done in {stage_timings['fresh_1k_distill_s']}s",
-            flush=True,
-        )
+        if not skip_coach:
+            # Stage 1: Row 6 Teacher single-shot on test_coach_300.jsonl
+            t_s1 = time.monotonic()
+            _run(
+                [
+                    "python",
+                    "-m",
+                    "chessfm.data_generation.distill_open_teacher",
+                    "--input",
+                    coach_test_path,
+                    "--output",
+                    row6_out,
+                    "--base-url",
+                    base_url,
+                    "--model",
+                    model,
+                    "--include-tactical-facts",
+                    "--single-shot",
+                    "--temperature",
+                    "0.2",
+                    "--workers",
+                    str(workers),
+                ]
+            )
+            stage_timings["row6_teacher_300_s"] = round(time.monotonic() - t_s1, 2)
+            volume.commit()
+            print(
+                f"[p4a-vllm-batch] Stage 1 (Row 6 Teacher 300) done in {stage_timings['row6_teacher_300_s']}s",
+                flush=True,
+            )
+
+            # Stage 2: Distill 1,000 fresh tactical-fact-grounded traces
+            t_s2 = time.monotonic()
+            _run(
+                [
+                    "python",
+                    "-m",
+                    "chessfm.data_generation.distill_open_teacher",
+                    "--input",
+                    fresh_seed_path,
+                    "--output",
+                    fresh_out,
+                    "--base-url",
+                    base_url,
+                    "--model",
+                    model,
+                    "--include-tactical-facts",
+                    "--max-attempts",
+                    "3",
+                    "--workers",
+                    str(workers),
+                ]
+            )
+            stage_timings["fresh_1k_distill_s"] = round(time.monotonic() - t_s2, 2)
+            volume.commit()
+            print(
+                f"[p4a-vllm-batch] Stage 2 (Fresh 1K distill) done in {stage_timings['fresh_1k_distill_s']}s",
+                flush=True,
+            )
+        else:
+            print("[p4a-vllm-batch] Skipping Stages 1 & 2 (--skip-coach)", flush=True)
 
         # Shared threaded HTTP helper for Piece #3 (Puzzles 900 + ChessQA 1000)
         tls = threading.local()
@@ -2154,6 +2158,7 @@ def main(
     keep_f16: bool = False,
     out_dir: str = "",
     eval_workers: int = 32,
+    skip_coach: bool = False,
 ) -> None:
     gpu_tier = gpu.strip().lower()
     if gpu_tier not in {"l4", "a100", "h100"}:
@@ -2392,6 +2397,7 @@ def main(
             out_dir=out_dir or f"{VOL_MOUNT}/results/phase2/e5",
             workers=workers,
             eval_workers=eval_workers,
+            skip_coach=skip_coach,
         )
         print(f"Phase 4A warm vLLM batch manifest saved to Modal volume: {manifest_path}")
     elif task == "coach-eval":
