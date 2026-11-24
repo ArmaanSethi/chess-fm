@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 520" width="1080" height="520" role="img" aria-label="Figure 7: Unified ChessFM Mechanistic Circuit, Logit Lens, and CoT Sabotage">
+  <title>Figure 7: Unified ChessFM Mechanistic Circuit, Logit Lens, and CoT Sabotage</title>
+  <defs>
+    <marker id="flow-arrow" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#6B675E"/>
+    </marker>
+  </defs>
+  <rect x="1" y="1" width="1078" height="518" rx="12" fill="#FAF8F5" stroke="#DFD9CD" stroke-width="1.5"/>
+  <text x="36" y="34" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11" font-weight="600" letter-spacing="1.2" fill="#6B675E">FIGURE 7 · CAUSAL &lt;think&gt; FAITHFULNESS &amp; UNIFIED CIRCUIT (INTERP #3)</text>
+  <text x="36" y="62" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="600" fill="#171717">Chain-of-Thought Is 100% Causally Load-Bearing Inside a Four-Stage Chess Circuit</text>
+  <text x="36" y="84" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#3A3835">Left: Unified mechanistic synthesis across INTERP #1–#4. Right: Logit lens decision cliff &amp; 100/100 sabotage flips.</text>
+  <line x1="36" y1="98" x2="1044" y2="98" stroke="#DFD9CD" stroke-width="1"/>
+  <rect x="36.0" y="114.0" width="540.0" height="376.0" rx="8" fill="#FFFFFF" stroke="#DFD9CD" stroke-width="1"/>
+  <text x="54.0" y="140.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#171717">A. Unified ChessFM Mechanistic Circuit (Qwen3-4B)</text>
+  <rect x="58.0" y="158.0" width="496.0" height="68.0" rx="8" fill="#F3EFE7" stroke="#7A756C" stroke-width="1.2" stroke-opacity="0.45"/>
+  <text x="72.0" y="175.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="700" fill="#3A3835">STAGE 1 · LAYERS 0–25</text>
+  <text x="226.0" y="175.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#171717">Prompt KV Cache &amp; Mid-Network Planning</text>
+  <text x="72.0" y="196.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.8" fill="#3A3835">Piece-List coordinates stored verbatim (80.5% probe); E3b peaks at L17 (71.2% MLP).</text>
+  <text x="72.0" y="212.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#3A3835">Layer-6 surgery null (18% vs 24%) -&gt; no static early board.</text>
+  <line x1="306.0" y1="228.0" x2="306.0" y2="241.0" stroke="#6B675E" stroke-width="1.8" marker-end="url(#flow-arrow)"/>
+  <rect x="58.0" y="244.0" width="496.0" height="68.0" rx="8" fill="#E8F1FA" stroke="#1D5B9E" stroke-width="1.2" stroke-opacity="0.45"/>
+  <text x="72.0" y="261.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="700" fill="#1D5B9E">STAGE 2 · LAYERS 26–29</text>
+  <text x="226.0" y="261.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#171717">5 Piece-Tracker Attention Heads (0.43% of Heads)</text>
+  <text x="72.0" y="282.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.8" fill="#3A3835">L27.H17, L29.H9, L26.H20, L26.H24, L28.H2 attend to active moving &amp; target squares.</text>
+  <text x="72.0" y="298.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#1D5B9E">Zero-ablation causes 3.0x drop (-12.0 pp vs -4.0 pp random).</text>
+  <line x1="306.0" y1="314.0" x2="306.0" y2="327.0" stroke="#6B675E" stroke-width="1.8" marker-end="url(#flow-arrow)"/>
+  <rect x="58.0" y="330.0" width="496.0" height="68.0" rx="8" fill="#E6F4EE" stroke="#147A53" stroke-width="1.2" stroke-opacity="0.45"/>
+  <text x="72.0" y="347.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="700" fill="#147A53">STAGE 3 · LAYERS 30–35</text>
+  <text x="226.0" y="347.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#171717">Late-Layer Board-State Rebound (vs. Hack Shortcut)</text>
+  <text x="72.0" y="368.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.8" fill="#3A3835">Piece-List checkpoints recover +5.9 to +8.1 pp occupied-square accuracy in L30–L35.</text>
+  <text x="72.0" y="384.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#147A53">E3a hack jammed low-rank a-pawn shortcut into L34–L35 (eff_rank 11.41).</text>
+  <line x1="306.0" y1="400.0" x2="306.0" y2="413.0" stroke="#6B675E" stroke-width="1.8" marker-end="url(#flow-arrow)"/>
+  <rect x="58.0" y="416.0" width="496.0" height="68.0" rx="8" fill="#FDF3E3" stroke="#B86B14" stroke-width="1.2" stroke-opacity="0.45"/>
+  <text x="72.0" y="433.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="700" fill="#B86B14">STAGE 4 · DECODING</text>
+  <text x="226.0" y="433.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#171717">100% Causal &lt;think&gt; Trace -&gt; Post-&lt;/think&gt; UCI Snap</text>
+  <text x="72.0" y="454.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.8" fill="#3A3835">Target move stays latent during prose (P &lt;= 0.02), then snaps to 0.99997 post-&lt;/think&gt;.</text>
+  <text x="72.0" y="470.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#B86B14">Corrupted &lt;think&gt; prefill flips 100/100 solved moves (0% resistance).</text>
+  <rect x="596.0" y="114.0" width="448.0" height="224.0" rx="8" fill="#FFFFFF" stroke="#DFD9CD" stroke-width="1"/>
+  <text x="614.0" y="139.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#171717">B. Logit Lens P(target_move) Across &lt;think&gt;</text>
+  <line x1="646.0" y1="290.0" x2="1020.0" y2="290.0" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="639.0" y="293.5" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#6B675E">0.00</text>
+  <line x1="646.0" y1="258.0" x2="1020.0" y2="258.0" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="639.0" y="261.5" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#6B675E">0.25</text>
+  <line x1="646.0" y1="226.0" x2="1020.0" y2="226.0" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="639.0" y="229.5" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#6B675E">0.50</text>
+  <line x1="646.0" y1="194.0" x2="1020.0" y2="194.0" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="639.0" y="197.5" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#6B675E">0.75</text>
+  <line x1="646.0" y1="162.0" x2="1020.0" y2="162.0" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="639.0" y="165.5" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#6B675E">1.00</text>
+  <polygon points="646.0,290.0 646.0,290.0 720.8,290.0 795.6,287.4 870.4,288.7 945.2,290.0 1020.0,162.0 1020.0,290.0" fill="#147A53" fill-opacity="0.10"/>
+  <polyline points="646.0,290.0 720.8,290.0 795.6,287.4 870.4,288.7 945.2,290.0 1020.0,162.0" fill="none" stroke="#147A53" stroke-width="2.8"/>
+  <circle cx="646.0" cy="290.0" r="4.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="2.2"/>
+  <text x="646.0" y="306.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#3A3835">0%</text>
+  <circle cx="720.8" cy="290.0" r="4.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="2.2"/>
+  <text x="720.8" y="306.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#3A3835">25%</text>
+  <circle cx="795.6" cy="287.4" r="4.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="2.2"/>
+  <text x="795.6" y="306.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#3A3835">50%</text>
+  <text x="795.6" y="279.4" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#1D5B9E">0.02</text>
+  <circle cx="870.4" cy="288.7" r="4.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="2.2"/>
+  <text x="870.4" y="306.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#3A3835">75%</text>
+  <text x="870.4" y="280.7" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" fill="#1D5B9E">0.01</text>
+  <circle cx="945.2" cy="290.0" r="4.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="2.2"/>
+  <text x="945.2" y="306.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#3A3835">100%</text>
+  <circle cx="1020.0" cy="162.0" r="4.2" fill="#FFFFFF" stroke="#147A53" stroke-width="2.2"/>
+  <text x="1026.0" y="306.0" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#3A3835">Post</text>
+  <text x="1010.0" y="166.0" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#147A53">0.99997</text>
+  <text x="614.0" y="326.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#6B675E">N=100 solved puzzles · Post-&lt;/think&gt; top-1 match: 100%</text>
+  <rect x="596.0" y="354.0" width="448.0" height="136.0" rx="8" fill="#FFFFFF" stroke="#DFD9CD" stroke-width="1"/>
+  <text x="614.0" y="379.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#171717">C. Causal &lt;think&gt; Prefill Sabotage (N=100)</text>
+  <rect x="928.0" y="364.0" width="98.0" height="22.0" rx="11.0" fill="#FBEAE7"/>
+  <text x="977.0" y="378.4" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.0" font-weight="600" fill="#C83E2B">0% Resisted</text>
+  <rect x="614.0" y="396.0" width="412.0" height="28" rx="6" fill="#C83E2B"/>
+  <text x="820.0" y="414.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#FFFFFF">100 / 100 Flipped to Injected Distractor (100.0%)</text>
+  <text x="614.0" y="444.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="600" fill="#6B675E">Verified move flips (clean -> sabotaged):</text>
+  <rect x="614.0" y="452.0" width="78.0" height="24.0" rx="12.0" fill="#F3EFE7"/>
+  <text x="653.0" y="467.2" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.3" font-weight="600" fill="#171717">c3e2-&gt;c3a2</text>
+  <rect x="698.0" y="452.0" width="78.0" height="24.0" rx="12.0" fill="#F3EFE7"/>
+  <text x="737.0" y="467.2" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.3" font-weight="600" fill="#171717">b3b1-&gt;b3b2</text>
+  <rect x="782.0" y="452.0" width="78.0" height="24.0" rx="12.0" fill="#F3EFE7"/>
+  <text x="821.0" y="467.2" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.3" font-weight="600" fill="#171717">e4c5-&gt;a5a6</text>
+  <rect x="866.0" y="452.0" width="78.0" height="24.0" rx="12.0" fill="#F3EFE7"/>
+  <text x="905.0" y="467.2" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.3" font-weight="600" fill="#171717">c6e7-&gt;a2a3</text>
+  <rect x="950.0" y="452.0" width="78.0" height="24.0" rx="12.0" fill="#F3EFE7"/>
+  <text x="989.0" y="467.2" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.3" font-weight="600" fill="#171717">h5f7-&gt;a1b1</text>
+  <text x="36" y="504" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#6B675E">Source: results/interp/interp3_logit_lens_and_cot_sabotage.json &amp; INTERP #1–#4 synthesis (Qwen3-4B E3b sharp_wdl).</text>
+</svg>

@@ -854,6 +854,7 @@ def test_evaluate_chessqa_all_five_categories_and_normalization():
 
 
 def test_modal_suite_supports_piece_list_and_legal_moves_flags():
+    pytest.importorskip("modal")
     import importlib.util
     from pathlib import Path
 

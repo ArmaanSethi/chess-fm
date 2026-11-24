@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 520" width="1080" height="520" role="img" aria-label="Figure 5: Linear Board-State Probes and Piece-Tracker Head Ablation">
+  <title>Figure 5: Linear Board-State Probes and Piece-Tracker Head Ablation</title>
+  <rect x="1" y="1" width="1078" height="518" rx="12" fill="#FAF8F5" stroke="#DFD9CD" stroke-width="1.5"/>
+  <text x="36" y="34" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11" font-weight="600" letter-spacing="1.2" fill="#6B675E">FIGURE 5 · BOARD GEOMETRY &amp; CAUSAL ATTENTION CIRCUITS (INTERP #1 &amp; #4)</text>
+  <text x="36" y="62" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="600" fill="#171717">Piece-List Prompts Unlock Late-Layer Board Rebound Driven by 5 Piece-Tracker Heads</text>
+  <text x="36" y="84" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#3A3835">Left: 64-square occupied-square linear probes (800/200 split). Right: Top-5 Piece-Tracker heads &amp; 3.0x causal ablation.</text>
+  <line x1="36" y1="98" x2="1044" y2="98" stroke="#DFD9CD" stroke-width="1"/>
+  <rect x="36.0" y="114.0" width="520.0" height="376.0" rx="8" fill="#FFFFFF" stroke="#DFD9CD" stroke-width="1"/>
+  <text x="54.0" y="140.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#171717">A. Occupied-Square Probe Accuracy (L0 -> L35)</text>
+  <rect x="359.4" y="164.0" width="94.6" height="232.0" fill="#E8F1FA" fill-opacity="0.65"/>
+  <text x="406.7" y="178.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="9.5" font-weight="700" fill="#1D5B9E">REBOUND</text>
+  <line x1="86.0" y1="368.7" x2="454.0" y2="368.7" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="78.0" y="372.2" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#6B675E">60%</text>
+  <line x1="86.0" y1="314.1" x2="454.0" y2="314.1" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="78.0" y="317.6" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#6B675E">64%</text>
+  <line x1="86.0" y1="259.5" x2="454.0" y2="259.5" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="78.0" y="263.0" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#6B675E">68%</text>
+  <line x1="86.0" y1="204.9" x2="454.0" y2="204.9" stroke="#ECE7DD" stroke-width="1"/>
+  <text x="78.0" y="208.4" text-anchor="end" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#6B675E">72%</text>
+  <line x1="86.0" y1="396.0" x2="86.0" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="86.0" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L0</text>
+  <line x1="149.1" y1="396.0" x2="149.1" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="149.1" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L6</text>
+  <line x1="212.2" y1="396.0" x2="212.2" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="212.2" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L12</text>
+  <line x1="275.3" y1="396.0" x2="275.3" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="275.3" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L18</text>
+  <line x1="338.3" y1="396.0" x2="338.3" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="338.3" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L24</text>
+  <line x1="401.4" y1="396.0" x2="401.4" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="401.4" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L30</text>
+  <line x1="454.0" y1="396.0" x2="454.0" y2="400.0" stroke="#DFD9CD" stroke-width="1.2"/>
+  <text x="454.0" y="413.0" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10" fill="#3A3835">L35</text>
+  <polyline points="86.0,231.8 149.1,191.7 212.2,235.9 275.3,256.9 338.3,275.9 401.4,230.5 454.0,245.9" fill="none" stroke="#1D5B9E" stroke-width="2.4" />
+  <circle cx="86.0" cy="231.8" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <circle cx="149.1" cy="191.7" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <circle cx="212.2" cy="235.9" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <circle cx="275.3" cy="256.9" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <circle cx="338.3" cy="275.9" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <circle cx="401.4" cy="230.5" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <circle cx="454.0" cy="245.9" r="3.2" fill="#FFFFFF" stroke="#1D5B9E" stroke-width="1.8"/>
+  <text x="462.0" y="243.9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#1D5B9E">E1a (PL) 69.0%</text>
+  <polyline points="86.0,230.2 149.1,217.0 212.2,241.2 275.3,256.9 338.3,311.4 401.4,265.9 454.0,275.6" fill="none" stroke="#147A53" stroke-width="2.6" />
+  <circle cx="86.0" cy="230.2" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <circle cx="149.1" cy="217.0" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <circle cx="212.2" cy="241.2" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <circle cx="275.3" cy="256.9" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <circle cx="338.3" cy="311.4" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <circle cx="401.4" cy="265.9" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <circle cx="454.0" cy="275.6" r="3.2" fill="#FFFFFF" stroke="#147A53" stroke-width="1.8"/>
+  <text x="462.0" y="277.6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#147A53">E3b (RLVR) 66.8%</text>
+  <polyline points="86.0,221.2 149.1,203.7 212.2,242.1 275.3,256.4 338.3,317.4 401.4,265.1 454.0,279.7" fill="none" stroke="#3B8F84" stroke-width="2.0" />
+  <circle cx="86.0" cy="221.2" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <circle cx="149.1" cy="203.7" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <circle cx="212.2" cy="242.1" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <circle cx="275.3" cy="256.4" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <circle cx="338.3" cy="317.4" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <circle cx="401.4" cy="265.1" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <circle cx="454.0" cy="279.7" r="3.2" fill="#FFFFFF" stroke="#3B8F84" stroke-width="1.8"/>
+  <text x="462.0" y="293.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#3B8F84">E2a (r=64) 66.5%</text>
+  <polyline points="86.0,225.5 149.1,219.7 212.2,253.3 275.3,283.0 338.3,303.5 401.4,305.9 454.0,344.7" fill="none" stroke="#B86B14" stroke-width="2.1" stroke-dasharray="5 3"/>
+  <circle cx="86.0" cy="225.5" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <circle cx="149.1" cy="219.7" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <circle cx="212.2" cy="253.3" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <circle cx="275.3" cy="283.0" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <circle cx="338.3" cy="303.5" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <circle cx="401.4" cy="305.9" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <circle cx="454.0" cy="344.7" r="3.2" fill="#FFFFFF" stroke="#B86B14" stroke-width="1.8"/>
+  <text x="462.0" y="341.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#B86B14">E0 (ASCII) 61.8%</text>
+  <polyline points="86.0,222.5 149.1,213.9 212.2,247.5 275.3,293.2 338.3,323.3 401.4,344.7 454.0,356.3" fill="none" stroke="#7A756C" stroke-width="2.0" stroke-dasharray="3 3"/>
+  <circle cx="86.0" cy="222.5" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <circle cx="149.1" cy="213.9" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <circle cx="212.2" cy="247.5" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <circle cx="275.3" cy="293.2" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <circle cx="338.3" cy="323.3" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <circle cx="401.4" cy="344.7" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <circle cx="454.0" cy="356.3" r="3.2" fill="#FFFFFF" stroke="#7A756C" stroke-width="1.8"/>
+  <text x="462.0" y="367.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" fill="#7A756C">Base (ASCII) 60.9%</text>
+  <rect x="54.0" y="438.0" width="484.0" height="38" rx="6" fill="#F3EFE7"/>
+  <text x="66.0" y="454.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#171717">Honest Null Control — Layer-6 Causal Board Surgery (N=50):</text>
+  <text x="66.0" y="469.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" fill="#3A3835">Probe Flip 18% vs Random 24% (-6.0 pp) -> model reads KV cache late.</text>
+  <rect x="576.0" y="114.0" width="468.0" height="376.0" rx="8" fill="#FFFFFF" stroke="#DFD9CD" stroke-width="1"/>
+  <text x="594.0" y="140.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#171717">B. Piece-Tracker Heads (L26-L29)</text>
+  <rect x="896.0" y="125.0" width="130.0" height="22.0" rx="11.0" fill="#E8F1FA"/>
+  <text x="961.0" y="139.4" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.0" font-weight="600" fill="#1D5B9E">5 / 1,152 (0.43%)</text>
+  <text x="594.0" y="177.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#171717">L27.H17</text>
+  <rect x="666.0" y="166.0" width="278.0" height="15" rx="4" fill="#F3EFE7"/>
+  <rect x="666.0" y="166.0" width="246.7" height="15" rx="4" fill="#1D5B9E"/>
+  <text x="952.0" y="177.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#1D5B9E">+0.0186</text>
+  <text x="594.0" y="204.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#171717">L29.H9</text>
+  <rect x="666.0" y="193.0" width="278.0" height="15" rx="4" fill="#F3EFE7"/>
+  <rect x="666.0" y="193.0" width="127.8" height="15" rx="4" fill="#487BB3"/>
+  <text x="952.0" y="204.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#487BB3">+0.0097</text>
+  <text x="594.0" y="231.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#171717">L26.H20</text>
+  <rect x="666.0" y="220.0" width="278.0" height="15" rx="4" fill="#F3EFE7"/>
+  <rect x="666.0" y="220.0" width="100.6" height="15" rx="4" fill="#487BB3"/>
+  <text x="952.0" y="231.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#487BB3">+0.0076</text>
+  <text x="594.0" y="258.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#171717">L26.H24</text>
+  <rect x="666.0" y="247.0" width="278.0" height="15" rx="4" fill="#F3EFE7"/>
+  <rect x="666.0" y="247.0" width="99.6" height="15" rx="4" fill="#487BB3"/>
+  <text x="952.0" y="258.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#487BB3">+0.0075</text>
+  <text x="594.0" y="285.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#171717">L28.H2</text>
+  <rect x="666.0" y="274.0" width="278.0" height="15" rx="4" fill="#F3EFE7"/>
+  <rect x="666.0" y="274.0" width="86.9" height="15" rx="4" fill="#487BB3"/>
+  <text x="952.0" y="285.5" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#487BB3">+0.0066</text>
+  <line x1="594.0" y1="312.0" x2="1026.0" y2="312.0" stroke="#DFD9CD" stroke-width="1"/>
+  <text x="594.0" y="334.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#171717">C. Causal Zero-Ablation (N=100 Solved Puzzles)</text>
+  <rect x="926.0" y="319.0" width="100.0" height="22.0" rx="11.0" fill="#FBEAE7"/>
+  <text x="976.0" y="333.6" text-anchor="middle" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="600" fill="#C83E2B">3.0x Drop</text>
+  <text x="594.0" y="368.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#171717">Baseline (Intact)</text>
+  <rect x="754.0" y="355.0" width="188.0" height="18" rx="4" fill="#F3EFE7"/>
+  <rect x="754.0" y="355.0" width="188.0" height="18" rx="4" fill="#147A53"/>
+  <text x="950.0" y="368.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#147A53">100% (0.0 pp)</text>
+  <text x="594.0" y="404.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#171717">Ablate 5 Random L26-29</text>
+  <rect x="754.0" y="391.0" width="188.0" height="18" rx="4" fill="#F3EFE7"/>
+  <rect x="754.0" y="391.0" width="180.5" height="18" rx="4" fill="#B86B14"/>
+  <text x="950.0" y="404.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#B86B14">96% (-4.0 pp)</text>
+  <text x="594.0" y="440.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#171717">Ablate Top-5 Trackers</text>
+  <rect x="754.0" y="427.0" width="188.0" height="18" rx="4" fill="#F3EFE7"/>
+  <rect x="754.0" y="427.0" width="165.4" height="18" rx="4" fill="#C83E2B"/>
+  <text x="950.0" y="440.0" font-family="'SFMono-Regular', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#C83E2B">88% (-12.0 pp)</text>
+  <text x="594.0" y="476.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#6B675E">Legal rate stays 98-99% under ablation: these heads compute tactics, not syntax.</text>
+  <text x="36" y="504" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10.5" fill="#6B675E">Source: results/interp/interp1_board_probes_and_steering.json &amp; interp4_attention_circuits_and_ablation.json.</text>
+</svg>

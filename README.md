@@ -11,7 +11,7 @@
 
 ## Overview
 
-> **Read the full technical write-up:** [Inside a 4B Chess Reasoning & Coaching Model: Post-Training, Reward Hacking, and Mechanistic Interpretability Under Verified Oracles (`docs/BLOG_POST.md`)](docs/BLOG_POST.md) · **Try the live browser coach:** [armaansethi.github.io/chess-fm](https://armaansethi.github.io/chess-fm/) · **Live Dashboard:** [dashboard.html](https://armaansethi.github.io/chess-fm/dashboard.html)
+> **Read the Interactive Visual Blog:** [**armaansethi.github.io/chess-fm/blog.html**](https://armaansethi.github.io/chess-fm/blog.html) ([GitHub Edition](docs/BLOG_POST.md)) · **Try the live browser coach:** [armaansethi.github.io/chess-fm](https://armaansethi.github.io/chess-fm/) · **Live Dashboard:** [dashboard.html](https://armaansethi.github.io/chess-fm/dashboard.html)
 
 Most chess engines play by brute-force search without explaining their plans. ChessFM trains compact language models (`Qwen/Qwen3-4B`) to **reason in `<think>...</think>` tags before committing to a legal UCI move**, pairs that foundation with a zero-slop **AI Chess Coach (`92.0%` All-Clean, `100%` spoiler-free, `2.50 GB` Q4_K_M GGUF)** that outperforms its `6.5×` larger `Gemma-4-26B` teacher (`88.7%`), and opens the weights with a **4-part Mechanistic Interpretability suite (`chessfm.interp`)**:
 

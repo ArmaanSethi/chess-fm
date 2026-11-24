@@ -969,6 +969,7 @@ class TestPhase4ACloudAndExportPlumbing:
     def test_batch_grpo_and_coach_eval_routing(self, monkeypatch, tmp_path):
         import json
 
+        pytest.importorskip("modal")
         mt = _load_script_module("modal_train_batch_test", "modal_train.py")
         grpo_batch_calls: list[dict] = []
         eval_batch_calls: list[dict] = []

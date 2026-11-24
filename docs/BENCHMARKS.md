@@ -272,7 +272,7 @@ modal run --detach scripts/modal_train.py --task eval \
 | **`E2a` Standard (`constrained`)** | `1-105-94` | `84 / 94` (`89.4%`) | `0` | `0` | `542.35` `[470.81, 610.53]` *(inflated)* |
 | **`E2a` Repetition-Aware (`--avoid-repetition`)** | `3-143-54` | `17 / 54` (`31.5%`) | `317` | `0` | **`311.43`** `[263.14, 365.87]` *(`-230.9` mirage)* |
 | **`E3b` Standard (`constrained`)** | `5-131-64` | `55 / 64` (`85.9%`) | `0` | **`2`** | `406.07` `[331.93, 483.26]` |
-| **`E3b` Repetition-Aware (`--avoid-repetition`)** | `4-140-56` | `14 / 56` (`25.0%`) | `285` | **`1`** | **`338.74`** `[277.01, 406.07]` **(`+27.31` clean RLVR lift)** |
+| **`E3b` Repetition-Aware (`--avoid-repetition`)** | `4-140-56` | `22 / 56` (`39.29%`) | `285` | **`1`** | **`338.74`** `[277.01, 406.07]` **(`+27.31` clean RLVR lift)** |
 
 ---
 
@@ -282,7 +282,7 @@ modal run --detach scripts/modal_train.py --task eval \
 
 | Model (`N=292` grounded coaching outputs) | Weak V1 Pass ↑ | Strict V2 Pass ↑ | V2 + Non-Slop ↑ | Slop-Flagged Rate ↓ | Distinct-4gram ↑ | Top Repeated 4-Gram |
 |---|---:|---:|---:|---:|---:|---|
-| **`Gemma-4-26B` Teacher** | `99.66%` | **`93.84%`** | **`93.84%`** | **`0.00%`** | **`0.7616`** | `"is there a way"` (`13.4%`) |
+| **`Gemma-4-26B` Teacher** | `100.0%` | **`93.84%`** | **`93.84%`** | **`0.00%`** | **`0.7616`** | `"is there a way"` (`13.4%`) |
 | **`Qwen3-0.6B` Base (grounded)** | `82.88%` | `81.16%` | `32.53%` | `64.38%` | `0.5060` | `"the best move is"` (`37.7%`) |
 | **`Qwen3-0.6B` SFT (grounded)** | `86.64%` | `61.99%` | **`12.67%`** | **`79.79%`** | `0.4097` | `"tension in the center"` (`41.1%`) |
 

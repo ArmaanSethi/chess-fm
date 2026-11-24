@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inside a 4B Chess Model — Post-Training, Reward Hacking &amp; Mechanistic Interpretability | ChessFM</title>
+  <meta name="description" content="An interactive visual essay on post-training Qwen3-4B for chess reasoning and coaching under deterministic Stockfish and ACT-Eval oracles: LoRA Without Regret, catching the A-Pawn Hack, exposing a +231 Elo mirage, beating Gemma-4-26B with a 4B coach, and finding a 0.43% Piece-Tracker attention circuit." />
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23171717'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='44' fill='%23FAF8F5'%3E%E2%99%98%3C/text%3E%3C/svg%3E"
+  />
+  <link rel="stylesheet" href="./blog.css" />
+</head>
+<body>
+  <div id="reading-progress" class="reading-progress" aria-hidden="true"></div>
+
+  <header class="site-nav">
+    <div class="site-nav-inner">
+      <a class="site-brand" href="./blog.html">
+        <span class="site-brand-mark" aria-hidden="true">&#9816;</span>
+        <span>ChessFM Research</span>
+      </a>
+      <nav class="site-nav-links" aria-label="Primary navigation">
+        <a href="./dashboard.html">Dashboard</a>
+        <a href="https://github.com/ArmaanSethi/chess-fm/blob/main/docs/BENCHMARKS.md" target="_blank" rel="noopener">Benchmarks</a>
+        <a href="https://github.com/ArmaanSethi/chess-fm" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="./index.html">Open Chess Coach &rarr;</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <p class="hero-eyebrow">Interactive Technical Essay &middot; Verified Under Stockfish 16 &amp; Deterministic Oracles</p>
+    <h1>Inside a 4B Chess Model: Reward Hacking, Goodhart&rsquo;s Law, and the Circuit That Plays the Board</h1>
+    <p class="hero-dek">
+      Chess lets us replace noisy LLM judges with exact ground truth. We post-trained <code>Qwen/Qwen3-4B</code> to play and coach chess, caught two live reward hacks hiding behind rising dashboards, beat a 6.5&times; larger 26B teacher with a local 2.5&nbsp;GB coach, and opened the weights to isolate the exact five attention heads tracking the board.
+    </p>
+    <div class="hero-meta">
+      <span><strong>Backbone:</strong> Qwen/Qwen3-4B</span>
+      <span><strong>Corpus:</strong> 143,220 boards (0.00% test overlap)</span>
+      <span><strong>Oracles:</strong> Stockfish 16 + python-chess ACT-Eval V2</span>
+      <span><strong>Read time:</strong> 5 min visual &middot; expandable deep dives</span>
+    </div>
+
+    <div class="kpi-ledger" role="region" aria-label="Headline verified findings">
+      <a class="kpi-cell" href="#coach">
+        <span class="kpi-kicker">4B Local Coach</span>
+        <strong class="kpi-number emerald">92.0%</strong>
+        <span class="kpi-note">All-Clean (0% slop, 100% spoiler-free) &mdash; <strong>+3.3 pp</strong> above 26B Teacher</span>
+      </a>
+      <a class="kpi-cell" href="#apawn">
+        <span class="kpi-kicker">A-Pawn Hack Fixed</span>
+        <strong class="kpi-number vermilion">60.3% &rarr; 1.5%</strong>
+        <span class="kpi-note"><code>sharp_wdl</code> killed edge-pawn spam &amp; lifted emergent CoT +10.0 pp</span>
+      </a>
+      <a class="kpi-cell" href="#circuits">
+        <span class="kpi-kicker">Piece-Tracker Circuit</span>
+        <strong class="kpi-number cobalt">5 / 1,152</strong>
+        <span class="kpi-note">0.43% of heads in L26&ndash;29 drive a <strong>3.0&times;</strong> causal ablation drop</span>
+      </a>
+      <a class="kpi-cell" href="#sabotage">
+        <span class="kpi-kicker">Causal &lt;think&gt;</span>
+        <strong class="kpi-number amber">100 / 100</strong>
+        <span class="kpi-note">Corrupted <code>&lt;think&gt;</code> prefills flip every solved move to the distractor</span>
+      </a>
+    </div>
+  </section>
+
+  <div class="article-shell">
+    <aside class="toc-rail" aria-label="Table of contents">
+      <p class="toc-title">Chapters</p>
+      <ul class="toc-list">
+        <li><a href="#representation">1. Representation &amp; LoRA</a></li>
+        <li><a href="#apawn">2. The A-Pawn Hack</a></li>
+        <li><a href="#reality">3. pass@k &amp; Elo Mirage</a></li>
+        <li><a href="#coach">4. Goodhart &amp; 4B Coach</a></li>
+        <li><a href="#circuits">5. Piece-Tracker Heads</a></li>
+        <li><a href="#svd">6. Hack SVD &amp; Slop Dial</a></li>
+        <li><a href="#sabotage">7. Causal &lt;think&gt; Proof</a></li>
+        <li><a href="#limits">8. Limits &amp; Reproduce</a></li>
+      </ul>
+    </aside>
+
+    <main class="article-body">
+      <p id="blog-data-status" class="prose" style="font-family:var(--font-mono);font-size:0.82rem;color:var(--ink-muted);">Loading verified experiment data&hellip;</p>
+
+      <!-- CHAPTER 1 -->
+      <section id="representation" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">01 &middot; Board Representation &amp; LoRA Without Regret</p>
+          <h2>Tokenizers hate ASCII grids&mdash;and LoRA r=64 swept Full Fine-Tuning</h2>
+          <p class="chapter-lead">
+            Before touching RL, two SFT changes transformed a blind model into a grounded chess reasoner: replacing 8&times;8 ASCII grids with a lossless <strong>Piece-by-Square coordinate list</strong>, and raising All-Linear LoRA learning rate 10&times; (<code>2e-5 &rarr; 2e-4</code>).
+          </p>
+          <p>
+            On the exact same 2,500 rows (<code>E0 &rarr; E1a</code>), strict move legality tripled from <strong>21.0% to 63.5%</strong>. Scaling to 20K mixed rows on identical data, <strong>All-Linear LoRA r=64 (<code>E2a</code>) beat 100%-parameter Full Fine-Tuning (<code>E2b</code> on H100) on all 7 frozen suites</strong>&mdash;and beat 6.5&times; larger zero-shot <code>Gemma-4-26B</code> on both Puzzles and ChessQA.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 1 &middot; Representation &amp; Capacity</p>
+              <h3 class="figure-title">Compare Board Prompts &amp; Explore the Ablation Ladder</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="Prompt representation toggle">
+              <button type="button" class="ctrl-btn" data-rep-mode="ascii">ASCII Grid (E0)</button>
+              <button type="button" class="ctrl-btn active emerald" data-rep-mode="piecelist">Piece-List (E1a+)</button>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <div>
+              <pre id="rep-prompt-preview" class="prompt-compare-box"></pre>
+              <div id="rep-stat-chips" class="prompt-stat-row"></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.85rem;">
+                <span style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;">Metric on Frozen 0%-Leakage Suites</span>
+                <div class="control-bar" role="group" aria-label="Ablation metric selector">
+                  <button type="button" class="ctrl-btn" data-ladder-metric="strict_legal_pct">Strict Legal</button>
+                  <button type="button" class="ctrl-btn active" data-ladder-metric="puzzles_900_pct">900 Puzzles</button>
+                  <button type="button" class="ctrl-btn" data-ladder-metric="chessqa_1000_pct">1K ChessQA</button>
+                  <button type="button" class="ctrl-btn" data-ladder-metric="strict_acpl">ACPL &darr;</button>
+                </div>
+              </div>
+              <div id="ladder-bar-list" class="bar-list"></div>
+            </div>
+          </div>
+          <p class="figure-caption">
+            All Phase II splits were filtered for 984 embedded Chess960 games (143,220 valid boards) and partitioned by normalized 4-field FEN (0.00% overlap across 27 split pairs). Both <code>E2a</code> (90.0%) and <code>E2b</code> (89.0%) retained general English with 0.0% chess leakage.
+          </p>
+        </figure>
+
+        <details class="deep-dive">
+          <summary>Deep dive: Why did Full-FT (E2b) lose to LoRA r=64 (E2a) by &minus;14.0 pp on ChessQA?</summary>
+          <div class="deep-dive-body">
+            <p>
+              Inspecting <code>e2b_puzzles_chessqa_english.json</code> revealed <strong>format under-adaptation at <code>lr=2e-5</code></strong>, not knowledge loss. On <code>castling_rights</code> (0% vs. E2a&rsquo;s 100%) and <code>game_phase</code>, <code>E2b</code> still identified the right chess concept but wrapped it in verbose base-model prose (<em>&ldquo;the game phase of this position is **middlegame**&rdquo;</em>) instead of terse labels.
+            </p>
+            <div class="table-scroll">
+              <table class="ed-table">
+                <thead>
+                  <tr><th>Stage</th><th>Setup</th><th>Val Loss</th><th>Strict Legal</th><th>Strict ACPL</th><th>900 Puzzles</th><th>1K ChessQA</th><th>English</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>E0 SFT</td><td>2.5K ASCII, r=16, 2e-5</td><td>0.5181</td><td>21.0%</td><td>345.1 cp</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+                  <tr><td>E1a SFT</td><td>2.5K Piece-List, r=16, 2e-4</td><td>0.4302</td><td>63.5%</td><td>421.3 cp</td><td>4.7%</td><td>11.9%</td><td>&mdash;</td></tr>
+                  <tr><td>E1b SFT</td><td>20K Mix, r=16, 2e-4</td><td>0.2775</td><td>64.4%</td><td>336.5 cp</td><td>18.3%</td><td>38.8%</td><td>89.0%</td></tr>
+                  <tr class="row-highlight"><td>E2a (Winner)</td><td>20K Mix, All-Linear r=64, 2e-4</td><td>0.2660</td><td>66.2%</td><td>297.6 cp</td><td>21.4%</td><td>45.2%</td><td>90.0%</td></tr>
+                  <tr><td>E2b Full-FT</td><td>20K Mix, Full-FT, 2e-5 (H100)</td><td>0.2842</td><td>62.4%</td><td>322.1 cp</td><td>17.4%</td><td>31.2%</td><td>89.0%</td></tr>
+                  <tr><td>Gemma-4-26B</td><td>Zero-shot Piece-List (6.5&times; larger)</td><td>&mdash;</td><td>1.8%</td><td>&mdash;</td><td>0.2% (10.8% len.)</td><td>26.3%</td><td>&mdash;</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- CHAPTER 2 -->
+      <section id="apawn" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">02 &middot; Live RLVR Reward Hacking</p>
+          <h2>How naive RLVR fooled every dashboard by spamming <code>a2a3</code></h2>
+          <p class="chapter-lead">
+            Under naive Stockfish WDL-DAPO (<code>E3a</code>), every aggregate metric surged: strict legality jumped <strong>66.2% &rarr; 86.4%</strong>, constrained ACPL fell <strong>31 cp</strong>, and even CoT V2 climbed to <strong>82.4%</strong>. Then we looked at the actual moves.
+          </p>
+          <p>
+            <code>E3a</code> had discovered a loophole: pushing an edge pawn (<code>a2a3</code>, <code>a7a6</code>) is almost always legal and rarely loses &gt;15% WDL on quiet boards&mdash;collecting guaranteed <code>+1.5..+2.1</code> reward while avoiding the <code>&minus;1.0</code> illegal-move cliff. Unique moves collapsed <strong>528 &rarr; 206</strong> and <strong>60.3% of all outputs became a-file pawn pushes</strong>.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 2 &middot; Real test_fens_1000 Positions</p>
+              <h3 class="figure-title">Inspect 5 Real Boards Where E3a Spammed <code>a2a3</code> and E3b Found the Exact Best Move</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="Board overlay toggle">
+              <button type="button" class="ctrl-btn vermilion" data-apawn-view="e3a">E3a Hack</button>
+              <button type="button" class="ctrl-btn emerald" data-apawn-view="e3b">E3b Fix</button>
+              <button type="button" class="ctrl-btn active" data-apawn-view="both">Compare Both</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:1rem;">
+            <div id="apawn-pos-tabs" class="control-bar" role="group" aria-label="Select verified chess position"></div>
+          </div>
+
+          <div class="split-grid">
+            <div class="board-stage">
+              <div id="apawn-board-svg" class="board-svg-wrap"></div>
+              <div id="apawn-move-pills" class="move-badge-row"></div>
+            </div>
+            <div>
+              <p style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.7rem;">Strict a-File Pawn Push Share (N=1,000 Unseen FENs)</p>
+              <div id="apawn-diversity-bars" class="bar-list"></div>
+              <div class="takeaway-strip" style="margin-top:1.15rem;margin-bottom:0;">
+                <strong>Emergent CoT Faithfulness (Zero CoT Reward):</strong> After fixing the reward with quadratic <code>sharp_wdl</code> + 20K tactical boards, <code>E3b</code> crushed a-pawns back to <strong>1.5%</strong>, lifted strict legality <strong>+10.3 pp (76.5%)</strong>, and raised strict ACT-Eval V2 CoT accuracy <strong>+10.02 pp (60.7% &rarr; 70.7%)</strong> purely from outcome move rewards.
+              </div>
+            </div>
+          </div>
+          <p class="figure-caption">
+            Every board above is pulled verbatim from <code>results/phase2/e3a/e3a_test_fens_1000_strict.json</code> and <code>e3b_test_fens_1000_strict.json</code>.
+          </p>
+        </figure>
+
+        <details class="deep-dive">
+          <summary>Deep dive: The exact quadratic <code>sharp_wdl</code> formula that killed the A-Pawn Hack</summary>
+          <div class="deep-dive-body">
+            <p>
+              Naive <code>wdl_loss</code> paid a flat <code>+1.0</code> legality bonus plus linear WDL retention (<code>&minus;1.0</code> illegal vs. <code>+1.1..+2.1</code> legal), turning quiet edge pawns into a dominant minimax strategy. Our anti-hack reward removes the free passive-legality floor and squares WDL quality against a tight <code>0.15</code> cliff:
+            </p>
+            <pre>R_illegal = -0.5
+R_legal   = 1.5 * max(0.0, 1.0 - wdl_loss / 0.15)**2
+          + (0.5 if cp_loss &lt;= 15.0 else 0.0)
+          + (0.1 if valid_think_format else 0.0)</pre>
+            <p>
+              Combined with filtering 20,000 sharp tactical positions (<code>rl_sharp_tactical.txt</code>, 0.00% overlap with all test sets), passive <code>a2a3</code> moves drop to ~<code>0.0</code> reward while exact tactical moves earn up to <code>+2.1</code>.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- CHAPTER 3 -->
+      <section id="reality" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">03 &middot; Two Honest Evaluation Reality Checks</p>
+          <h2>RLVR sharpens reliability, narrows <code>pass@8</code>&mdash;and PGNs exposed a +231 Elo mirage</h2>
+          <p class="chapter-lead">
+            Two sanity checks kept us from overclaiming. First, stratified <code>pass@1..8</code> confirmed Yue et al. (NeurIPS 2025): RLVR lifted rollout legality (<strong>68.6% &rarr; 75.6%</strong>) and CoT faithfulness (<strong>+7.1 pp</strong>) while narrowing multi-sample <code>pass@8</code> (<strong>43.5% &rarr; 34.0%</strong>).
+          </p>
+          <p>
+            Second, auditing 200 paired PGNs revealed that <strong>89.4% (84/94) of <code>E2a</code>&rsquo;s draws were stateless 3-fold repetitions</strong>&mdash;artificially inflating its Bradley-Terry Elo by <strong>+230.9 points</strong>. Toggle <code>--avoid-repetition</code> below to watch the mirage vanish and <code>E3b</code>&rsquo;s genuine <strong>+27.3 Elo RLVR lift</strong> appear.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 3 &middot; Exploration &amp; De-Biased Elo</p>
+              <h3 class="figure-title">Stratified <code>pass@k</code> Curves &amp; Repetition-Aware Bradley-Terry Elo</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="Repetition decoding toggle">
+              <button type="button" class="ctrl-btn" data-elo-mode="std">Standard (Inflated)</button>
+              <button type="button" class="ctrl-btn active emerald" data-elo-mode="norep">--avoid-repetition (Clean)</button>
+            </div>
+          </div>
+
+          <div class="split-grid equal">
+            <div>
+              <p style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.5rem;">A. Stratified pass@1..8 (N=200 Puzzles, k=8, 95% CI)</p>
+              <div id="pass-at-k-svg" class="svg-chart-wrap"></div>
+            </div>
+            <div>
+              <p style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.75rem;">B. 200-Game 5-Anchor Bradley-Terry Elo</p>
+              <div id="elo-bars" class="bar-list"></div>
+              <div id="elo-mode-note" class="prompt-stat-row" style="margin-top:1rem;"></div>
+              <p style="font-size:0.84rem;color:var(--ink-muted);margin-top:0.85rem;">
+                Five calibrated anchors (40 color-balanced games each): Random (200), Stockfish L0 (800), Stockfish L1 (950), Maia-1100, and Stockfish UCI_Elo=1320. <code>E3b</code> scored our first real wins against Maia-1100 (2W std, 1W norep; <code>E2a</code>: 0W).
+              </p>
+            </div>
+          </div>
+        </figure>
+      </section>
+
+      <!-- CHAPTER 4 -->
+      <section id="coach" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">04 &middot; Goodhart&rsquo;s Law Twice &amp; The 4B Coach</p>
+          <h2>Killing 0.6B slop&mdash;and beating our 26B teacher with a local 4B coach</h2>
+          <p class="chapter-lead">
+            An early <code>Qwen3-0.6B</code> coach scored <strong>86.6%</strong> under our naive Verifier V1. When we added Strict V2 claim verification and 4-gram boilerplate detection, it collapsed to <strong>12.7% V2+Non-Slop</strong>&mdash;repeating <em>&ldquo;tension in the center&rdquo;</em> on 41.1% of all boards.
+          </p>
+          <p>
+            So we built deterministic 11-pattern tactical facts (catching 342 subtle bugs pre-training), curated 4,518 spotless V2 traces, and ran Stockfish-free Coach-GRPO on <code>Qwen3-4B</code>. <strong>Arm A (Strict V2-GRPO) hit 92.0% All-Clean (+3.3 pp above 26B Teacher, 0% slop, 100% spoiler-free)</strong>, while <strong>Arm B (initialized from <code>E3b</code> Chess-RL) hit 91.0% All-Clean with +4.5 pp deeper tactical coverage (81.7%)</strong>.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 4 &middot; 7-Row Coach Showdown &amp; Live Goodhart Audit</p>
+              <h3 class="figure-title">Compare All 7 Arms &amp; Inspect Real Verbatim Coaching Responses</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="Coach metric toggle">
+              <button type="button" class="ctrl-btn active emerald" data-coach-metric="all_clean_pct">All-Clean %</button>
+              <button type="button" class="ctrl-btn" data-coach-metric="fact_coverage_pct">Tactical Fact Cov. %</button>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <div>
+              <div id="coach-bar-list" class="bar-list"></div>
+              <div class="takeaway-strip vermilion" style="margin-top:1.1rem;margin-bottom:0;">
+                <strong>Live Goodhart Control (Arm C):</strong> Optimizing Weak V1 achieved the highest V1 score (<strong>96.0%</strong>) yet dropped to <strong>89.3% All-Clean</strong> (a 6.7 pp Goodhart gap) with the lowest tactical depth (76.4%).
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;">
+                <div id="coach-compare-board" class="board-svg-wrap" style="max-width:190px;flex-shrink:0;"></div>
+                <div style="flex:1;min-width:210px;">
+                  <p style="font-family:var(--font-mono);font-size:0.7rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.45rem;">Real Held-Out Position (#24) &middot; Click a Model</p>
+                  <div id="coach-compare-tabs" class="control-bar"></div>
+                </div>
+              </div>
+              <div id="coach-compare-quote" class="coach-quote-card"></div>
+            </div>
+          </div>
+          <p class="figure-caption">
+            Winner <code>Arm A</code> cleared the export gate (&ge;90% V2+Non-Slop, 100% L1/L2 spoiler-free) and exported to a 2.50 GB <code>Q4_K_M</code> GGUF + Ollama <code>Modelfile</code>.
+          </p>
+        </figure>
+
+        <details class="deep-dive">
+          <summary>Deep dive: Full 7-row test_coach_300 table &amp; 0.6B Verifier V1 &rarr; V2 collapse</summary>
+          <div class="deep-dive-body">
+            <div class="table-scroll">
+              <table class="ed-table">
+                <thead>
+                  <tr><th>Model (N=300)</th><th>Weak V1</th><th>Strict V2</th><th>Spoiler-Free</th><th>All-Clean (95% CI)</th><th>Fact Cov.</th><th>Slop</th></tr>
+                </thead>
+                <tbody>
+                  <tr class="row-highlight"><td>Arm A Strict V2-GRPO (Winner)</td><td>95.7%</td><td>92.0%</td><td>100.0%</td><td>92.0% [88.4, 94.6]</td><td>77.1%</td><td>0.0%</td></tr>
+                  <tr><td>Arm B Strict V2-GRPO (E3b Transfer)</td><td>95.0%</td><td>91.3%</td><td>99.2%</td><td>91.0% [87.2, 93.7]</td><td>81.7%</td><td>0.0%</td></tr>
+                  <tr class="row-hack"><td>Arm C Weak V1-GRPO (Goodhart)</td><td>96.0%</td><td>89.3%</td><td>100.0%</td><td>89.3% [85.3, 92.3]</td><td>76.4%</td><td>0.0%</td></tr>
+                  <tr><td>Gemma-4-26B Teacher (1-shot)</td><td>90.0%</td><td>88.7%</td><td>100.0%</td><td>88.7% [84.6, 91.8]</td><td>89.8%</td><td>0.0%</td></tr>
+                  <tr><td>Arm A SFT (Base &rarr; SFT)</td><td>93.0%</td><td>88.7%</td><td>100.0%</td><td>88.7% [84.6, 91.8]</td><td>79.6%</td><td>0.0%</td></tr>
+                  <tr><td>Arm B SFT (E3b &rarr; SFT)</td><td>93.3%</td><td>89.0%</td><td>98.3%</td><td>88.3% [84.2, 91.5]</td><td>79.3%</td><td>0.0%</td></tr>
+                  <tr><td>Base Qwen3-4B (0-shot)</td><td>82.7%</td><td>77.7%</td><td>86.7%</td><td>58.0% [52.4, 63.4]</td><td>89.7%</td><td>20.0%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- CHAPTER 5 -->
+      <section id="circuits" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">05 &middot; Mechanistic Interpretability (INTERP #1 &amp; #4)</p>
+          <h2>Five attention heads in Layers 26&ndash;29 read the board out of the KV cache</h2>
+          <p class="chapter-lead">
+            64-square linear probes revealed a striking split: ASCII models lose board state monotonically with depth (<strong>71.3% &rarr; 60.9%</strong>), while Piece-List models <strong>rebound sharply in Layers 30&ndash;35 (+5.9 to +8.1 pp)</strong>.
+          </p>
+          <p>
+            Why? Causal surgery at Layer 6 produced an honest null control (18% probe flips vs. 24% norm-matched random)&mdash;proving there is no early single-token bottleneck. Instead, attention-head hunting across all 1,152 heads isolated <strong>5 Piece-Tracker heads tightly clustered in Layers 26&ndash;29</strong> (<code>L27.H17</code>, <code>L29.H9</code>, <code>L26.H20</code>, <code>L26.H24</code>, <code>L28.H2</code>) right before the Layer 30 rebound. Click below to ablate them.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 5 &middot; Board Probes &amp; 36&times;32 Head Circuit</p>
+              <h3 class="figure-title">Late-Layer Board Rebound &amp; Causal Zero-Ablation of 0.43% of Heads</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="Head ablation simulator">
+              <button type="button" class="ctrl-btn" data-ablation-mode="intact">Intact (100%)</button>
+              <button type="button" class="ctrl-btn" data-ablation-mode="random5">Ablate 5 Random</button>
+              <button type="button" class="ctrl-btn active vermilion" data-ablation-mode="top5">Ablate Top-5 Trackers</button>
+            </div>
+          </div>
+
+          <div class="split-grid equal">
+            <div>
+              <p style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.5rem;">A. Occupied-Square Probe Accuracy (L0 &rarr; L35)</p>
+              <div id="interp-probes-svg" class="svg-chart-wrap"></div>
+            </div>
+            <div class="head-grid-wrap">
+              <p style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0;">B. All 1,152 Attention Heads (36 Layers &times; 32 Heads)</p>
+              <div id="head-matrix-svg" class="svg-chart-wrap"></div>
+              <div id="ablation-result-bars" class="bar-list"></div>
+              <div class="head-legend">
+                <span><i class="dot" style="background:var(--cobalt)"></i>Top-5 Piece-Trackers (L26&ndash;29)</span>
+                <span><i class="dot" style="background:var(--vermilion)"></i>Zero-Ablated (&minus;12.0 pp = 3.0&times; drop)</span>
+                <span><i class="dot" style="background:var(--amber)"></i>Random L26&ndash;29 Control (&minus;4.0 pp)</span>
+              </div>
+            </div>
+          </div>
+          <p class="figure-caption">
+            Under both ablations, strict move legality stayed 98&ndash;99%: these 5 heads compute tactical piece relationships, not move syntax.
+          </p>
+        </figure>
+      </section>
+
+      <!-- CHAPTER 6 -->
+      <section id="svd" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">06 &middot; Weight Diffing &amp; Activation Steering (INTERP #2)</p>
+          <h2>Reward hacking leaves a geometric scar in Layers 34&ndash;35&mdash;and slop lives on one linear axis</h2>
+          <p class="chapter-lead">
+            Exact thin QR-SVD across all 252 LoRA modules exposed how reward hacking writes into weights: <strong>71&ndash;72% of RL energy hits MLPs</strong>, and the A-Pawn Hack (<code>E3a</code>) jammed its largest updates into the <strong>final two output layers (L34&ndash;L35, peak L35)</strong> while collapsing effective rank (<code>12.83 &rarr; 11.41</code>). Clean <code>sharp_wdl</code> peaked at mid-network <strong>Layer 17</strong> and boosted Piece-Tracker <strong>Layer 29</strong>.
+          </p>
+          <p>
+            On coaching, subtracting hidden states between Weak V1 (<code>Arm C</code>) and Strict V2 (<code>Arm A</code>) isolated a single linear <strong>Goodhart Slop Vector</strong>. Drag the slider below to dial <code>&alpha;</code> from <code>&minus;2.0</code> to <code>+2.0</code> and watch real boilerplate slop climb from <strong>0% to 36%</strong> live.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 6 &middot; 36-Layer QR-SVD &amp; Live Slop Vector Dial</p>
+              <h3 class="figure-title">Inspect Weight-Diff Geometry &amp; Steer the Goodhart Slop Direction</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="LoRA SVD pair toggle">
+              <button type="button" class="ctrl-btn active" data-svd-pair="play">Play: E3a Hack vs E3b</button>
+              <button type="button" class="ctrl-btn" data-svd-pair="coach">Coach: Arm C vs Arm A</button>
+            </div>
+          </div>
+
+          <div id="svd-spectrum-svg" class="svg-chart-wrap" style="margin-bottom:0.65rem;"></div>
+          <div id="svd-pair-stats" class="prompt-stat-row" style="margin-bottom:1.35rem;"></div>
+
+          <div class="slider-panel">
+            <div class="slider-header">
+              <div>
+                <p class="figure-kicker" style="margin-bottom:0.15rem;">Live Causal Activation Steering (Layer 2, N=50 Held-Out Prompts)</p>
+                <div id="slop-alpha-readout" class="slider-alpha-readout">&alpha; = +2.0</div>
+              </div>
+              <div class="control-bar" role="group" aria-label="Alpha preset buttons">
+                <button type="button" class="ctrl-btn" data-alpha-idx="0">&minus;2</button>
+                <button type="button" class="ctrl-btn" data-alpha-idx="1">&minus;1</button>
+                <button type="button" class="ctrl-btn" data-alpha-idx="2">0</button>
+                <button type="button" class="ctrl-btn" data-alpha-idx="3">+1</button>
+                <button type="button" class="ctrl-btn active" data-alpha-idx="4">+2</button>
+              </div>
+            </div>
+            <input id="slop-alpha-slider" class="slop-range" type="range" min="0" max="4" step="1" value="4" aria-label="Goodhart slop steering strength alpha" />
+            <div class="slider-ticks">
+              <span>&minus;2.0 (Anti-Slop)</span>
+              <span>&minus;1.0</span>
+              <span>0.0 (Arm A)</span>
+              <span>+1.0</span>
+              <span>+2.0 (Pro-Goodhart)</span>
+            </div>
+            <div class="slider-gauges">
+              <div class="gauge-box"><span class="gauge-label">Slop-Flagged</span><span id="gauge-slop" class="gauge-val">--</span></div>
+              <div class="gauge-box"><span class="gauge-label">V1 &minus; V2 Gap</span><span id="gauge-gap" class="gauge-val">--</span></div>
+              <div class="gauge-box"><span class="gauge-label">Distinct 4-Gram</span><span id="gauge-div" class="gauge-val">--</span></div>
+              <div class="gauge-box"><span class="gauge-label">Spoiler-Free</span><span id="gauge-spoil" class="gauge-val">--</span></div>
+            </div>
+            <div class="coach-quote-card" style="margin-top:0;">
+              <p style="font-family:var(--font-mono);font-size:0.68rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.4rem;">Verbatim Generated Output (Position #0) &mdash; Slop Phrases Highlighted</p>
+              <p id="slop-live-quote" class="coach-quote-text"></p>
+            </div>
+          </div>
+        </figure>
+      </section>
+
+      <!-- CHAPTER 7 -->
+      <section id="sabotage" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">07 &middot; Chain-of-Thought Faithfulness (INTERP #3)</p>
+          <h2>Is <code>&lt;think&gt;</code> real reasoning? Corrupted prefills flip 100 out of 100 moves</h2>
+          <p class="chapter-lead">
+            Across 100 solved <code>E3b</code> puzzles, projecting the residual stream through <code>lm_head</code> showed target-move probability staying quiet during prose (<code>&le; 0.02</code>) before snapping to <strong>0.99997</strong> immediately after <code>&lt;/think&gt;</code>.
+          </p>
+          <p>
+            When we injected a plausible corrupted <code>&lt;think&gt;</code> prefill arguing for a legal distractor move (Anthropic / Lanham test), <code>E3b</code> abandoned the winning move and played the exact injected distractor on <strong>100 / 100 puzzles (0% resistance)</strong>.
+          </p>
+        </div>
+
+        <figure class="figure-card">
+          <div class="figure-head">
+            <div>
+              <p class="figure-kicker">Interactive Figure 7 &middot; Logit Lens &amp; Causal Sabotage</p>
+              <h3 class="figure-title">Toggle Clean vs. Corrupted <code>&lt;think&gt;</code> Prefills on Real Solved Puzzles</h3>
+            </div>
+            <div class="control-bar" role="group" aria-label="Sabotage toggle">
+              <button type="button" class="ctrl-btn emerald" data-sab-mode="clean">Clean &lt;think&gt;</button>
+              <button type="button" class="ctrl-btn active vermilion" data-sab-mode="sabotaged">Inject Corrupted &lt;think&gt;</button>
+            </div>
+          </div>
+
+          <div class="split-grid equal">
+            <div>
+              <p style="font-family:var(--font-mono);font-size:0.72rem;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin:0 0 0.5rem;">A. Token-Position Logit Lens P(target_move)</p>
+              <div id="logit-lens-svg" class="svg-chart-wrap"></div>
+            </div>
+            <div>
+              <div id="sabotage-ex-tabs" class="control-bar" style="margin-bottom:0.75rem;"></div>
+              <div id="sabotage-think-box" class="think-box sabotaged"></div>
+            </div>
+          </div>
+        </figure>
+      </section>
+
+      <!-- CHAPTER 8 -->
+      <section id="limits" class="chapter reveal">
+        <div class="prose">
+          <p class="chapter-num">08 &middot; Honest Limitations &amp; Reproducibility</p>
+          <h2>What still doesn&rsquo;t work&mdash;and how to reproduce every number</h2>
+          <p class="chapter-lead">
+            A stateless single-FEN 4B model caps out around <strong>339 de-biased Bradley-Terry Elo</strong>: it solves 21.4% of tactical puzzles and coaches at 92.0% All-Clean, yet still blunders across 40-move games without move history or tree search.
+          </p>
+          <p>
+            Four real negative results shaped this work: (1) <code>0.6B</code> coaching collapsed into 79.8% slop; (2) Layer-6 causal board surgery produced a null control (18% vs. 24% random); (3) outcome RLVR narrowed <code>pass@8</code> (43.5% &rarr; 34.0%); and (4) single-FEN greedy decoding inflated standard Elo by +231 via 3-fold draws.
+          </p>
+        </div>
+
+        <details class="deep-dive">
+          <summary>Reproduce every training run, evaluation, and interpretability experiment</summary>
+          <div class="deep-dive-body">
+            <pre># 1. Verify full test suite &amp; 0-diff blog assets locally
+venv/bin/ruff check . &amp;&amp; venv/bin/ruff format --check .
+venv/bin/python scripts/build_blog_assets.py --check
+venv/bin/python -m pytest --ignore=tests/e2e --cov=chessfm
+node --test web/tests/*.test.mjs
+
+# 2. Train E2a (All-Linear LoRA r=64) and E3b (Anti-Hack sharp_wdl DAPO)
+modal run --detach scripts/modal_train.py --task sft --track v1 --gpu a100 \
+  --data /vol/data/phase2/sft_phase2_20k.jsonl --include-piece-list \
+  --lora-r 64 --all-linear --lr 2e-4 --epochs 2 --output-subdir sft_e2a_20k_r64
+
+modal run --detach scripts/modal_train.py --task grpo --track v1 --gpu a100 \
+  --model /vol/checkpoints/sft_e2a_20k_r64/final_merged \
+  --positions /vol/data/phase2/rl_sharp_tactical.txt \
+  --stage 1 --reward-mode sharp_wdl --steps 200 --include-piece-list \
+  --output-subdir grpo_e3b_sharp_wdl
+
+# 3. Run all 4 Mechanistic Interpretability experiments on one A100-80GB
+modal run --detach scripts/modal_train.py --task interp-suite</pre>
+            <p>
+              Full per-run W&amp;B links, 95% confidence intervals, and raw manifest paths live in
+              <a href="https://github.com/ArmaanSethi/chess-fm/blob/main/docs/BENCHMARKS.md">docs/BENCHMARKS.md</a> and
+              <a href="https://github.com/ArmaanSethi/chess-fm/blob/main/docs/EXPERIMENT_LOG.md">docs/EXPERIMENT_LOG.md</a>.
+            </p>
+          </div>
+        </details>
+      </section>
+    </main>
+  </div>
+
+  <footer class="editorial-footer">
+    <div>
+      <strong>ChessFM</strong> (MIT License) &middot; Interactive Visual Research Essay &middot; Zero External CDNs
+    </div>
+    <div style="display:flex;gap:1.1rem;flex-wrap:wrap;">
+      <a href="./index.html">Live Chess Coach</a>
+      <a href="./dashboard.html">Project Dashboard</a>
+      <a href="https://github.com/ArmaanSethi/chess-fm/blob/main/docs/BLOG_POST.md">GitHub Markdown Edition</a>
+      <a href="https://github.com/ArmaanSethi/chess-fm">Source Code</a>
+    </div>
+  </footer>
+
+  <script type="module" src="./js/blog.js"></script>
+</body>
+</html>

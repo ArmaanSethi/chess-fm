@@ -1,0 +1,3849 @@
+{
+  "schema_version": "1.0",
+  "hero_kpis": {
+    "coach_all_clean_pct": 92.0,
+    "coach_teacher_all_clean_pct": 88.67,
+    "coach_vs_teacher_pp": 3.33,
+    "coach_slop_pct": 0.0,
+    "coach_spoiler_free_pct": 100.0,
+    "arm_b_fact_coverage_pct": 81.67,
+    "arm_b_fact_coverage_gain_pp": 4.53,
+    "apawn_before_pct": 60.3,
+    "apawn_after_pct": 1.5,
+    "e2a_unique_moves": 528,
+    "e3a_unique_moves": 206,
+    "e3b_unique_moves": 443,
+    "rlvr_legal_gain_pp": 10.3,
+    "rlvr_cot_gain_pp": 10.02,
+    "elo_mirage_pp": 230.92,
+    "e2a_rep3_draw_pct": 89.36,
+    "e3b_norep_rep3_draws": 22,
+    "e3b_norep_total_draws": 56,
+    "e3b_norep_rep3_draw_pct": 39.29,
+    "rlvr_clean_elo_lift": 27.31,
+    "piece_tracker_head_count": 5,
+    "total_attention_heads": 1152,
+    "piece_tracker_head_pct": 0.43,
+    "piece_tracker_ablation_ratio": 3.0,
+    "top5_ablation_drop_pp": 12.0,
+    "random5_ablation_drop_pp": 4.0,
+    "sabotage_flip_rate_pct": 100.0,
+    "slop_steer_min_pct": 0.0,
+    "slop_steer_max_pct": 36.0
+  },
+  "sft_ladder": [
+    {
+      "id": "Base_ASCII",
+      "label": "Base Qwen3-4B (ASCII)",
+      "params": "4B",
+      "method": "Zero-shot ASCII (Think OFF)",
+      "val_loss": null,
+      "strict_legal_pct": 0.5,
+      "strict_acpl": 80.0,
+      "strict_mar_pct": 0.0,
+      "constr_acpl": 465.36,
+      "piece_on_square_pct": 12.5,
+      "puzzles_900_pct": null,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": null,
+      "chessqa_1000_pct": null,
+      "chessqa_categories": null,
+      "english_pct": null,
+      "english_leak_pct": null,
+      "cot_v2_pct": null,
+      "cot_zero_viol_pct": null
+    },
+    {
+      "id": "Base_PL",
+      "label": "Base Qwen3-4B (Piece-List)",
+      "params": "4B",
+      "method": "Zero-shot Piece-List",
+      "val_loss": null,
+      "strict_legal_pct": 0.0,
+      "strict_acpl": null,
+      "strict_mar_pct": 0.0,
+      "constr_acpl": null,
+      "piece_on_square_pct": 40.0,
+      "puzzles_900_pct": null,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": null,
+      "chessqa_1000_pct": null,
+      "chessqa_categories": null,
+      "english_pct": null,
+      "english_leak_pct": null,
+      "cot_v2_pct": 88.89,
+      "cot_zero_viol_pct": 79.0
+    },
+    {
+      "id": "E0",
+      "label": "E0 SFT (2.5K ASCII, r=16)",
+      "params": "4B",
+      "method": "LoRA r=16, lr=2e-5, ASCII",
+      "val_loss": 0.5181,
+      "strict_legal_pct": 21.0,
+      "strict_acpl": 345.07,
+      "strict_mar_pct": 11.9,
+      "constr_acpl": 380.1,
+      "piece_on_square_pct": 33.5,
+      "puzzles_900_pct": null,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": null,
+      "chessqa_1000_pct": null,
+      "chessqa_categories": null,
+      "english_pct": null,
+      "english_leak_pct": null,
+      "cot_v2_pct": null,
+      "cot_zero_viol_pct": null
+    },
+    {
+      "id": "E0_GRPO",
+      "label": "E0 GRPO S2 (+400 steps)",
+      "params": "4B",
+      "method": "Staged GRPO S0->S2, ASCII",
+      "val_loss": null,
+      "strict_legal_pct": 32.0,
+      "strict_acpl": 277.16,
+      "strict_mar_pct": 25.0,
+      "constr_acpl": 325.88,
+      "piece_on_square_pct": 34.0,
+      "puzzles_900_pct": null,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": null,
+      "chessqa_1000_pct": null,
+      "chessqa_categories": null,
+      "english_pct": null,
+      "english_leak_pct": null,
+      "cot_v2_pct": null,
+      "cot_zero_viol_pct": null
+    },
+    {
+      "id": "E1a",
+      "label": "E1a SFT (2.5K PL, r=16)",
+      "params": "4B",
+      "method": "All-Linear LoRA r=16, lr=2e-4, Piece-List",
+      "val_loss": 0.4302,
+      "strict_legal_pct": 63.5,
+      "strict_acpl": 421.31,
+      "strict_mar_pct": 29.13,
+      "constr_acpl": 330.18,
+      "piece_on_square_pct": 80.5,
+      "puzzles_900_pct": 4.67,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": 66.56,
+      "chessqa_1000_pct": 11.9,
+      "chessqa_categories": {
+        "Motifs": 0.0,
+        "Position Judgment": 35.5,
+        "Semantic": 0.0,
+        "Short Tactics": 0.0,
+        "Structural": 24.0
+      },
+      "english_pct": null,
+      "english_leak_pct": null,
+      "cot_v2_pct": 64.02,
+      "cot_zero_viol_pct": 25.0
+    },
+    {
+      "id": "E1b",
+      "label": "E1b SFT (20K Mix, r=16)",
+      "params": "4B",
+      "method": "All-Linear LoRA r=16, lr=2e-4, 20K Mix",
+      "val_loss": 0.2775,
+      "strict_legal_pct": 64.4,
+      "strict_acpl": 336.51,
+      "strict_mar_pct": 31.52,
+      "constr_acpl": 393.0,
+      "piece_on_square_pct": null,
+      "puzzles_900_pct": 18.33,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": 67.11,
+      "chessqa_1000_pct": 38.8,
+      "chessqa_categories": {
+        "Motifs": 10.5,
+        "Position Judgment": 54.5,
+        "Semantic": 55.0,
+        "Short Tactics": 8.0,
+        "Structural": 66.0
+      },
+      "english_pct": 89.0,
+      "english_leak_pct": 0.0,
+      "cot_v2_pct": 60.02,
+      "cot_zero_viol_pct": 20.8
+    },
+    {
+      "id": "E2a",
+      "label": "E2a SFT (20K Mix, r=64)",
+      "params": "4B",
+      "method": "All-Linear LoRA r=64, lr=2e-4, 20K Mix",
+      "val_loss": 0.266,
+      "strict_legal_pct": 66.2,
+      "strict_acpl": 297.56,
+      "strict_mar_pct": 32.02,
+      "constr_acpl": 387.9,
+      "piece_on_square_pct": null,
+      "puzzles_900_pct": 21.44,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": 72.67,
+      "chessqa_1000_pct": 45.2,
+      "chessqa_categories": {
+        "Motifs": 10.0,
+        "Position Judgment": 56.0,
+        "Semantic": 80.5,
+        "Short Tactics": 7.0,
+        "Structural": 72.5
+      },
+      "english_pct": 90.0,
+      "english_leak_pct": 0.0,
+      "cot_v2_pct": 60.66,
+      "cot_zero_viol_pct": 19.8
+    },
+    {
+      "id": "E2b",
+      "label": "E2b Full-FT (20K Mix)",
+      "params": "4B",
+      "method": "100% Full Fine-Tune, lr=2e-5, 20K Mix",
+      "val_loss": 0.2842,
+      "strict_legal_pct": 62.4,
+      "strict_acpl": 322.13,
+      "strict_mar_pct": 32.53,
+      "constr_acpl": 410.67,
+      "piece_on_square_pct": null,
+      "puzzles_900_pct": 17.44,
+      "puzzles_900_lenient_pct": null,
+      "puzzles_900_legal_pct": 66.33,
+      "chessqa_1000_pct": 31.2,
+      "chessqa_categories": {
+        "Motifs": 13.0,
+        "Position Judgment": 53.0,
+        "Semantic": 27.5,
+        "Short Tactics": 0.5,
+        "Structural": 62.0
+      },
+      "english_pct": 89.0,
+      "english_leak_pct": 0.0,
+      "cot_v2_pct": 57.74,
+      "cot_zero_viol_pct": 19.8
+    },
+    {
+      "id": "Gemma26B",
+      "label": "Gemma-4-26B (Zero-Shot)",
+      "params": "26B-A4B",
+      "method": "Zero-shot Frontier Teacher, Piece-List",
+      "val_loss": null,
+      "strict_legal_pct": null,
+      "strict_acpl": null,
+      "strict_mar_pct": null,
+      "constr_acpl": null,
+      "piece_on_square_pct": null,
+      "puzzles_900_pct": 0.22,
+      "puzzles_900_lenient_pct": 10.78,
+      "puzzles_900_legal_pct": 1.78,
+      "chessqa_1000_pct": 26.3,
+      "chessqa_categories": {
+        "Motifs": 0.0,
+        "Position Judgment": 51.5,
+        "Semantic": 25.0,
+        "Short Tactics": 0.0,
+        "Structural": 55.0
+      },
+      "english_pct": null,
+      "english_leak_pct": null,
+      "cot_v2_pct": null,
+      "cot_zero_viol_pct": null
+    }
+  ],
+  "rlvr_apawn_hack": {
+    "models": {
+      "E2a": {
+        "label": "E2a (SFT r=64)",
+        "strict_legal_pct": 66.2,
+        "exact_match_pct": 8.1,
+        "mar_all_pct": 20.5,
+        "mar_legal_pct": 30.97,
+        "strict_acpl": 297.56,
+        "mean_wdl_loss_pct": 17.3,
+        "constr_acpl": 387.9,
+        "constr_mar_pct": 30.2,
+        "constr_exact_pct": 11.8,
+        "cot_v2_pct": 60.66,
+        "cot_zero_viol_pct": 19.8,
+        "unique_moves": 528,
+        "top1_move": "e1g1",
+        "top1_freq_pct": 3.9,
+        "a_file_pawn_push_pct": 1.2,
+        "a_file_pawn_push_count": 12,
+        "a_file_vertical_move_pct": 2.7,
+        "top10_moves": [
+          [
+            "e1g1",
+            39
+          ],
+          [
+            "d2d4",
+            27
+          ],
+          [
+            "e2e4",
+            24
+          ],
+          [
+            "d3d4",
+            16
+          ],
+          [
+            "g8f6",
+            13
+          ],
+          [
+            "g1f3",
+            13
+          ],
+          [
+            "d2d3",
+            9
+          ],
+          [
+            "c2c4",
+            9
+          ],
+          [
+            "d4d5",
+            9
+          ],
+          [
+            "b1c3",
+            9
+          ]
+        ],
+        "passes_anti_hack_gate": true,
+        "puzzles_900_pct": 21.44,
+        "puzzles_900_legal_pct": 72.67,
+        "chessqa_1000_pct": 45.2,
+        "chessqa_categories": {
+          "Motifs": 10.0,
+          "Position Judgment": 56.0,
+          "Semantic": 80.5,
+          "Short Tactics": 7.0,
+          "Structural": 72.5
+        },
+        "english_pct": 90.0
+      },
+      "E3a": {
+        "label": "E3a (WDL-DAPO — A-Pawn Hack)",
+        "strict_legal_pct": 86.4,
+        "exact_match_pct": 4.0,
+        "mar_all_pct": 23.1,
+        "mar_legal_pct": 26.74,
+        "strict_acpl": 305.78,
+        "mean_wdl_loss_pct": 16.09,
+        "constr_acpl": 356.87,
+        "constr_mar_pct": 28.7,
+        "constr_exact_pct": 6.5,
+        "cot_v2_pct": 82.43,
+        "cot_zero_viol_pct": 61.5,
+        "unique_moves": 206,
+        "top1_move": "a2a3",
+        "top1_freq_pct": 18.7,
+        "a_file_pawn_push_pct": 60.3,
+        "a_file_pawn_push_count": 603,
+        "a_file_vertical_move_pct": 61.2,
+        "top10_moves": [
+          [
+            "a2a3",
+            187
+          ],
+          [
+            "a2a4",
+            113
+          ],
+          [
+            "a7a5",
+            85
+          ],
+          [
+            "a3a4",
+            62
+          ],
+          [
+            "a4a5",
+            43
+          ],
+          [
+            "a6a5",
+            42
+          ],
+          [
+            "a5a4",
+            30
+          ],
+          [
+            "h2h3",
+            28
+          ],
+          [
+            "c2c3",
+            21
+          ],
+          [
+            "a7a6",
+            15
+          ]
+        ],
+        "passes_anti_hack_gate": false,
+        "puzzles_900_pct": 11.56,
+        "puzzles_900_legal_pct": 81.89,
+        "chessqa_1000_pct": 43.7,
+        "chessqa_categories": {
+          "Motifs": 7.5,
+          "Position Judgment": 52.0,
+          "Semantic": 86.0,
+          "Short Tactics": 4.5,
+          "Structural": 68.5
+        },
+        "english_pct": 90.0
+      },
+      "E3b": {
+        "label": "E3b (Sharp Tactical WDL-DAPO)",
+        "strict_legal_pct": 76.5,
+        "exact_match_pct": 8.0,
+        "mar_all_pct": 23.5,
+        "mar_legal_pct": 30.72,
+        "strict_acpl": 374.09,
+        "mean_wdl_loss_pct": 17.43,
+        "constr_acpl": 361.94,
+        "constr_mar_pct": 31.5,
+        "constr_exact_pct": 11.8,
+        "cot_v2_pct": 70.68,
+        "cot_zero_viol_pct": 33.8,
+        "unique_moves": 443,
+        "top1_move": "h2h3",
+        "top1_freq_pct": 3.7,
+        "a_file_pawn_push_pct": 1.5,
+        "a_file_pawn_push_count": 15,
+        "a_file_vertical_move_pct": 2.0,
+        "top10_moves": [
+          [
+            "h2h3",
+            37
+          ],
+          [
+            "d2d4",
+            27
+          ],
+          [
+            "h2h4",
+            24
+          ],
+          [
+            "e2e4",
+            20
+          ],
+          [
+            "g1f3",
+            16
+          ],
+          [
+            "c2c3",
+            16
+          ],
+          [
+            "d3d4",
+            15
+          ],
+          [
+            "c2c4",
+            15
+          ],
+          [
+            "g8f6",
+            15
+          ],
+          [
+            "f1d3",
+            14
+          ]
+        ],
+        "passes_anti_hack_gate": true,
+        "puzzles_900_pct": 16.56,
+        "puzzles_900_legal_pct": 78.33,
+        "chessqa_1000_pct": 44.6,
+        "chessqa_categories": {
+          "Motifs": 7.5,
+          "Position Judgment": 57.0,
+          "Semantic": 82.0,
+          "Short Tactics": 5.5,
+          "Structural": 71.0
+        },
+        "english_pct": 89.0
+      }
+    },
+    "training_curves": {
+      "E3a": [
+        {
+          "step": 10,
+          "reward": 0.9131,
+          "reward_std": 1.4194,
+          "kl": 0.000277,
+          "loss": 0.0257,
+          "completion_length": 60.1,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 20,
+          "reward": 1.5998,
+          "reward_std": 1.5092,
+          "kl": 0.000817,
+          "loss": 0.0157,
+          "completion_length": 64.07,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 30,
+          "reward": 1.4673,
+          "reward_std": 1.3745,
+          "kl": 0.001405,
+          "loss": 0.03,
+          "completion_length": 61.96,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 40,
+          "reward": 1.7933,
+          "reward_std": 1.1396,
+          "kl": 0.003381,
+          "loss": 0.0238,
+          "completion_length": 58.86,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 50,
+          "reward": 1.8864,
+          "reward_std": 1.1831,
+          "kl": 0.004896,
+          "loss": 0.0211,
+          "completion_length": 55.69,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 60,
+          "reward": 1.3415,
+          "reward_std": 1.6303,
+          "kl": 0.006803,
+          "loss": 0.0262,
+          "completion_length": 57.91,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 70,
+          "reward": 2.0776,
+          "reward_std": 0.757,
+          "kl": 0.011178,
+          "loss": 0.0041,
+          "completion_length": 55.92,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 80,
+          "reward": 1.8464,
+          "reward_std": 1.345,
+          "kl": 0.013558,
+          "loss": 0.0205,
+          "completion_length": 53.76,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 90,
+          "reward": 2.1622,
+          "reward_std": 0.8699,
+          "kl": 0.016797,
+          "loss": 0.0066,
+          "completion_length": 54.69,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 100,
+          "reward": 2.3649,
+          "reward_std": 0.4872,
+          "kl": 0.022115,
+          "loss": 0.0076,
+          "completion_length": 52.09,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 110,
+          "reward": 2.1273,
+          "reward_std": 0.7502,
+          "kl": 0.023405,
+          "loss": 0.0133,
+          "completion_length": 52.71,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 120,
+          "reward": 2.292,
+          "reward_std": 0.825,
+          "kl": 0.025331,
+          "loss": 0.015,
+          "completion_length": 53.09,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 130,
+          "reward": 1.8729,
+          "reward_std": 1.0635,
+          "kl": 0.029232,
+          "loss": 0.0135,
+          "completion_length": 52.55,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 140,
+          "reward": 2.4444,
+          "reward_std": 0.7148,
+          "kl": 0.029151,
+          "loss": 0.0189,
+          "completion_length": 51.36,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 150,
+          "reward": 1.7156,
+          "reward_std": 0.9622,
+          "kl": 0.037119,
+          "loss": 0.0065,
+          "completion_length": 52.28,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 160,
+          "reward": 2.1876,
+          "reward_std": 0.8016,
+          "kl": 0.034346,
+          "loss": 0.009,
+          "completion_length": 52.06,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 170,
+          "reward": 2.3793,
+          "reward_std": 0.7749,
+          "kl": 0.040746,
+          "loss": 0.0082,
+          "completion_length": 50.29,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 180,
+          "reward": 2.1403,
+          "reward_std": 0.6953,
+          "kl": 0.034991,
+          "loss": 0.0062,
+          "completion_length": 52.56,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 190,
+          "reward": 2.2291,
+          "reward_std": 0.918,
+          "kl": 0.037893,
+          "loss": 0.001,
+          "completion_length": 49.91,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 200,
+          "reward": 2.2101,
+          "reward_std": 0.5529,
+          "kl": 0.037586,
+          "loss": 0.0019,
+          "completion_length": 50.77,
+          "clip_ratio": 0.0
+        }
+      ],
+      "E3b": [
+        {
+          "step": 10,
+          "reward": 0.1097,
+          "reward_std": 0.36,
+          "kl": 0.000253,
+          "loss": 0.025,
+          "completion_length": 64.59,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 20,
+          "reward": 0.1245,
+          "reward_std": 0.4858,
+          "kl": 0.001481,
+          "loss": 0.0131,
+          "completion_length": 66.52,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 30,
+          "reward": 0.1696,
+          "reward_std": 0.5171,
+          "kl": 0.002397,
+          "loss": -0.007,
+          "completion_length": 63.92,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 40,
+          "reward": 0.2533,
+          "reward_std": 0.5963,
+          "kl": 0.003142,
+          "loss": -0.0022,
+          "completion_length": 63.77,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 50,
+          "reward": 0.0263,
+          "reward_std": 0.3861,
+          "kl": 0.00539,
+          "loss": 0.0075,
+          "completion_length": 65.56,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 60,
+          "reward": 0.2951,
+          "reward_std": 0.6337,
+          "kl": 0.006097,
+          "loss": 0.0119,
+          "completion_length": 64.04,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 70,
+          "reward": -0.0145,
+          "reward_std": 0.3977,
+          "kl": 0.008462,
+          "loss": 0.0123,
+          "completion_length": 63.33,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 80,
+          "reward": 0.414,
+          "reward_std": 0.4351,
+          "kl": 0.009534,
+          "loss": 0.0151,
+          "completion_length": 62.27,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 90,
+          "reward": 0.0464,
+          "reward_std": 0.4017,
+          "kl": 0.012437,
+          "loss": 0.0051,
+          "completion_length": 62.6,
+          "clip_ratio": 0.0001
+        },
+        {
+          "step": 100,
+          "reward": 0.0879,
+          "reward_std": 0.4178,
+          "kl": 0.012076,
+          "loss": 0.0138,
+          "completion_length": 62.84,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 110,
+          "reward": 0.2165,
+          "reward_std": 0.5242,
+          "kl": 0.012832,
+          "loss": 0.0264,
+          "completion_length": 60.35,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 120,
+          "reward": 0.2501,
+          "reward_std": 0.5305,
+          "kl": 0.010975,
+          "loss": 0.0072,
+          "completion_length": 59.05,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 130,
+          "reward": 0.0715,
+          "reward_std": 0.3695,
+          "kl": 0.011406,
+          "loss": 0.0238,
+          "completion_length": 63.54,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 140,
+          "reward": 0.2485,
+          "reward_std": 0.4851,
+          "kl": 0.013935,
+          "loss": 0.0049,
+          "completion_length": 61.34,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 150,
+          "reward": 0.2838,
+          "reward_std": 0.4828,
+          "kl": 0.011525,
+          "loss": -0.0017,
+          "completion_length": 60.5,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 160,
+          "reward": 0.292,
+          "reward_std": 0.2696,
+          "kl": 0.01287,
+          "loss": 0.0255,
+          "completion_length": 60.59,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 170,
+          "reward": 0.1273,
+          "reward_std": 0.4091,
+          "kl": 0.012391,
+          "loss": 0.0203,
+          "completion_length": 63.27,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 180,
+          "reward": 0.2414,
+          "reward_std": 0.4233,
+          "kl": 0.010643,
+          "loss": -0.0068,
+          "completion_length": 61.91,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 190,
+          "reward": 0.4484,
+          "reward_std": 0.5423,
+          "kl": 0.012869,
+          "loss": 0.0115,
+          "completion_length": 59.14,
+          "clip_ratio": 0.0
+        },
+        {
+          "step": 200,
+          "reward": 0.234,
+          "reward_std": 0.5544,
+          "kl": 0.013147,
+          "loss": 0.0096,
+          "completion_length": 61.94,
+          "clip_ratio": 0.0
+        }
+      ]
+    },
+    "board_examples": [
+      {
+        "id": "pinned_c3",
+        "title": "Pinned Knight on c3",
+        "phase": "Opening",
+        "fen": "r1bqk2r/ppp2ppp/2n5/3np3/1bB5/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 7",
+        "turn": "white",
+        "best_move": "c1d2",
+        "best_san": "Bd2",
+        "E2a": {
+          "move": "e1g1",
+          "san": "O-O",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": false,
+          "cot_verified": 4,
+          "cot_total": 7,
+          "cot_violations": [
+            "Illegal SAN move 'Nxc4' in position",
+            "Illegal SAN move 'Nxc4' in position",
+            "Illegal SAN move 'Bxc4' in position"
+          ]
+        },
+        "E3a": {
+          "move": "a2a3",
+          "san": "a3",
+          "legal": true,
+          "cp_loss": 493.0,
+          "wdl_loss_pct": 36.7,
+          "exact": false,
+          "cot_verified": 6,
+          "cot_total": 6,
+          "cot_violations": []
+        },
+        "E3b": {
+          "move": "c1d2",
+          "san": "Bd2",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": true,
+          "cot_verified": 4,
+          "cot_total": 7,
+          "cot_violations": [
+            "Illegal SAN move 'Nc4' in position",
+            "Illegal SAN move 'Ne2' in position",
+            "Illegal SAN move 'Nxe2+' in position"
+          ]
+        }
+      },
+      {
+        "id": "kingside_castle",
+        "title": "Kingside Castling vs Edge-Pawn Blunder",
+        "phase": "Middlegame",
+        "fen": "2rqk2r/1b1pb1p1/p1n2p2/3Bp2p/1Pp1P3/P3BN2/2Q2PPP/R3K2R w KQk - 2 17",
+        "turn": "white",
+        "best_move": "e1g1",
+        "best_san": "O-O",
+        "E2a": {
+          "move": "d5c6",
+          "san": "Bxc6",
+          "legal": true,
+          "cp_loss": 273.0,
+          "wdl_loss_pct": 24.51,
+          "exact": false,
+          "cot_verified": 7,
+          "cot_total": 7,
+          "cot_violations": []
+        },
+        "E3a": {
+          "move": "a3a4",
+          "san": "a4",
+          "legal": true,
+          "cp_loss": 594.0,
+          "wdl_loss_pct": 48.61,
+          "exact": false,
+          "cot_verified": 6,
+          "cot_total": 6,
+          "cot_violations": []
+        },
+        "E3b": {
+          "move": "e1g1",
+          "san": "O-O",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": true,
+          "cot_verified": 6,
+          "cot_total": 6,
+          "cot_violations": []
+        }
+      },
+      {
+        "id": "c3_pawn_fork",
+        "title": "Ignoring an Attacking Pawn on c3",
+        "phase": "Opening",
+        "fen": "r3kbnr/pp1q2pp/2n1bp2/2p1p3/4P3/2pP1NP1/PP1N1PBP/R1BQR1K1 w kq - 0 10",
+        "turn": "white",
+        "best_move": "b2c3",
+        "best_san": "bxc3",
+        "E2a": {
+          "move": "b2c3",
+          "san": "bxc3",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": true,
+          "cot_verified": 6,
+          "cot_total": 7,
+          "cot_violations": [
+            "Illegal SAN move 'Nf7' in position"
+          ]
+        },
+        "E3a": {
+          "move": "a2a4",
+          "san": "a4",
+          "legal": true,
+          "cp_loss": 538.0,
+          "wdl_loss_pct": 37.4,
+          "exact": false,
+          "cot_verified": 6,
+          "cot_total": 6,
+          "cot_violations": []
+        },
+        "E3b": {
+          "move": "b2c3",
+          "san": "bxc3",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": true,
+          "cot_verified": 5,
+          "cot_total": 7,
+          "cot_violations": [
+            "Illegal SAN move 'Nf7' in position",
+            "Illegal SAN move 'Nc6' in position"
+          ]
+        }
+      },
+      {
+        "id": "free_bishop_e6",
+        "title": "Endgame Knight Capture on e6",
+        "phase": "Endgame",
+        "fen": "k4N2/5Pr1/pp1pb3/1np5/4p2B/2P2pP1/PP3R2/6K1 w - - 0 37",
+        "turn": "white",
+        "best_move": "f8e6",
+        "best_san": "Nxe6",
+        "E2a": {
+          "move": "f2f8",
+          "san": null,
+          "legal": false,
+          "cp_loss": null,
+          "wdl_loss_pct": null,
+          "exact": false,
+          "cot_verified": 1,
+          "cot_total": 8,
+          "cot_violations": [
+            "Illegal SAN move 'Rf8+' in position",
+            "Illegal UCI move 'f2f8' in position",
+            "Illegal SAN move 'Rf8+' in position",
+            "Illegal SAN move 'Nc7' in position",
+            "Illegal SAN move 'Bxg7' in position",
+            "Illegal SAN move 'Nxf7' in position",
+            "Illegal SAN move 'Bxf7' in position"
+          ]
+        },
+        "E3a": {
+          "move": "a2a4",
+          "san": "a4",
+          "legal": true,
+          "cp_loss": 527.0,
+          "wdl_loss_pct": 43.08,
+          "exact": false,
+          "cot_verified": 6,
+          "cot_total": 6,
+          "cot_violations": []
+        },
+        "E3b": {
+          "move": "f8e6",
+          "san": "Nxe6",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": true,
+          "cot_verified": 5,
+          "cot_total": 8,
+          "cot_violations": [
+            "Move 'Ne6+' does not give check",
+            "Move 'Ne6+' does not give check",
+            "Move 'Nc7+' does not give check"
+          ]
+        }
+      },
+      {
+        "id": "hanging_knight_g5",
+        "title": "Hanging Knight on g5 Attacked by h6",
+        "phase": "Middlegame",
+        "fen": "r3k2r/ppqn1pb1/2p3pp/2p1p1N1/2P1P3/3P3P/PBP2PP1/R2Q1RK1 w kq - 0 14",
+        "turn": "white",
+        "best_move": "g5f3",
+        "best_san": "Nf3",
+        "E2a": {
+          "move": "d1h5",
+          "san": "Qh5",
+          "legal": true,
+          "cp_loss": 793.0,
+          "wdl_loss_pct": 47.08,
+          "exact": false,
+          "cot_verified": 2,
+          "cot_total": 6,
+          "cot_violations": [
+            "Move 'Qh5+' does not give check",
+            "Move 'Qh5+' does not give check",
+            "Illegal SAN move 'g5' in position",
+            "Illegal SAN move 'Qxg5+' in position"
+          ]
+        },
+        "E3a": {
+          "move": "a2a4",
+          "san": "a4",
+          "legal": true,
+          "cp_loss": 494.0,
+          "wdl_loss_pct": 37.47,
+          "exact": false,
+          "cot_verified": 6,
+          "cot_total": 6,
+          "cot_violations": []
+        },
+        "E3b": {
+          "move": "g5f3",
+          "san": "Nf3",
+          "legal": true,
+          "cp_loss": 0.0,
+          "wdl_loss_pct": 0.0,
+          "exact": true,
+          "cot_verified": 5,
+          "cot_total": 6,
+          "cot_violations": [
+            "Illegal SAN move 'Nc3' in position"
+          ]
+        }
+      }
+    ]
+  },
+  "pass_at_k": {
+    "num_puzzles": 200,
+    "k": 8,
+    "sampling": {
+      "do_sample": true,
+      "k": 8,
+      "temperature": 0.7,
+      "top_p": 0.95,
+      "max_new_tokens": 512,
+      "batch_size": 16,
+      "seed": 42
+    },
+    "models": {
+      "E2a": {
+        "pass_at_k": {
+          "pass@1": {
+            "mean_pct": 14.56,
+            "ci95_pct": [
+              11.44,
+              17.94
+            ]
+          },
+          "pass@2": {
+            "mean_pct": 22.75,
+            "ci95_pct": [
+              18.52,
+              27.16
+            ]
+          },
+          "pass@4": {
+            "mean_pct": 32.69,
+            "ci95_pct": [
+              27.2,
+              38.36
+            ]
+          },
+          "pass@8": {
+            "mean_pct": 43.5,
+            "ci95_pct": [
+              36.5,
+              50.5
+            ],
+            "solved_any": 87
+          }
+        },
+        "strict_legal_pct": 68.56,
+        "mean_move_entropy_all_bits": 1.5543,
+        "mean_move_entropy_legal_bits": 1.3504,
+        "cot_v2": {
+          "claim_accuracy_pct": 52.25,
+          "zero_violation_pct": 9.69
+        }
+      },
+      "E3a": {
+        "pass_at_k": {
+          "pass@1": {
+            "mean_pct": 8.06,
+            "ci95_pct": [
+              6.25,
+              10.13
+            ]
+          },
+          "pass@2": {
+            "mean_pct": 14.34,
+            "ci95_pct": [
+              11.23,
+              17.59
+            ]
+          },
+          "pass@4": {
+            "mean_pct": 23.76,
+            "ci95_pct": [
+              19.14,
+              28.49
+            ]
+          },
+          "pass@8": {
+            "mean_pct": 36.0,
+            "ci95_pct": [
+              29.5,
+              43.0
+            ],
+            "solved_any": 72
+          }
+        },
+        "strict_legal_pct": 74.19,
+        "mean_move_entropy_all_bits": 2.0274,
+        "mean_move_entropy_legal_bits": 1.8762,
+        "cot_v2": {
+          "claim_accuracy_pct": 64.0,
+          "zero_violation_pct": 25.06
+        }
+      },
+      "E3b": {
+        "pass_at_k": {
+          "pass@1": {
+            "mean_pct": 11.13,
+            "ci95_pct": [
+              8.38,
+              14.12
+            ]
+          },
+          "pass@2": {
+            "mean_pct": 17.62,
+            "ci95_pct": [
+              13.84,
+              21.64
+            ]
+          },
+          "pass@4": {
+            "mean_pct": 25.76,
+            "ci95_pct": [
+              20.7,
+              31.11
+            ]
+          },
+          "pass@8": {
+            "mean_pct": 34.0,
+            "ci95_pct": [
+              27.5,
+              41.0
+            ],
+            "solved_any": 68
+          }
+        },
+        "strict_legal_pct": 75.62,
+        "mean_move_entropy_all_bits": 1.8077,
+        "mean_move_entropy_legal_bits": 1.61,
+        "cot_v2": {
+          "claim_accuracy_pct": 59.32,
+          "zero_violation_pct": 15.75
+        }
+      }
+    }
+  },
+  "elo_mirage": {
+    "suites": [
+      {
+        "id": "E2a_std",
+        "label": "E2a Standard Constrained",
+        "elo": 542.35,
+        "ci95": [
+          470.81,
+          610.53
+        ],
+        "wins": 1,
+        "losses": 105,
+        "draws": 94,
+        "rep3_draws": 84,
+        "rep3_pct_of_draws": 89.36,
+        "stalemate_draws": 1,
+        "max_moves_draws": 9,
+        "model_rep2_moves": 189,
+        "total_model_moves": 7727,
+        "model_rep2_rate_pct": 2.446,
+        "filtered_plies": 0,
+        "maia1100_wins": 0,
+        "anchors": {
+          "random": {
+            "anchor_elo": 200.0,
+            "opponent_name": "Random bot",
+            "games": 40,
+            "wins": 1,
+            "losses": 2,
+            "draws": 37,
+            "score_rate_pct": 48.75
+          },
+          "sf_skill_0": {
+            "anchor_elo": 800.0,
+            "opponent_name": "Stockfish L0 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 30,
+            "draws": 10,
+            "score_rate_pct": 12.5
+          },
+          "sf_skill_1": {
+            "anchor_elo": 950.0,
+            "opponent_name": "Stockfish L1 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 29,
+            "draws": 11,
+            "score_rate_pct": 13.75
+          },
+          "maia_1100": {
+            "anchor_elo": 1100.0,
+            "opponent_name": "Maia-1100 (calibrated_fallback)",
+            "games": 40,
+            "wins": 0,
+            "losses": 22,
+            "draws": 18,
+            "score_rate_pct": 22.5
+          },
+          "sf_uci_1320": {
+            "anchor_elo": 1320.0,
+            "opponent_name": "Stockfish Elo 1320 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 22,
+            "draws": 18,
+            "score_rate_pct": 22.5
+          }
+        }
+      },
+      {
+        "id": "E2a_norep",
+        "label": "E2a Repetition-Aware",
+        "elo": 311.43,
+        "ci95": [
+          263.14,
+          365.87
+        ],
+        "wins": 3,
+        "losses": 143,
+        "draws": 54,
+        "rep3_draws": 17,
+        "rep3_pct_of_draws": 31.48,
+        "stalemate_draws": 0,
+        "max_moves_draws": 35,
+        "model_rep2_moves": 4,
+        "total_model_moves": 10054,
+        "model_rep2_rate_pct": 0.04,
+        "filtered_plies": 317,
+        "maia1100_wins": 0,
+        "anchors": {
+          "random": {
+            "anchor_elo": 200.0,
+            "opponent_name": "Random bot",
+            "games": 40,
+            "wins": 3,
+            "losses": 0,
+            "draws": 37,
+            "score_rate_pct": 53.75
+          },
+          "sf_skill_0": {
+            "anchor_elo": 800.0,
+            "opponent_name": "Stockfish L0 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 37,
+            "draws": 3,
+            "score_rate_pct": 3.75
+          },
+          "sf_skill_1": {
+            "anchor_elo": 950.0,
+            "opponent_name": "Stockfish L1 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 40,
+            "draws": 0,
+            "score_rate_pct": 0.0
+          },
+          "maia_1100": {
+            "anchor_elo": 1100.0,
+            "opponent_name": "Maia-1100 (calibrated_fallback)",
+            "games": 40,
+            "wins": 0,
+            "losses": 29,
+            "draws": 11,
+            "score_rate_pct": 13.75
+          },
+          "sf_uci_1320": {
+            "anchor_elo": 1320.0,
+            "opponent_name": "Stockfish Elo 1320 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 37,
+            "draws": 3,
+            "score_rate_pct": 3.75
+          }
+        }
+      },
+      {
+        "id": "E3b_std",
+        "label": "E3b Standard Constrained",
+        "elo": 406.07,
+        "ci95": [
+          331.93,
+          483.26
+        ],
+        "wins": 5,
+        "losses": 131,
+        "draws": 64,
+        "rep3_draws": 55,
+        "rep3_pct_of_draws": 85.94,
+        "stalemate_draws": 0,
+        "max_moves_draws": 9,
+        "model_rep2_moves": 144,
+        "total_model_moves": 8196,
+        "model_rep2_rate_pct": 1.757,
+        "filtered_plies": 0,
+        "maia1100_wins": 2,
+        "anchors": {
+          "random": {
+            "anchor_elo": 200.0,
+            "opponent_name": "Random bot",
+            "games": 40,
+            "wins": 3,
+            "losses": 1,
+            "draws": 36,
+            "score_rate_pct": 52.5
+          },
+          "sf_skill_0": {
+            "anchor_elo": 800.0,
+            "opponent_name": "Stockfish L0 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 34,
+            "draws": 6,
+            "score_rate_pct": 7.5
+          },
+          "sf_skill_1": {
+            "anchor_elo": 950.0,
+            "opponent_name": "Stockfish L1 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 34,
+            "draws": 6,
+            "score_rate_pct": 7.5
+          },
+          "maia_1100": {
+            "anchor_elo": 1100.0,
+            "opponent_name": "Maia-1100 (calibrated_fallback)",
+            "games": 40,
+            "wins": 2,
+            "losses": 28,
+            "draws": 10,
+            "score_rate_pct": 17.5
+          },
+          "sf_uci_1320": {
+            "anchor_elo": 1320.0,
+            "opponent_name": "Stockfish Elo 1320 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 34,
+            "draws": 6,
+            "score_rate_pct": 7.5
+          }
+        }
+      },
+      {
+        "id": "E3b_norep",
+        "label": "E3b Repetition-Aware",
+        "elo": 338.74,
+        "ci95": [
+          277.01,
+          406.07
+        ],
+        "wins": 4,
+        "losses": 140,
+        "draws": 56,
+        "rep3_draws": 22,
+        "rep3_pct_of_draws": 39.29,
+        "stalemate_draws": 3,
+        "max_moves_draws": 31,
+        "model_rep2_moves": 1,
+        "total_model_moves": 10107,
+        "model_rep2_rate_pct": 0.01,
+        "filtered_plies": 285,
+        "maia1100_wins": 1,
+        "anchors": {
+          "random": {
+            "anchor_elo": 200.0,
+            "opponent_name": "Random bot",
+            "games": 40,
+            "wins": 3,
+            "losses": 1,
+            "draws": 36,
+            "score_rate_pct": 52.5
+          },
+          "sf_skill_0": {
+            "anchor_elo": 800.0,
+            "opponent_name": "Stockfish L0 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 37,
+            "draws": 3,
+            "score_rate_pct": 3.75
+          },
+          "sf_skill_1": {
+            "anchor_elo": 950.0,
+            "opponent_name": "Stockfish L1 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 40,
+            "draws": 0,
+            "score_rate_pct": 0.0
+          },
+          "maia_1100": {
+            "anchor_elo": 1100.0,
+            "opponent_name": "Maia-1100 (calibrated_fallback)",
+            "games": 40,
+            "wins": 1,
+            "losses": 27,
+            "draws": 12,
+            "score_rate_pct": 17.5
+          },
+          "sf_uci_1320": {
+            "anchor_elo": 1320.0,
+            "opponent_name": "Stockfish Elo 1320 (depth 6)",
+            "games": 40,
+            "wins": 0,
+            "losses": 35,
+            "draws": 5,
+            "score_rate_pct": 6.25
+          }
+        }
+      },
+      {
+        "id": "E2b_std",
+        "label": "E2b Full-FT Standard Constrained",
+        "elo": 530.98,
+        "ci95": [
+          458.17,
+          595.64
+        ],
+        "wins": null,
+        "losses": null,
+        "draws": 88,
+        "rep3_draws": 78,
+        "rep3_pct_of_draws": 88.64,
+        "stalemate_draws": 1,
+        "max_moves_draws": 9,
+        "model_rep2_moves": null,
+        "total_model_moves": null,
+        "model_rep2_rate_pct": null,
+        "filtered_plies": 0,
+        "maia1100_wins": null,
+        "anchors": {
+          "random": {
+            "anchor_elo": 200.0,
+            "games": 40,
+            "score": 21.5,
+            "score_rate_pct": 53.75
+          },
+          "sf_skill_0": {
+            "anchor_elo": 800.0,
+            "games": 40,
+            "score": 6.5,
+            "score_rate_pct": 16.25
+          },
+          "sf_skill_1": {
+            "anchor_elo": 950.0,
+            "games": 40,
+            "score": 5.0,
+            "score_rate_pct": 12.5
+          },
+          "maia_1100": {
+            "anchor_elo": 1100.0,
+            "games": 40,
+            "score": 9.0,
+            "score_rate_pct": 22.5
+          },
+          "sf_uci_1320": {
+            "anchor_elo": 1320.0,
+            "games": 40,
+            "score": 5.0,
+            "score_rate_pct": 12.5
+          }
+        }
+      }
+    ]
+  },
+  "goodhart_06b": {
+    "grounded_292": {
+      "teacher_26b": {
+        "total_rows": 292,
+        "v1_pass_count": 292,
+        "v1_pass_pct": 100.0,
+        "v2_pass_count": 274,
+        "v2_pass_pct": 93.84,
+        "v2_and_non_slop_count": 274,
+        "v2_and_non_slop_pct": 93.84,
+        "slop_flagged_count": 0,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7616,
+        "top_4gram": {
+          "phrase": "is there a way",
+          "doc_count": 39,
+          "doc_freq_pct": 13.36
+        },
+        "violation_breakdown": {
+          "hollow_boilerplate": 11,
+          "invalid_attack_claim": 5,
+          "piece_on_square": 2
+        }
+      },
+      "base_06b_grounded": {
+        "total_rows": 292,
+        "v1_pass_count": 242,
+        "v1_pass_pct": 82.88,
+        "v2_pass_count": 237,
+        "v2_pass_pct": 81.16,
+        "v2_and_non_slop_count": 95,
+        "v2_and_non_slop_pct": 32.53,
+        "slop_flagged_count": 188,
+        "slop_flagged_pct": 64.38,
+        "distinct_4gram_ratio": 0.506,
+        "top_4gram": {
+          "phrase": "the best move is",
+          "doc_count": 110,
+          "doc_freq_pct": 37.67
+        },
+        "violation_breakdown": {
+          "illegal_move": 58,
+          "piece_on_square": 11,
+          "impossible_pawn_rank": 1
+        }
+      },
+      "sft_06b_grounded": {
+        "total_rows": 292,
+        "v1_pass_count": 253,
+        "v1_pass_pct": 86.64,
+        "v2_pass_count": 181,
+        "v2_pass_pct": 61.99,
+        "v2_and_non_slop_count": 37,
+        "v2_and_non_slop_pct": 12.67,
+        "slop_flagged_count": 233,
+        "slop_flagged_pct": 79.79,
+        "distinct_4gram_ratio": 0.4097,
+        "top_4gram": {
+          "phrase": "tension in the center",
+          "doc_count": 120,
+          "doc_freq_pct": 41.1
+        },
+        "violation_breakdown": {
+          "hollow_boilerplate": 53,
+          "piece_on_square": 42,
+          "illegal_move": 14,
+          "fake_check": 13,
+          "invalid_attack_claim": 12,
+          "impossible_pawn_rank": 7,
+          "color_polarity_violation": 6
+        }
+      }
+    },
+    "four_case_audit": [
+      {
+        "row_index": 0,
+        "task_type": "postmortem",
+        "fen": "3r1r1k/p1nb2R1/1p1p1n2/2pPpN2/2P1P3/P1NB3P/1P5K/6R1 b - - 1 28",
+        "best_move": "c7e8",
+        "best_san": "Nce8",
+        "sft_06b": {
+          "v1_passed": true,
+          "v2_passed": false,
+          "violation_types": [
+            "fake_check"
+          ],
+          "violation_reasons": [
+            "Move Nce8 does not give check"
+          ],
+          "response": "By playing **b5**, you missed a critical opportunity to challenge the center and pressure the kingside. The best move is **Nce8**, which forces the white king to move and prepares to challenge the center. This sequence allows you to maintain control and prepare for a decisive central breakthrough."
+        },
+        "teacher_26b": {
+          "v1_passed": true,
+          "v2_passed": true,
+          "violation_types": [],
+          "response": "Your move `b5` is a mistake because it ignores the immediate tactical tension on the kingside. The best response is `Nce8`, which reposition the knight to challenge your dominant rook on g7 and prepare to defend the kingside. By failing to address the pressure from your pieces, you allow Black to neutralize your attack and gain a significant positional advantage.<|im_end|>"
+        }
+      },
+      {
+        "row_index": 5,
+        "task_type": "socratic_l1",
+        "fen": "2b3k1/1p2rp1p/r3p1p1/p7/8/2P3P1/PP1R1PBP/3R2K1 w - - 0 21",
+        "best_move": "d2d8",
+        "best_san": "Rd8+",
+        "sft_06b": {
+          "v1_passed": true,
+          "v2_passed": false,
+          "violation_types": [
+            "hollow_boilerplate"
+          ],
+          "violation_reasons": [
+            "Claimed center tension, but center squares (d4/d5/e4/e5) have no contested tension"
+          ],
+          "response": "Look closely at the tension in the center and the placement of your rook; is there a way to use a check to force a sequence that forces your opponent's king into a vulnerable position?"
+        },
+        "teacher_26b": {
+          "v1_passed": true,
+          "v2_passed": true,
+          "violation_types": [],
+          "response": "Look for a tactical way to exploit the back rank and create a decisive fork. Can you find a way to deliver a check that simultaneously attacks two key pieces?<|im_end|>"
+        }
+      },
+      {
+        "row_index": 185,
+        "task_type": "socratic_l3",
+        "fen": "r1r3k1/q4ppp/8/p2pb3/N2p4/PP5P/2P2QP1/2BR2K1 w - - 0 23",
+        "best_move": "a4b2",
+        "best_san": "Nb2",
+        "sft_06b": {
+          "v1_passed": true,
+          "v2_passed": false,
+          "violation_types": [
+            "color_polarity_violation"
+          ],
+          "violation_reasons": [
+            "Attributed move 'Nb2' to Black, but it is White's move"
+          ],
+          "response": "By playing Qf6, you have allowed Black to maintain their central pressure and central control. Look at the tension in the center: if Black plays Nb2, they force your knight to move, which allows them to create a powerful attacking sequence."
+        },
+        "teacher_26b": {
+          "v1_passed": true,
+          "v2_passed": true,
+          "violation_types": [],
+          "response": "By playing Qf6, you have placed your Queen on a square where it can be captured immediately by the bishop on e5. Instead of losing a full queen for nothing, you should retreat your knight to b2 to defend the c4 square and prepare to reposition.<|im_end|>"
+        }
+      },
+      {
+        "row_index": 240,
+        "task_type": "socratic_l3",
+        "fen": "r1bq1rk1/pp4pp/2nbpn2/2pp4/2P5/3P1NP1/PP1N1PBP/R1BQR1K1 w - - 1 12",
+        "best_move": "f3g5",
+        "best_san": "Ng5",
+        "sft_06b": {
+          "v1_passed": true,
+          "v2_passed": false,
+          "violation_types": [
+            "impossible_pawn_rank",
+            "invalid_attack_claim"
+          ],
+          "violation_reasons": [
+            "Move Ng5 does not attack or add pressure to e8 (claimed 'challenge the e8-pawn')",
+            "Impossible pawn on rank 8 (e8): pawns cannot occupy rank 1 or 8"
+          ],
+          "response": "By playing Qa4, you have allowed Black to exploit the tension in the center. Look for a way to use your knight to create a powerful attacking sequence that challenges the central pawns and forces Black to make a decision. If you play Ng5, you immediately challenge the e8-pawn and prepare to use your heavy pieces to create a decisive advantage."
+        },
+        "teacher_26b": {
+          "v1_passed": true,
+          "v2_passed": true,
+          "violation_types": [],
+          "response": "By playing Qa4, you are focusing on a pin, but you are missing a more direct way to exploit the tension in the center. Look for a way to reposition your knight to attack the e6-square, which is currently defended only by the queen and bishop. If you play Ng5, you immediately pressure the e6-pawn and force Black to make a difficult defensive decision.<|im_end|>"
+        }
+      }
+    ]
+  },
+  "e5_coach": {
+    "rows": [
+      {
+        "id": "row1_base_4b",
+        "short_label": "Base Qwen3-4B",
+        "label": "Base Qwen/Qwen3-4B",
+        "total_cases": 300,
+        "v1_pass_pct": 82.67,
+        "v2_pass_pct": 77.67,
+        "v1_minus_v2_pp": 5.0,
+        "v2_and_non_slop_pct": 63.33,
+        "spoiler_free_pct": 86.67,
+        "all_clean_pct": 58.0,
+        "all_clean_ci95_pct": [
+          52.35,
+          63.45
+        ],
+        "fact_coverage_pct": 89.67,
+        "slop_flagged_pct": 20.0,
+        "distinct_4gram_ratio": 0.7416
+      },
+      {
+        "id": "row2_arm_a_sft",
+        "short_label": "Arm A SFT",
+        "label": "Arm A SFT (Base -> Coach SFT)",
+        "total_cases": 300,
+        "v1_pass_pct": 93.0,
+        "v2_pass_pct": 88.67,
+        "v1_minus_v2_pp": 4.33,
+        "v2_and_non_slop_pct": 88.67,
+        "spoiler_free_pct": 100.0,
+        "all_clean_pct": 88.67,
+        "all_clean_ci95_pct": [
+          84.58,
+          91.78
+        ],
+        "fact_coverage_pct": 79.56,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7255
+      },
+      {
+        "id": "row3_arm_a_grpo",
+        "short_label": "Arm A V2-GRPO",
+        "label": "Arm A V2-GRPO (Base -> SFT -> Strict V2+Anti-Slop GRPO)",
+        "total_cases": 300,
+        "v1_pass_pct": 95.67,
+        "v2_pass_pct": 92.0,
+        "v1_minus_v2_pp": 3.67,
+        "v2_and_non_slop_pct": 92.0,
+        "spoiler_free_pct": 100.0,
+        "all_clean_pct": 92.0,
+        "all_clean_ci95_pct": [
+          88.37,
+          94.57
+        ],
+        "fact_coverage_pct": 77.14,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7175
+      },
+      {
+        "id": "row4_arm_b_sft",
+        "short_label": "Arm B SFT (E3b->SFT)",
+        "label": "Arm B SFT (E3b -> Coach SFT)",
+        "total_cases": 300,
+        "v1_pass_pct": 93.33,
+        "v2_pass_pct": 89.0,
+        "v1_minus_v2_pp": 4.33,
+        "v2_and_non_slop_pct": 89.0,
+        "spoiler_free_pct": 98.33,
+        "all_clean_pct": 88.33,
+        "all_clean_ci95_pct": [
+          84.21,
+          91.49
+        ],
+        "fact_coverage_pct": 79.25,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7226
+      },
+      {
+        "id": "row5_arm_b_grpo",
+        "short_label": "Arm B V2-GRPO (Transfer)",
+        "label": "Arm B V2-GRPO (E3b -> SFT -> Strict V2+Anti-Slop GRPO)",
+        "total_cases": 300,
+        "v1_pass_pct": 95.0,
+        "v2_pass_pct": 91.33,
+        "v1_minus_v2_pp": 3.67,
+        "v2_and_non_slop_pct": 91.33,
+        "spoiler_free_pct": 99.17,
+        "all_clean_pct": 91.0,
+        "all_clean_ci95_pct": [
+          87.22,
+          93.74
+        ],
+        "fact_coverage_pct": 81.67,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7123
+      },
+      {
+        "id": "row6_teacher_26b",
+        "short_label": "Gemma-4-26B Teacher",
+        "label": "Gemma-4-26B-A4B-it Teacher (Single-Shot, Grounded)",
+        "total_cases": 300,
+        "v1_pass_pct": 90.0,
+        "v2_pass_pct": 88.67,
+        "v1_minus_v2_pp": 1.33,
+        "v2_and_non_slop_pct": 88.67,
+        "spoiler_free_pct": 100.0,
+        "all_clean_pct": 88.67,
+        "all_clean_ci95_pct": [
+          84.58,
+          91.78
+        ],
+        "fact_coverage_pct": 89.78,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7862
+      },
+      {
+        "id": "row7_arm_c_v1_grpo",
+        "short_label": "Arm C Weak V1-GRPO",
+        "label": "Arm C Weak V1-GRPO (Base -> SFT -> Weak V1-GRPO)",
+        "total_cases": 300,
+        "v1_pass_pct": 96.0,
+        "v2_pass_pct": 89.33,
+        "v1_minus_v2_pp": 6.67,
+        "v2_and_non_slop_pct": 89.33,
+        "spoiler_free_pct": 100.0,
+        "all_clean_pct": 89.33,
+        "all_clean_ci95_pct": [
+          85.33,
+          92.34
+        ],
+        "fact_coverage_pct": 76.44,
+        "slop_flagged_pct": 0.0,
+        "distinct_4gram_ratio": 0.7237
+      }
+    ],
+    "deltas": {
+      "arm_b_sft_minus_arm_a_sft": {
+        "v1_pass_rate_pp": 0.33,
+        "v2_pass_rate_pp": 0.33,
+        "v2_and_non_slop_rate_pp": 0.33,
+        "socratic_l12_spoiler_free_rate_pp": -1.67,
+        "all_clean_rate_pp": -0.34,
+        "mean_tactical_fact_coverage_pp": -0.31,
+        "distinct_4gram_ratio": -0.0029
+      },
+      "arm_b_grpo_minus_arm_a_grpo": {
+        "v1_pass_rate_pp": -0.67,
+        "v2_pass_rate_pp": -0.67,
+        "v2_and_non_slop_rate_pp": -0.67,
+        "socratic_l12_spoiler_free_rate_pp": -0.83,
+        "all_clean_rate_pp": -1.0,
+        "mean_tactical_fact_coverage_pp": 4.53,
+        "distinct_4gram_ratio": -0.0052
+      },
+      "arm_a_grpo_minus_arm_a_sft": {
+        "v1_pass_rate_pp": 2.67,
+        "v2_pass_rate_pp": 3.33,
+        "v2_and_non_slop_rate_pp": 3.33,
+        "socratic_l12_spoiler_free_rate_pp": 0.0,
+        "all_clean_rate_pp": 3.33,
+        "mean_tactical_fact_coverage_pp": -2.42,
+        "distinct_4gram_ratio": -0.008
+      },
+      "arm_b_grpo_minus_arm_b_sft": {
+        "v1_pass_rate_pp": 1.67,
+        "v2_pass_rate_pp": 2.33,
+        "v2_and_non_slop_rate_pp": 2.33,
+        "socratic_l12_spoiler_free_rate_pp": 0.84,
+        "all_clean_rate_pp": 2.67,
+        "mean_tactical_fact_coverage_pp": 2.42,
+        "distinct_4gram_ratio": -0.0103
+      },
+      "arm_a_grpo_minus_arm_c_v1_grpo": {
+        "v1_pass_rate_pp": -0.33,
+        "v2_pass_rate_pp": 2.67,
+        "v2_and_non_slop_rate_pp": 2.67,
+        "socratic_l12_spoiler_free_rate_pp": 0.0,
+        "all_clean_rate_pp": 2.67,
+        "mean_tactical_fact_coverage_pp": 0.7,
+        "distinct_4gram_ratio": -0.0062
+      },
+      "arm_a_grpo_minus_teacher_26b": {
+        "v1_pass_rate_pp": 5.67,
+        "v2_pass_rate_pp": 3.33,
+        "v2_and_non_slop_rate_pp": 3.33,
+        "socratic_l12_spoiler_free_rate_pp": 0.0,
+        "all_clean_rate_pp": 3.33,
+        "mean_tactical_fact_coverage_pp": -12.64,
+        "distinct_4gram_ratio": -0.0687
+      },
+      "arm_b_grpo_minus_teacher_26b": {
+        "v1_pass_rate_pp": 5.0,
+        "v2_pass_rate_pp": 2.66,
+        "v2_and_non_slop_rate_pp": 2.66,
+        "socratic_l12_spoiler_free_rate_pp": -0.83,
+        "all_clean_rate_pp": 2.33,
+        "mean_tactical_fact_coverage_pp": -8.11,
+        "distinct_4gram_ratio": -0.0739
+      },
+      "arm_a_grpo_minus_base_4b": {
+        "v1_pass_rate_pp": 13.0,
+        "v2_pass_rate_pp": 14.33,
+        "v2_and_non_slop_rate_pp": 28.67,
+        "socratic_l12_spoiler_free_rate_pp": 13.33,
+        "all_clean_rate_pp": 34.0,
+        "mean_tactical_fact_coverage_pp": -12.53,
+        "distinct_4gram_ratio": -0.0241
+      }
+    },
+    "goodhart_curves": {
+      "steps": [
+        0,
+        10,
+        20,
+        30,
+        40
+      ],
+      "arm_a": [
+        {
+          "step": 0,
+          "train_reward": null,
+          "train_kl": null,
+          "v1_pass_pct": 90.0,
+          "v2_pass_pct": 82.0,
+          "v1_minus_v2_pp": 8.0,
+          "all_clean_pct": 82.0,
+          "fact_coverage_pct": 77.67,
+          "distinct_4gram_ratio": 0.8343,
+          "violation_counts": {
+            "fake_check": 1,
+            "hollow_boilerplate": 5,
+            "illegal_move": 9,
+            "invalid_attack_claim": 2,
+            "piece_on_square": 7
+          }
+        },
+        {
+          "step": 10,
+          "train_reward": 1.1329,
+          "train_kl": 0.000909,
+          "v1_pass_pct": 93.0,
+          "v2_pass_pct": 86.0,
+          "v1_minus_v2_pp": 7.0,
+          "all_clean_pct": 86.0,
+          "fact_coverage_pct": 76.25,
+          "distinct_4gram_ratio": 0.831,
+          "violation_counts": {
+            "fake_check": 1,
+            "hollow_boilerplate": 4,
+            "illegal_move": 3,
+            "invalid_attack_claim": 1,
+            "piece_on_square": 5
+          }
+        },
+        {
+          "step": 20,
+          "train_reward": 0.9294,
+          "train_kl": 0.004253,
+          "v1_pass_pct": 96.0,
+          "v2_pass_pct": 88.0,
+          "v1_minus_v2_pp": 8.0,
+          "all_clean_pct": 88.0,
+          "fact_coverage_pct": 76.17,
+          "distinct_4gram_ratio": 0.831,
+          "violation_counts": {
+            "fake_check": 1,
+            "hollow_boilerplate": 5,
+            "illegal_move": 1,
+            "invalid_attack_claim": 1,
+            "piece_on_square": 4
+          }
+        },
+        {
+          "step": 30,
+          "train_reward": 0.9553,
+          "train_kl": 0.008807,
+          "v1_pass_pct": 97.0,
+          "v2_pass_pct": 87.0,
+          "v1_minus_v2_pp": 10.0,
+          "all_clean_pct": 87.0,
+          "fact_coverage_pct": 73.58,
+          "distinct_4gram_ratio": 0.8307,
+          "violation_counts": {
+            "fake_check": 3,
+            "hollow_boilerplate": 5,
+            "invalid_attack_claim": 2,
+            "piece_on_square": 5
+          }
+        },
+        {
+          "step": 40,
+          "train_reward": 0.7975,
+          "train_kl": 0.010645,
+          "v1_pass_pct": 95.0,
+          "v2_pass_pct": 87.0,
+          "v1_minus_v2_pp": 8.0,
+          "all_clean_pct": 87.0,
+          "fact_coverage_pct": 74.67,
+          "distinct_4gram_ratio": 0.8329,
+          "violation_counts": {
+            "fake_check": 2,
+            "hollow_boilerplate": 5,
+            "illegal_move": 3,
+            "invalid_attack_claim": 1,
+            "piece_on_square": 3
+          }
+        }
+      ],
+      "arm_c": [
+        {
+          "step": 0,
+          "train_reward": null,
+          "train_kl": null,
+          "v1_pass_pct": 90.0,
+          "v2_pass_pct": 82.0,
+          "v1_minus_v2_pp": 8.0,
+          "all_clean_pct": 82.0,
+          "fact_coverage_pct": 77.67,
+          "distinct_4gram_ratio": 0.8343,
+          "violation_counts": {
+            "fake_check": 1,
+            "hollow_boilerplate": 5,
+            "illegal_move": 9,
+            "invalid_attack_claim": 2,
+            "piece_on_square": 7
+          }
+        },
+        {
+          "step": 10,
+          "train_reward": 1.025,
+          "train_kl": 0.001006,
+          "v1_pass_pct": 96.0,
+          "v2_pass_pct": 84.0,
+          "v1_minus_v2_pp": 12.0,
+          "all_clean_pct": 84.0,
+          "fact_coverage_pct": 75.0,
+          "distinct_4gram_ratio": 0.8403,
+          "violation_counts": {
+            "fake_check": 2,
+            "hollow_boilerplate": 5,
+            "illegal_move": 1,
+            "invalid_attack_claim": 2,
+            "piece_on_square": 7
+          }
+        },
+        {
+          "step": 20,
+          "train_reward": 1.025,
+          "train_kl": 0.00404,
+          "v1_pass_pct": 96.0,
+          "v2_pass_pct": 86.0,
+          "v1_minus_v2_pp": 10.0,
+          "all_clean_pct": 86.0,
+          "fact_coverage_pct": 73.58,
+          "distinct_4gram_ratio": 0.8287,
+          "violation_counts": {
+            "fake_check": 2,
+            "hollow_boilerplate": 4,
+            "illegal_move": 2,
+            "invalid_attack_claim": 1,
+            "piece_on_square": 6
+          }
+        },
+        {
+          "step": 30,
+          "train_reward": 1.125,
+          "train_kl": 0.009924,
+          "v1_pass_pct": 96.0,
+          "v2_pass_pct": 88.0,
+          "v1_minus_v2_pp": 8.0,
+          "all_clean_pct": 88.0,
+          "fact_coverage_pct": 73.25,
+          "distinct_4gram_ratio": 0.8284,
+          "violation_counts": {
+            "fake_check": 1,
+            "hollow_boilerplate": 4,
+            "illegal_move": 2,
+            "piece_on_square": 7
+          }
+        },
+        {
+          "step": 40,
+          "train_reward": 1.075,
+          "train_kl": 0.004998,
+          "v1_pass_pct": 97.0,
+          "v2_pass_pct": 87.0,
+          "v1_minus_v2_pp": 10.0,
+          "all_clean_pct": 87.0,
+          "fact_coverage_pct": 73.75,
+          "distinct_4gram_ratio": 0.8245,
+          "violation_counts": {
+            "fake_check": 3,
+            "hollow_boilerplate": 6,
+            "illegal_move": 3,
+            "piece_on_square": 4
+          }
+        }
+      ]
+    },
+    "gemma26b_anchor": {
+      "model_id": "google/gemma-4-26B-A4B-it",
+      "puzzles_strict_solved": 2,
+      "puzzles_total": 900,
+      "puzzles_strict_pct": 0.22,
+      "puzzles_strict_legal_pct": 1.78,
+      "puzzles_lenient_solved": 97,
+      "puzzles_lenient_pct": 10.78,
+      "puzzles_lenient_legal_pct": 55.78,
+      "mean_output_tokens": 499.36,
+      "finish_reasons": {
+        "length": 666,
+        "stop": 234
+      },
+      "chessqa_correct": 263,
+      "chessqa_total": 1000,
+      "chessqa_pct": 26.3,
+      "chessqa_categories": {
+        "Motifs": 0.0,
+        "Position Judgment": 51.5,
+        "Semantic": 25.0,
+        "Short Tactics": 0.0,
+        "Structural": 55.0
+      }
+    },
+    "verbatim_comparisons": [
+      {
+        "row_index": 24,
+        "title": "Postmortem: Live V1 Goodhart False Pass vs Clean V2-GRPO",
+        "task_type": "postmortem",
+        "fen": "4r1k1/p1pb2pp/8/2ppn3/1r4P1/1P1B1P1P/P1PK2N1/3R1R2 w - - 0 29",
+        "best_move": "f3f4",
+        "best_san": "f4",
+        "student_move": "d3e2",
+        "student_san": "Be2",
+        "responses": [
+          {
+            "model_key": "arm_c_v1_grpo",
+            "label": "Arm C Weak V1-GRPO",
+            "v1_passed": true,
+            "v2_passed": false,
+            "spoiler_free": true,
+            "all_clean": false,
+            "fact_coverage": 1.0,
+            "violations": [
+              "Expected rook on c2, but found white pawn"
+            ],
+            "response": "By playing Be2, you allow Black to maintain their central pressure and potentially exploit the weakened kingside. The best move is f4, which immediately challenges the centralized knight on e5 and forces it to move, gaining space and tempo. This sequence allows you to reorganize your position more effectively, such as by developing the c2-rook to d3 to stabilize the center."
+          },
+          {
+            "model_key": "teacher_26b",
+            "label": "Gemma-4-26B Teacher",
+            "v1_passed": false,
+            "v2_passed": false,
+            "spoiler_free": true,
+            "all_clean": false,
+            "fact_coverage": 1.0,
+            "violations": [
+              "Illegal SAN move 'Nxd3' in position",
+              "Illegal SAN move 'cxd3' in position"
+            ],
+            "response": "By playing Be2, you missed a significant opportunity for positional improvement with f4. This move immediately challenges the centralized knight on e5, forcing Black to make a decision regarding its placement. If Black captures your bishop with Nxd3, you can recapture with cxd3, maintaining a solid structure while preparing to improve your pieces."
+          },
+          {
+            "model_key": "arm_a_grpo",
+            "label": "Arm A V2-GRPO",
+            "v1_passed": true,
+            "v2_passed": true,
+            "spoiler_free": true,
+            "all_clean": true,
+            "fact_coverage": 1.0,
+            "violations": [],
+            "response": "By playing Be2, you allow Black to maintain their strong central presence and knight activity. The best move is f4, which immediately challenges the centralized knight on e5 and forces it to move, gaining space and tempo for your position. Failing to address this knight allows Black to maintain a significant advantage and control over the center."
+          },
+          {
+            "model_key": "arm_b_grpo",
+            "label": "Arm B V2-GRPO (Transfer)",
+            "v1_passed": true,
+            "v2_passed": true,
+            "spoiler_free": true,
+            "all_clean": true,
+            "fact_coverage": 1.0,
+            "violations": [],
+            "response": "By playing **Be2**, you allow Black to maintain their central pressure and potentially exploit the weakened kingside. The engine prefers **f4**, which immediately challenges the centralized knight on e5 and forces it to move, gaining space and tempo. This sequence allows you to reorganize your position more effectively while preparing to contest the center."
+          }
+        ]
+      },
+      {
+        "row_index": 2,
+        "title": "Socratic L2: Zero-Spoiler Discipline vs Base Move Leak",
+        "task_type": "socratic_l2",
+        "fen": "r2q1bk1/1p1n2pp/2pnbp2/p2p1P2/3P2P1/1P2BP1P/P1Q3B1/3R2K1 w - - 0 26",
+        "best_move": "f5e6",
+        "best_san": "fxe6",
+        "student_move": "e3f4",
+        "student_san": "Bf4",
+        "responses": [
+          {
+            "model_key": "base_4b",
+            "label": "Base Qwen3-4B",
+            "v1_passed": true,
+            "v2_passed": true,
+            "spoiler_free": false,
+            "all_clean": false,
+            "fact_coverage": 0.0,
+            "violations": [],
+            "response": "The central files are tense with a key tactical opportunity involving a vulnerable black bishop. Your piece on f5 is poised to exploit this by targeting the undefended e6 square, creating a critical capture opportunity."
+          },
+          {
+            "model_key": "arm_a_grpo",
+            "label": "Arm A V2-GRPO",
+            "v1_passed": true,
+            "v2_passed": true,
+            "spoiler_free": true,
+            "all_clean": true,
+            "fact_coverage": 1.0,
+            "violations": [],
+            "response": "Take a look at the tension in the center: is there a way to use your advanced pawn to create immediate tactical pressure against the opponent's pieces?"
+          },
+          {
+            "model_key": "arm_b_grpo",
+            "label": "Arm B V2-GRPO (Transfer)",
+            "v1_passed": true,
+            "v2_passed": true,
+            "spoiler_free": true,
+            "all_clean": true,
+            "fact_coverage": 1.0,
+            "violations": [],
+            "response": "Look closely at the tension in the center: is there a way to use your pawn to capture an undefended piece and create immediate pressure?"
+          },
+          {
+            "model_key": "teacher_26b",
+            "label": "Gemma-4-26B Teacher",
+            "v1_passed": true,
+            "v2_passed": true,
+            "spoiler_free": true,
+            "all_clean": true,
+            "fact_coverage": 1.0,
+            "violations": [],
+            "response": "Look closely at the central tension and notice that Black's bishop on e6 is currently undefended. Is there a way you can use your pawn to punish this hanging piece?"
+          }
+        ]
+      }
+    ]
+  },
+  "interp": {
+    "interp1_probes": {
+      "layers": [
+        0,
+        6,
+        12,
+        18,
+        24,
+        30,
+        35
+      ],
+      "n_train": 800,
+      "n_test": 200,
+      "heatmap": {
+        "Base_ASCII": {
+          "include_ascii": true,
+          "include_piece_list": false,
+          "peak_layer": 6,
+          "peak_occupied_pct": 71.34,
+          "layers": {
+            "0": {
+              "occupied_pct": 70.71,
+              "overall_pct": 71.78,
+              "empty_pct": 72.46
+            },
+            "6": {
+              "occupied_pct": 71.34,
+              "overall_pct": 71.88,
+              "empty_pct": 72.23
+            },
+            "12": {
+              "occupied_pct": 68.88,
+              "overall_pct": 69.23,
+              "empty_pct": 69.46
+            },
+            "18": {
+              "occupied_pct": 65.53,
+              "overall_pct": 65.34,
+              "empty_pct": 65.23
+            },
+            "24": {
+              "occupied_pct": 63.33,
+              "overall_pct": 63.98,
+              "empty_pct": 64.4
+            },
+            "30": {
+              "occupied_pct": 61.76,
+              "overall_pct": 61.87,
+              "empty_pct": 61.94
+            },
+            "35": {
+              "occupied_pct": 60.91,
+              "overall_pct": 61.53,
+              "empty_pct": 61.92
+            }
+          }
+        },
+        "E0_ASCII": {
+          "include_ascii": true,
+          "include_piece_list": false,
+          "peak_layer": 6,
+          "peak_occupied_pct": 70.92,
+          "layers": {
+            "0": {
+              "occupied_pct": 70.49,
+              "overall_pct": 71.02,
+              "empty_pct": 71.36
+            },
+            "6": {
+              "occupied_pct": 70.92,
+              "overall_pct": 71.52,
+              "empty_pct": 71.89
+            },
+            "12": {
+              "occupied_pct": 68.46,
+              "overall_pct": 68.86,
+              "empty_pct": 69.12
+            },
+            "18": {
+              "occupied_pct": 66.28,
+              "overall_pct": 66.76,
+              "empty_pct": 67.06
+            },
+            "24": {
+              "occupied_pct": 64.78,
+              "overall_pct": 65.91,
+              "empty_pct": 66.63
+            },
+            "30": {
+              "occupied_pct": 64.6,
+              "overall_pct": 65.02,
+              "empty_pct": 65.29
+            },
+            "35": {
+              "occupied_pct": 61.76,
+              "overall_pct": 63.31,
+              "empty_pct": 64.29
+            }
+          }
+        },
+        "E1a_PieceList": {
+          "include_ascii": false,
+          "include_piece_list": true,
+          "peak_layer": 6,
+          "peak_occupied_pct": 72.97,
+          "layers": {
+            "0": {
+              "occupied_pct": 70.03,
+              "overall_pct": 68.16,
+              "empty_pct": 66.99
+            },
+            "6": {
+              "occupied_pct": 72.97,
+              "overall_pct": 71.45,
+              "empty_pct": 70.48
+            },
+            "12": {
+              "occupied_pct": 69.73,
+              "overall_pct": 68.98,
+              "empty_pct": 68.52
+            },
+            "18": {
+              "occupied_pct": 68.19,
+              "overall_pct": 68.33,
+              "empty_pct": 68.41
+            },
+            "24": {
+              "occupied_pct": 66.8,
+              "overall_pct": 66.66,
+              "empty_pct": 66.56
+            },
+            "30": {
+              "occupied_pct": 70.13,
+              "overall_pct": 70.16,
+              "empty_pct": 70.19
+            },
+            "35": {
+              "occupied_pct": 69.0,
+              "overall_pct": 68.98,
+              "empty_pct": 68.96
+            }
+          }
+        },
+        "E2a_r64": {
+          "include_ascii": false,
+          "include_piece_list": true,
+          "peak_layer": 6,
+          "peak_occupied_pct": 72.09,
+          "layers": {
+            "0": {
+              "occupied_pct": 70.81,
+              "overall_pct": 68.27,
+              "empty_pct": 66.65
+            },
+            "6": {
+              "occupied_pct": 72.09,
+              "overall_pct": 70.68,
+              "empty_pct": 69.79
+            },
+            "12": {
+              "occupied_pct": 69.28,
+              "overall_pct": 69.17,
+              "empty_pct": 69.1
+            },
+            "18": {
+              "occupied_pct": 68.23,
+              "overall_pct": 68.74,
+              "empty_pct": 69.06
+            },
+            "24": {
+              "occupied_pct": 63.76,
+              "overall_pct": 65.65,
+              "empty_pct": 66.85
+            },
+            "30": {
+              "occupied_pct": 67.59,
+              "overall_pct": 68.67,
+              "empty_pct": 69.36
+            },
+            "35": {
+              "occupied_pct": 66.52,
+              "overall_pct": 68.21,
+              "empty_pct": 69.28
+            }
+          }
+        },
+        "E3b_SharpWDL": {
+          "include_ascii": false,
+          "include_piece_list": true,
+          "peak_layer": 6,
+          "peak_occupied_pct": 71.12,
+          "layers": {
+            "0": {
+              "occupied_pct": 70.15,
+              "overall_pct": 68.05,
+              "empty_pct": 66.73
+            },
+            "6": {
+              "occupied_pct": 71.12,
+              "overall_pct": 70.65,
+              "empty_pct": 70.35
+            },
+            "12": {
+              "occupied_pct": 69.34,
+              "overall_pct": 68.87,
+              "empty_pct": 68.58
+            },
+            "18": {
+              "occupied_pct": 68.19,
+              "overall_pct": 68.81,
+              "empty_pct": 69.2
+            },
+            "24": {
+              "occupied_pct": 64.2,
+              "overall_pct": 65.78,
+              "empty_pct": 66.78
+            },
+            "30": {
+              "occupied_pct": 67.53,
+              "overall_pct": 68.53,
+              "empty_pct": 69.17
+            },
+            "35": {
+              "occupied_pct": 66.82,
+              "overall_pct": 67.96,
+              "empty_pct": 68.68
+            }
+          }
+        }
+      },
+      "causal_board_surgery": {
+        "model": "E3b_SharpWDL",
+        "layer": 6,
+        "steer_norm": 10.4629,
+        "valid_cases": 50,
+        "probe_move_flip_pct": 18.0,
+        "random_control_move_flip_pct": 24.0,
+        "causal_excess_flip_pp": -6.0,
+        "probe_erased_square_abandoned_count": 5,
+        "random_erased_square_abandoned_count": 6
+      }
+    },
+    "interp2_svd_slop": {
+      "profiles": {
+        "e3a_apawn_hack": {
+          "lora_r": 32,
+          "num_layers": 36,
+          "num_modules": 252,
+          "total_frobenius": 1.34041,
+          "attn_frobenius": 0.71886,
+          "mlp_frobenius": 1.13135,
+          "mlp_energy_share_pct": 71.24,
+          "attn_energy_share_pct": 28.76,
+          "peak_layer": 35,
+          "mean_effective_rank": 11.405,
+          "mean_top1_energy_pct": 40.66,
+          "per_layer": [
+            {
+              "layer": 0,
+              "attn_frobenius": 0.11456,
+              "mlp_frobenius": 0.17596,
+              "total_frobenius": 0.20997,
+              "mlp_share_pct": 70.23
+            },
+            {
+              "layer": 1,
+              "attn_frobenius": 0.11109,
+              "mlp_frobenius": 0.16574,
+              "total_frobenius": 0.19952,
+              "mlp_share_pct": 69.0
+            },
+            {
+              "layer": 2,
+              "attn_frobenius": 0.11051,
+              "mlp_frobenius": 0.15427,
+              "total_frobenius": 0.18977,
+              "mlp_share_pct": 66.09
+            },
+            {
+              "layer": 3,
+              "attn_frobenius": 0.11029,
+              "mlp_frobenius": 0.16822,
+              "total_frobenius": 0.20115,
+              "mlp_share_pct": 69.94
+            },
+            {
+              "layer": 4,
+              "attn_frobenius": 0.11429,
+              "mlp_frobenius": 0.18893,
+              "total_frobenius": 0.22081,
+              "mlp_share_pct": 73.21
+            },
+            {
+              "layer": 5,
+              "attn_frobenius": 0.11686,
+              "mlp_frobenius": 0.18978,
+              "total_frobenius": 0.22287,
+              "mlp_share_pct": 72.51
+            },
+            {
+              "layer": 6,
+              "attn_frobenius": 0.11647,
+              "mlp_frobenius": 0.18863,
+              "total_frobenius": 0.22169,
+              "mlp_share_pct": 72.4
+            },
+            {
+              "layer": 7,
+              "attn_frobenius": 0.1152,
+              "mlp_frobenius": 0.18675,
+              "total_frobenius": 0.21942,
+              "mlp_share_pct": 72.44
+            },
+            {
+              "layer": 8,
+              "attn_frobenius": 0.11675,
+              "mlp_frobenius": 0.18747,
+              "total_frobenius": 0.22085,
+              "mlp_share_pct": 72.05
+            },
+            {
+              "layer": 9,
+              "attn_frobenius": 0.12157,
+              "mlp_frobenius": 0.18612,
+              "total_frobenius": 0.22231,
+              "mlp_share_pct": 70.1
+            },
+            {
+              "layer": 10,
+              "attn_frobenius": 0.11819,
+              "mlp_frobenius": 0.19011,
+              "total_frobenius": 0.22385,
+              "mlp_share_pct": 72.12
+            },
+            {
+              "layer": 11,
+              "attn_frobenius": 0.11427,
+              "mlp_frobenius": 0.18982,
+              "total_frobenius": 0.22156,
+              "mlp_share_pct": 73.4
+            },
+            {
+              "layer": 12,
+              "attn_frobenius": 0.11489,
+              "mlp_frobenius": 0.19139,
+              "total_frobenius": 0.22323,
+              "mlp_share_pct": 73.51
+            },
+            {
+              "layer": 13,
+              "attn_frobenius": 0.11871,
+              "mlp_frobenius": 0.19216,
+              "total_frobenius": 0.22587,
+              "mlp_share_pct": 72.38
+            },
+            {
+              "layer": 14,
+              "attn_frobenius": 0.12124,
+              "mlp_frobenius": 0.19433,
+              "total_frobenius": 0.22905,
+              "mlp_share_pct": 71.98
+            },
+            {
+              "layer": 15,
+              "attn_frobenius": 0.12498,
+              "mlp_frobenius": 0.19296,
+              "total_frobenius": 0.2299,
+              "mlp_share_pct": 70.45
+            },
+            {
+              "layer": 16,
+              "attn_frobenius": 0.12174,
+              "mlp_frobenius": 0.19473,
+              "total_frobenius": 0.22965,
+              "mlp_share_pct": 71.9
+            },
+            {
+              "layer": 17,
+              "attn_frobenius": 0.12456,
+              "mlp_frobenius": 0.19957,
+              "total_frobenius": 0.23525,
+              "mlp_share_pct": 71.97
+            },
+            {
+              "layer": 18,
+              "attn_frobenius": 0.12906,
+              "mlp_frobenius": 0.19596,
+              "total_frobenius": 0.23464,
+              "mlp_share_pct": 69.75
+            },
+            {
+              "layer": 19,
+              "attn_frobenius": 0.12064,
+              "mlp_frobenius": 0.19288,
+              "total_frobenius": 0.2275,
+              "mlp_share_pct": 71.88
+            },
+            {
+              "layer": 20,
+              "attn_frobenius": 0.12127,
+              "mlp_frobenius": 0.19553,
+              "total_frobenius": 0.23008,
+              "mlp_share_pct": 72.22
+            },
+            {
+              "layer": 21,
+              "attn_frobenius": 0.12345,
+              "mlp_frobenius": 0.19365,
+              "total_frobenius": 0.22965,
+              "mlp_share_pct": 71.1
+            },
+            {
+              "layer": 22,
+              "attn_frobenius": 0.12275,
+              "mlp_frobenius": 0.19076,
+              "total_frobenius": 0.22684,
+              "mlp_share_pct": 70.72
+            },
+            {
+              "layer": 23,
+              "attn_frobenius": 0.11593,
+              "mlp_frobenius": 0.18983,
+              "total_frobenius": 0.22243,
+              "mlp_share_pct": 72.83
+            },
+            {
+              "layer": 24,
+              "attn_frobenius": 0.12046,
+              "mlp_frobenius": 0.19248,
+              "total_frobenius": 0.22706,
+              "mlp_share_pct": 71.86
+            },
+            {
+              "layer": 25,
+              "attn_frobenius": 0.11973,
+              "mlp_frobenius": 0.18761,
+              "total_frobenius": 0.22256,
+              "mlp_share_pct": 71.06
+            },
+            {
+              "layer": 26,
+              "attn_frobenius": 0.11472,
+              "mlp_frobenius": 0.19035,
+              "total_frobenius": 0.22224,
+              "mlp_share_pct": 73.35
+            },
+            {
+              "layer": 27,
+              "attn_frobenius": 0.11931,
+              "mlp_frobenius": 0.18775,
+              "total_frobenius": 0.22245,
+              "mlp_share_pct": 71.23
+            },
+            {
+              "layer": 28,
+              "attn_frobenius": 0.11828,
+              "mlp_frobenius": 0.18969,
+              "total_frobenius": 0.22355,
+              "mlp_share_pct": 72.0
+            },
+            {
+              "layer": 29,
+              "attn_frobenius": 0.11899,
+              "mlp_frobenius": 0.18735,
+              "total_frobenius": 0.22194,
+              "mlp_share_pct": 71.26
+            },
+            {
+              "layer": 30,
+              "attn_frobenius": 0.11651,
+              "mlp_frobenius": 0.18804,
+              "total_frobenius": 0.22121,
+              "mlp_share_pct": 72.26
+            },
+            {
+              "layer": 31,
+              "attn_frobenius": 0.12558,
+              "mlp_frobenius": 0.18264,
+              "total_frobenius": 0.22165,
+              "mlp_share_pct": 67.9
+            },
+            {
+              "layer": 32,
+              "attn_frobenius": 0.13155,
+              "mlp_frobenius": 0.18863,
+              "total_frobenius": 0.22997,
+              "mlp_share_pct": 67.28
+            },
+            {
+              "layer": 33,
+              "attn_frobenius": 0.12229,
+              "mlp_frobenius": 0.18767,
+              "total_frobenius": 0.224,
+              "mlp_share_pct": 70.2
+            },
+            {
+              "layer": 34,
+              "attn_frobenius": 0.13168,
+              "mlp_frobenius": 0.19403,
+              "total_frobenius": 0.2345,
+              "mlp_share_pct": 68.46
+            },
+            {
+              "layer": 35,
+              "attn_frobenius": 0.13031,
+              "mlp_frobenius": 0.20797,
+              "total_frobenius": 0.24543,
+              "mlp_share_pct": 71.81
+            }
+          ]
+        },
+        "e3b_sharp_wdl": {
+          "lora_r": 32,
+          "num_layers": 36,
+          "num_modules": 252,
+          "total_frobenius": 1.32911,
+          "attn_frobenius": 0.71392,
+          "mlp_frobenius": 1.1211,
+          "mlp_energy_share_pct": 71.15,
+          "attn_energy_share_pct": 28.85,
+          "peak_layer": 17,
+          "mean_effective_rank": 12.828,
+          "mean_top1_energy_pct": 36.77,
+          "per_layer": [
+            {
+              "layer": 0,
+              "attn_frobenius": 0.1127,
+              "mlp_frobenius": 0.18076,
+              "total_frobenius": 0.21301,
+              "mlp_share_pct": 72.01
+            },
+            {
+              "layer": 1,
+              "attn_frobenius": 0.11211,
+              "mlp_frobenius": 0.1482,
+              "total_frobenius": 0.18582,
+              "mlp_share_pct": 63.6
+            },
+            {
+              "layer": 2,
+              "attn_frobenius": 0.11276,
+              "mlp_frobenius": 0.14517,
+              "total_frobenius": 0.18382,
+              "mlp_share_pct": 62.37
+            },
+            {
+              "layer": 3,
+              "attn_frobenius": 0.11266,
+              "mlp_frobenius": 0.16779,
+              "total_frobenius": 0.20211,
+              "mlp_share_pct": 68.93
+            },
+            {
+              "layer": 4,
+              "attn_frobenius": 0.11103,
+              "mlp_frobenius": 0.18323,
+              "total_frobenius": 0.21424,
+              "mlp_share_pct": 73.14
+            },
+            {
+              "layer": 5,
+              "attn_frobenius": 0.11213,
+              "mlp_frobenius": 0.18079,
+              "total_frobenius": 0.21274,
+              "mlp_share_pct": 72.22
+            },
+            {
+              "layer": 6,
+              "attn_frobenius": 0.11717,
+              "mlp_frobenius": 0.18603,
+              "total_frobenius": 0.21986,
+              "mlp_share_pct": 71.6
+            },
+            {
+              "layer": 7,
+              "attn_frobenius": 0.1165,
+              "mlp_frobenius": 0.18223,
+              "total_frobenius": 0.21629,
+              "mlp_share_pct": 70.99
+            },
+            {
+              "layer": 8,
+              "attn_frobenius": 0.11569,
+              "mlp_frobenius": 0.18274,
+              "total_frobenius": 0.21628,
+              "mlp_share_pct": 71.39
+            },
+            {
+              "layer": 9,
+              "attn_frobenius": 0.11694,
+              "mlp_frobenius": 0.18674,
+              "total_frobenius": 0.22033,
+              "mlp_share_pct": 71.83
+            },
+            {
+              "layer": 10,
+              "attn_frobenius": 0.12306,
+              "mlp_frobenius": 0.18601,
+              "total_frobenius": 0.22303,
+              "mlp_share_pct": 69.56
+            },
+            {
+              "layer": 11,
+              "attn_frobenius": 0.11742,
+              "mlp_frobenius": 0.18792,
+              "total_frobenius": 0.22159,
+              "mlp_share_pct": 71.92
+            },
+            {
+              "layer": 12,
+              "attn_frobenius": 0.12,
+              "mlp_frobenius": 0.18779,
+              "total_frobenius": 0.22286,
+              "mlp_share_pct": 71.01
+            },
+            {
+              "layer": 13,
+              "attn_frobenius": 0.11803,
+              "mlp_frobenius": 0.18893,
+              "total_frobenius": 0.22277,
+              "mlp_share_pct": 71.93
+            },
+            {
+              "layer": 14,
+              "attn_frobenius": 0.11997,
+              "mlp_frobenius": 0.19137,
+              "total_frobenius": 0.22586,
+              "mlp_share_pct": 71.79
+            },
+            {
+              "layer": 15,
+              "attn_frobenius": 0.12373,
+              "mlp_frobenius": 0.19377,
+              "total_frobenius": 0.2299,
+              "mlp_share_pct": 71.04
+            },
+            {
+              "layer": 16,
+              "attn_frobenius": 0.12216,
+              "mlp_frobenius": 0.19369,
+              "total_frobenius": 0.229,
+              "mlp_share_pct": 71.54
+            },
+            {
+              "layer": 17,
+              "attn_frobenius": 0.12364,
+              "mlp_frobenius": 0.19525,
+              "total_frobenius": 0.2311,
+              "mlp_share_pct": 71.38
+            },
+            {
+              "layer": 18,
+              "attn_frobenius": 0.12099,
+              "mlp_frobenius": 0.19383,
+              "total_frobenius": 0.22849,
+              "mlp_share_pct": 71.96
+            },
+            {
+              "layer": 19,
+              "attn_frobenius": 0.11977,
+              "mlp_frobenius": 0.1926,
+              "total_frobenius": 0.22681,
+              "mlp_share_pct": 72.11
+            },
+            {
+              "layer": 20,
+              "attn_frobenius": 0.12017,
+              "mlp_frobenius": 0.19303,
+              "total_frobenius": 0.22738,
+              "mlp_share_pct": 72.07
+            },
+            {
+              "layer": 21,
+              "attn_frobenius": 0.12243,
+              "mlp_frobenius": 0.19214,
+              "total_frobenius": 0.22783,
+              "mlp_share_pct": 71.12
+            },
+            {
+              "layer": 22,
+              "attn_frobenius": 0.12248,
+              "mlp_frobenius": 0.19265,
+              "total_frobenius": 0.22828,
+              "mlp_share_pct": 71.22
+            },
+            {
+              "layer": 23,
+              "attn_frobenius": 0.12224,
+              "mlp_frobenius": 0.19129,
+              "total_frobenius": 0.22702,
+              "mlp_share_pct": 71.0
+            },
+            {
+              "layer": 24,
+              "attn_frobenius": 0.12257,
+              "mlp_frobenius": 0.1913,
+              "total_frobenius": 0.22719,
+              "mlp_share_pct": 70.9
+            },
+            {
+              "layer": 25,
+              "attn_frobenius": 0.12051,
+              "mlp_frobenius": 0.19187,
+              "total_frobenius": 0.22657,
+              "mlp_share_pct": 71.71
+            },
+            {
+              "layer": 26,
+              "attn_frobenius": 0.11919,
+              "mlp_frobenius": 0.19553,
+              "total_frobenius": 0.22899,
+              "mlp_share_pct": 72.91
+            },
+            {
+              "layer": 27,
+              "attn_frobenius": 0.11859,
+              "mlp_frobenius": 0.19388,
+              "total_frobenius": 0.22727,
+              "mlp_share_pct": 72.77
+            },
+            {
+              "layer": 28,
+              "attn_frobenius": 0.12222,
+              "mlp_frobenius": 0.19352,
+              "total_frobenius": 0.22889,
+              "mlp_share_pct": 71.49
+            },
+            {
+              "layer": 29,
+              "attn_frobenius": 0.12132,
+              "mlp_frobenius": 0.19511,
+              "total_frobenius": 0.22975,
+              "mlp_share_pct": 72.12
+            },
+            {
+              "layer": 30,
+              "attn_frobenius": 0.12121,
+              "mlp_frobenius": 0.19369,
+              "total_frobenius": 0.22849,
+              "mlp_share_pct": 71.86
+            },
+            {
+              "layer": 31,
+              "attn_frobenius": 0.12705,
+              "mlp_frobenius": 0.19027,
+              "total_frobenius": 0.22879,
+              "mlp_share_pct": 69.16
+            },
+            {
+              "layer": 32,
+              "attn_frobenius": 0.1143,
+              "mlp_frobenius": 0.19223,
+              "total_frobenius": 0.22364,
+              "mlp_share_pct": 73.88
+            },
+            {
+              "layer": 33,
+              "attn_frobenius": 0.12029,
+              "mlp_frobenius": 0.18487,
+              "total_frobenius": 0.22056,
+              "mlp_share_pct": 70.25
+            },
+            {
+              "layer": 34,
+              "attn_frobenius": 0.11537,
+              "mlp_frobenius": 0.17995,
+              "total_frobenius": 0.21376,
+              "mlp_share_pct": 70.87
+            },
+            {
+              "layer": 35,
+              "attn_frobenius": 0.1227,
+              "mlp_frobenius": 0.18834,
+              "total_frobenius": 0.22478,
+              "mlp_share_pct": 70.2
+            }
+          ]
+        },
+        "arm_a_v2_grpo": {
+          "lora_r": 32,
+          "num_layers": 36,
+          "num_modules": 252,
+          "total_frobenius": 0.87568,
+          "attn_frobenius": 0.46616,
+          "mlp_frobenius": 0.74129,
+          "mlp_energy_share_pct": 71.66,
+          "attn_energy_share_pct": 28.34,
+          "peak_layer": 27,
+          "mean_effective_rank": 15.642,
+          "mean_top1_energy_pct": 32.01,
+          "per_layer": [
+            {
+              "layer": 0,
+              "attn_frobenius": 0.07688,
+              "mlp_frobenius": 0.1226,
+              "total_frobenius": 0.14471,
+              "mlp_share_pct": 71.78
+            },
+            {
+              "layer": 1,
+              "attn_frobenius": 0.07676,
+              "mlp_frobenius": 0.10714,
+              "total_frobenius": 0.1318,
+              "mlp_share_pct": 66.08
+            },
+            {
+              "layer": 2,
+              "attn_frobenius": 0.07696,
+              "mlp_frobenius": 0.11437,
+              "total_frobenius": 0.13785,
+              "mlp_share_pct": 68.83
+            },
+            {
+              "layer": 3,
+              "attn_frobenius": 0.07547,
+              "mlp_frobenius": 0.11402,
+              "total_frobenius": 0.13673,
+              "mlp_share_pct": 69.54
+            },
+            {
+              "layer": 4,
+              "attn_frobenius": 0.07701,
+              "mlp_frobenius": 0.12125,
+              "total_frobenius": 0.14363,
+              "mlp_share_pct": 71.26
+            },
+            {
+              "layer": 5,
+              "attn_frobenius": 0.07712,
+              "mlp_frobenius": 0.12246,
+              "total_frobenius": 0.14472,
+              "mlp_share_pct": 71.6
+            },
+            {
+              "layer": 6,
+              "attn_frobenius": 0.07743,
+              "mlp_frobenius": 0.12259,
+              "total_frobenius": 0.145,
+              "mlp_share_pct": 71.48
+            },
+            {
+              "layer": 7,
+              "attn_frobenius": 0.07594,
+              "mlp_frobenius": 0.12281,
+              "total_frobenius": 0.14439,
+              "mlp_share_pct": 72.34
+            },
+            {
+              "layer": 8,
+              "attn_frobenius": 0.07745,
+              "mlp_frobenius": 0.12241,
+              "total_frobenius": 0.14485,
+              "mlp_share_pct": 71.41
+            },
+            {
+              "layer": 9,
+              "attn_frobenius": 0.07668,
+              "mlp_frobenius": 0.12328,
+              "total_frobenius": 0.14518,
+              "mlp_share_pct": 72.11
+            },
+            {
+              "layer": 10,
+              "attn_frobenius": 0.07996,
+              "mlp_frobenius": 0.1232,
+              "total_frobenius": 0.14687,
+              "mlp_share_pct": 70.36
+            },
+            {
+              "layer": 11,
+              "attn_frobenius": 0.07723,
+              "mlp_frobenius": 0.12327,
+              "total_frobenius": 0.14546,
+              "mlp_share_pct": 71.81
+            },
+            {
+              "layer": 12,
+              "attn_frobenius": 0.07701,
+              "mlp_frobenius": 0.1236,
+              "total_frobenius": 0.14562,
+              "mlp_share_pct": 72.04
+            },
+            {
+              "layer": 13,
+              "attn_frobenius": 0.07726,
+              "mlp_frobenius": 0.12415,
+              "total_frobenius": 0.14623,
+              "mlp_share_pct": 72.08
+            },
+            {
+              "layer": 14,
+              "attn_frobenius": 0.0779,
+              "mlp_frobenius": 0.12424,
+              "total_frobenius": 0.14664,
+              "mlp_share_pct": 71.78
+            },
+            {
+              "layer": 15,
+              "attn_frobenius": 0.07745,
+              "mlp_frobenius": 0.12476,
+              "total_frobenius": 0.14684,
+              "mlp_share_pct": 72.18
+            },
+            {
+              "layer": 16,
+              "attn_frobenius": 0.0789,
+              "mlp_frobenius": 0.1253,
+              "total_frobenius": 0.14807,
+              "mlp_share_pct": 71.61
+            },
+            {
+              "layer": 17,
+              "attn_frobenius": 0.07746,
+              "mlp_frobenius": 0.12526,
+              "total_frobenius": 0.14728,
+              "mlp_share_pct": 72.34
+            },
+            {
+              "layer": 18,
+              "attn_frobenius": 0.07791,
+              "mlp_frobenius": 0.12504,
+              "total_frobenius": 0.14733,
+              "mlp_share_pct": 72.04
+            },
+            {
+              "layer": 19,
+              "attn_frobenius": 0.07779,
+              "mlp_frobenius": 0.12494,
+              "total_frobenius": 0.14718,
+              "mlp_share_pct": 72.07
+            },
+            {
+              "layer": 20,
+              "attn_frobenius": 0.07899,
+              "mlp_frobenius": 0.12606,
+              "total_frobenius": 0.14876,
+              "mlp_share_pct": 71.81
+            },
+            {
+              "layer": 21,
+              "attn_frobenius": 0.07856,
+              "mlp_frobenius": 0.12508,
+              "total_frobenius": 0.1477,
+              "mlp_share_pct": 71.71
+            },
+            {
+              "layer": 22,
+              "attn_frobenius": 0.078,
+              "mlp_frobenius": 0.12521,
+              "total_frobenius": 0.14752,
+              "mlp_share_pct": 72.04
+            },
+            {
+              "layer": 23,
+              "attn_frobenius": 0.07897,
+              "mlp_frobenius": 0.12523,
+              "total_frobenius": 0.14805,
+              "mlp_share_pct": 71.55
+            },
+            {
+              "layer": 24,
+              "attn_frobenius": 0.07828,
+              "mlp_frobenius": 0.12663,
+              "total_frobenius": 0.14887,
+              "mlp_share_pct": 72.35
+            },
+            {
+              "layer": 25,
+              "attn_frobenius": 0.07911,
+              "mlp_frobenius": 0.12512,
+              "total_frobenius": 0.14803,
+              "mlp_share_pct": 71.44
+            },
+            {
+              "layer": 26,
+              "attn_frobenius": 0.07769,
+              "mlp_frobenius": 0.12639,
+              "total_frobenius": 0.14836,
+              "mlp_share_pct": 72.58
+            },
+            {
+              "layer": 27,
+              "attn_frobenius": 0.07863,
+              "mlp_frobenius": 0.12678,
+              "total_frobenius": 0.14919,
+              "mlp_share_pct": 72.22
+            },
+            {
+              "layer": 28,
+              "attn_frobenius": 0.07939,
+              "mlp_frobenius": 0.12595,
+              "total_frobenius": 0.14888,
+              "mlp_share_pct": 71.57
+            },
+            {
+              "layer": 29,
+              "attn_frobenius": 0.07871,
+              "mlp_frobenius": 0.12538,
+              "total_frobenius": 0.14804,
+              "mlp_share_pct": 71.73
+            },
+            {
+              "layer": 30,
+              "attn_frobenius": 0.07646,
+              "mlp_frobenius": 0.12499,
+              "total_frobenius": 0.14652,
+              "mlp_share_pct": 72.77
+            },
+            {
+              "layer": 31,
+              "attn_frobenius": 0.07798,
+              "mlp_frobenius": 0.12552,
+              "total_frobenius": 0.14777,
+              "mlp_share_pct": 72.15
+            },
+            {
+              "layer": 32,
+              "attn_frobenius": 0.0772,
+              "mlp_frobenius": 0.12545,
+              "total_frobenius": 0.1473,
+              "mlp_share_pct": 72.53
+            },
+            {
+              "layer": 33,
+              "attn_frobenius": 0.07709,
+              "mlp_frobenius": 0.12556,
+              "total_frobenius": 0.14734,
+              "mlp_share_pct": 72.62
+            },
+            {
+              "layer": 34,
+              "attn_frobenius": 0.07696,
+              "mlp_frobenius": 0.12434,
+              "total_frobenius": 0.14623,
+              "mlp_share_pct": 72.3
+            },
+            {
+              "layer": 35,
+              "attn_frobenius": 0.07816,
+              "mlp_frobenius": 0.1252,
+              "total_frobenius": 0.1476,
+              "mlp_share_pct": 71.96
+            }
+          ]
+        },
+        "arm_c_v1_grpo": {
+          "lora_r": 32,
+          "num_layers": 36,
+          "num_modules": 252,
+          "total_frobenius": 0.85594,
+          "attn_frobenius": 0.45279,
+          "mlp_frobenius": 0.72637,
+          "mlp_energy_share_pct": 72.02,
+          "attn_energy_share_pct": 27.98,
+          "peak_layer": 31,
+          "mean_effective_rank": 15.668,
+          "mean_top1_energy_pct": 31.4,
+          "per_layer": [
+            {
+              "layer": 0,
+              "attn_frobenius": 0.07534,
+              "mlp_frobenius": 0.11943,
+              "total_frobenius": 0.14121,
+              "mlp_share_pct": 71.53
+            },
+            {
+              "layer": 1,
+              "attn_frobenius": 0.0743,
+              "mlp_frobenius": 0.10617,
+              "total_frobenius": 0.12958,
+              "mlp_share_pct": 67.12
+            },
+            {
+              "layer": 2,
+              "attn_frobenius": 0.07475,
+              "mlp_frobenius": 0.12521,
+              "total_frobenius": 0.14582,
+              "mlp_share_pct": 73.72
+            },
+            {
+              "layer": 3,
+              "attn_frobenius": 0.07401,
+              "mlp_frobenius": 0.11495,
+              "total_frobenius": 0.13672,
+              "mlp_share_pct": 70.69
+            },
+            {
+              "layer": 4,
+              "attn_frobenius": 0.07483,
+              "mlp_frobenius": 0.11891,
+              "total_frobenius": 0.1405,
+              "mlp_share_pct": 71.63
+            },
+            {
+              "layer": 5,
+              "attn_frobenius": 0.0751,
+              "mlp_frobenius": 0.11892,
+              "total_frobenius": 0.14065,
+              "mlp_share_pct": 71.49
+            },
+            {
+              "layer": 6,
+              "attn_frobenius": 0.07488,
+              "mlp_frobenius": 0.11879,
+              "total_frobenius": 0.14042,
+              "mlp_share_pct": 71.56
+            },
+            {
+              "layer": 7,
+              "attn_frobenius": 0.07453,
+              "mlp_frobenius": 0.11868,
+              "total_frobenius": 0.14015,
+              "mlp_share_pct": 71.71
+            },
+            {
+              "layer": 8,
+              "attn_frobenius": 0.07349,
+              "mlp_frobenius": 0.11842,
+              "total_frobenius": 0.13937,
+              "mlp_share_pct": 72.2
+            },
+            {
+              "layer": 9,
+              "attn_frobenius": 0.07273,
+              "mlp_frobenius": 0.12015,
+              "total_frobenius": 0.14045,
+              "mlp_share_pct": 73.18
+            },
+            {
+              "layer": 10,
+              "attn_frobenius": 0.07566,
+              "mlp_frobenius": 0.12044,
+              "total_frobenius": 0.14224,
+              "mlp_share_pct": 71.7
+            },
+            {
+              "layer": 11,
+              "attn_frobenius": 0.07574,
+              "mlp_frobenius": 0.12009,
+              "total_frobenius": 0.14198,
+              "mlp_share_pct": 71.54
+            },
+            {
+              "layer": 12,
+              "attn_frobenius": 0.07581,
+              "mlp_frobenius": 0.12048,
+              "total_frobenius": 0.14235,
+              "mlp_share_pct": 71.64
+            },
+            {
+              "layer": 13,
+              "attn_frobenius": 0.07414,
+              "mlp_frobenius": 0.12064,
+              "total_frobenius": 0.1416,
+              "mlp_share_pct": 72.58
+            },
+            {
+              "layer": 14,
+              "attn_frobenius": 0.07504,
+              "mlp_frobenius": 0.12056,
+              "total_frobenius": 0.14201,
+              "mlp_share_pct": 72.08
+            },
+            {
+              "layer": 15,
+              "attn_frobenius": 0.07455,
+              "mlp_frobenius": 0.12006,
+              "total_frobenius": 0.14132,
+              "mlp_share_pct": 72.17
+            },
+            {
+              "layer": 16,
+              "attn_frobenius": 0.07577,
+              "mlp_frobenius": 0.12025,
+              "total_frobenius": 0.14213,
+              "mlp_share_pct": 71.58
+            },
+            {
+              "layer": 17,
+              "attn_frobenius": 0.07524,
+              "mlp_frobenius": 0.11994,
+              "total_frobenius": 0.14159,
+              "mlp_share_pct": 71.76
+            },
+            {
+              "layer": 18,
+              "attn_frobenius": 0.0755,
+              "mlp_frobenius": 0.1184,
+              "total_frobenius": 0.14042,
+              "mlp_share_pct": 71.1
+            },
+            {
+              "layer": 19,
+              "attn_frobenius": 0.07343,
+              "mlp_frobenius": 0.11892,
+              "total_frobenius": 0.13976,
+              "mlp_share_pct": 72.39
+            },
+            {
+              "layer": 20,
+              "attn_frobenius": 0.07453,
+              "mlp_frobenius": 0.12061,
+              "total_frobenius": 0.14178,
+              "mlp_share_pct": 72.37
+            },
+            {
+              "layer": 21,
+              "attn_frobenius": 0.0756,
+              "mlp_frobenius": 0.12041,
+              "total_frobenius": 0.14217,
+              "mlp_share_pct": 71.72
+            },
+            {
+              "layer": 22,
+              "attn_frobenius": 0.07497,
+              "mlp_frobenius": 0.12086,
+              "total_frobenius": 0.14223,
+              "mlp_share_pct": 72.21
+            },
+            {
+              "layer": 23,
+              "attn_frobenius": 0.0762,
+              "mlp_frobenius": 0.12217,
+              "total_frobenius": 0.14398,
+              "mlp_share_pct": 71.99
+            },
+            {
+              "layer": 24,
+              "attn_frobenius": 0.07528,
+              "mlp_frobenius": 0.12289,
+              "total_frobenius": 0.14411,
+              "mlp_share_pct": 72.71
+            },
+            {
+              "layer": 25,
+              "attn_frobenius": 0.07574,
+              "mlp_frobenius": 0.12337,
+              "total_frobenius": 0.14477,
+              "mlp_share_pct": 72.63
+            },
+            {
+              "layer": 26,
+              "attn_frobenius": 0.07519,
+              "mlp_frobenius": 0.12399,
+              "total_frobenius": 0.14501,
+              "mlp_share_pct": 73.11
+            },
+            {
+              "layer": 27,
+              "attn_frobenius": 0.07685,
+              "mlp_frobenius": 0.12439,
+              "total_frobenius": 0.14622,
+              "mlp_share_pct": 72.38
+            },
+            {
+              "layer": 28,
+              "attn_frobenius": 0.0772,
+              "mlp_frobenius": 0.12349,
+              "total_frobenius": 0.14563,
+              "mlp_share_pct": 71.9
+            },
+            {
+              "layer": 29,
+              "attn_frobenius": 0.0772,
+              "mlp_frobenius": 0.12453,
+              "total_frobenius": 0.14652,
+              "mlp_share_pct": 72.24
+            },
+            {
+              "layer": 30,
+              "attn_frobenius": 0.07662,
+              "mlp_frobenius": 0.12381,
+              "total_frobenius": 0.1456,
+              "mlp_share_pct": 72.31
+            },
+            {
+              "layer": 31,
+              "attn_frobenius": 0.07811,
+              "mlp_frobenius": 0.12522,
+              "total_frobenius": 0.14758,
+              "mlp_share_pct": 71.99
+            },
+            {
+              "layer": 32,
+              "attn_frobenius": 0.07724,
+              "mlp_frobenius": 0.12507,
+              "total_frobenius": 0.147,
+              "mlp_share_pct": 72.39
+            },
+            {
+              "layer": 33,
+              "attn_frobenius": 0.07778,
+              "mlp_frobenius": 0.1253,
+              "total_frobenius": 0.14747,
+              "mlp_share_pct": 72.19
+            },
+            {
+              "layer": 34,
+              "attn_frobenius": 0.07585,
+              "mlp_frobenius": 0.12509,
+              "total_frobenius": 0.14629,
+              "mlp_share_pct": 73.12
+            },
+            {
+              "layer": 35,
+              "attn_frobenius": 0.07715,
+              "mlp_frobenius": 0.1257,
+              "total_frobenius": 0.14749,
+              "mlp_share_pct": 72.64
+            }
+          ]
+        }
+      },
+      "comparisons": {
+        "e3b_vs_e3a": {
+          "cosine_similarity": 0.9996,
+          "norm_ratio_b_over_a": 0.9916,
+          "top_diff_layers": [
+            {
+              "layer": 34,
+              "a_norm": 0.2345,
+              "b_norm": 0.21376,
+              "delta": -0.02074
+            },
+            {
+              "layer": 35,
+              "a_norm": 0.24543,
+              "b_norm": 0.22478,
+              "delta": -0.02065
+            },
+            {
+              "layer": 1,
+              "a_norm": 0.19952,
+              "b_norm": 0.18582,
+              "delta": -0.0137
+            },
+            {
+              "layer": 5,
+              "a_norm": 0.22287,
+              "b_norm": 0.21274,
+              "delta": -0.01013
+            },
+            {
+              "layer": 29,
+              "a_norm": 0.22194,
+              "b_norm": 0.22975,
+              "delta": 0.00781
+            }
+          ]
+        },
+        "arm_c_vs_arm_a": {
+          "cosine_similarity": 0.9998,
+          "norm_ratio_b_over_a": 0.9775,
+          "top_diff_layers": [
+            {
+              "layer": 2,
+              "a_norm": 0.13785,
+              "b_norm": 0.14582,
+              "delta": 0.00797
+            },
+            {
+              "layer": 19,
+              "a_norm": 0.14718,
+              "b_norm": 0.13976,
+              "delta": -0.00742
+            },
+            {
+              "layer": 20,
+              "a_norm": 0.14876,
+              "b_norm": 0.14178,
+              "delta": -0.00698
+            },
+            {
+              "layer": 18,
+              "a_norm": 0.14733,
+              "b_norm": 0.14042,
+              "delta": -0.00691
+            },
+            {
+              "layer": 16,
+              "a_norm": 0.14807,
+              "b_norm": 0.14213,
+              "delta": -0.00594
+            }
+          ]
+        }
+      },
+      "slop_steering": {
+        "peak_diff_layer": 2,
+        "raw_diff_norm": 0.0563,
+        "calibrated_unit_scale": 2.6199,
+        "n_diff_prompts": 60,
+        "n_sweep_prompts": 50,
+        "sweep": [
+          {
+            "alpha": -2.0,
+            "v1_pass_pct": 88.0,
+            "v2_pass_pct": 84.0,
+            "v1_minus_v2_pp": 4.0,
+            "distinct_4gram_ratio": 0.8706,
+            "slop_flagged_pct": 0.0,
+            "l12_spoiler_free_pct": 100.0,
+            "mean_words": 44.38,
+            "sample_output_0": "Instead of simplifying the structure with a pawn capture, consider how you can improve the position of your minor pieces to better control the central tension."
+          },
+          {
+            "alpha": -1.0,
+            "v1_pass_pct": 90.0,
+            "v2_pass_pct": 88.0,
+            "v1_minus_v2_pp": 2.0,
+            "distinct_4gram_ratio": 0.8632,
+            "slop_flagged_pct": 20.0,
+            "l12_spoiler_free_pct": 100.0,
+            "mean_words": 44.0,
+            "sample_output_0": "Instead of resolving the tension on the queenside, consider how you can improve the placement of your minor pieces to better control the center."
+          },
+          {
+            "alpha": 0.0,
+            "v1_pass_pct": 96.0,
+            "v2_pass_pct": 92.0,
+            "v1_minus_v2_pp": 4.0,
+            "distinct_4gram_ratio": 0.873,
+            "slop_flagged_pct": 26.0,
+            "l12_spoiler_free_pct": 100.0,
+            "mean_words": 43.8,
+            "sample_output_0": "Instead of resolving the tension in the center immediately, consider how you can improve the placement of your minor pieces to better control the central squares."
+          },
+          {
+            "alpha": 1.0,
+            "v1_pass_pct": 90.0,
+            "v2_pass_pct": 86.0,
+            "v1_minus_v2_pp": 4.0,
+            "distinct_4gram_ratio": 0.8714,
+            "slop_flagged_pct": 22.0,
+            "l12_spoiler_free_pct": 100.0,
+            "mean_words": 43.56,
+            "sample_output_0": "Instead of resolving the tension on the queenside immediately, consider how you can improve the placement of your minor pieces to better control the center."
+          },
+          {
+            "alpha": 2.0,
+            "v1_pass_pct": 92.0,
+            "v2_pass_pct": 86.0,
+            "v1_minus_v2_pp": 6.0,
+            "distinct_4gram_ratio": 0.8569,
+            "slop_flagged_pct": 36.0,
+            "l12_spoiler_free_pct": 100.0,
+            "mean_words": 42.8,
+            "sample_output_0": "Instead of resolving the tension on the queenside immediately, consider how you can better manage the central tension and improve the placement of your minor pieces."
+          }
+        ]
+      }
+    },
+    "interp3_cot_sabotage": {
+      "num_solved_analyzed": 100,
+      "logit_lens": {
+        "mean_prob_by_fraction": {
+          "0.0": 0.0,
+          "0.25": 0.0,
+          "0.5": 0.02,
+          "0.75": 0.01,
+          "1.0": 0.0
+        },
+        "post_think_mean_prob": 0.99997,
+        "post_think_top1_match_pct": 100.0
+      },
+      "sabotage": {
+        "num_tested": 100,
+        "causal_move_flip_pct": 100.0,
+        "adopted_distractor_pct": 100.0,
+        "resisted_sabotage_pct": 0.0,
+        "examples": [
+          {
+            "target_move": "c3e2",
+            "distractor_move": "c3a2",
+            "post_sabotage_move": "c3a2"
+          },
+          {
+            "target_move": "b3b1",
+            "distractor_move": "b3b2",
+            "post_sabotage_move": "b3b2"
+          },
+          {
+            "target_move": "e4c5",
+            "distractor_move": "a5a6",
+            "post_sabotage_move": "a5a6"
+          },
+          {
+            "target_move": "c6e7",
+            "distractor_move": "a2a3",
+            "post_sabotage_move": "a2a3"
+          },
+          {
+            "target_move": "h5f7",
+            "distractor_move": "a1b1",
+            "post_sabotage_move": "a1b1"
+          }
+        ]
+      }
+    },
+    "interp4_piece_tracker": {
+      "num_attention_examples": 60,
+      "num_ablation_puzzles": 100,
+      "total_heads": 1152,
+      "top5_heads": [
+        {
+          "layer": 27,
+          "head": 17,
+          "label": "L27.H17",
+          "mean_selectivity": 0.018634
+        },
+        {
+          "layer": 29,
+          "head": 9,
+          "label": "L29.H9",
+          "mean_selectivity": 0.009657
+        },
+        {
+          "layer": 26,
+          "head": 20,
+          "label": "L26.H20",
+          "mean_selectivity": 0.007599
+        },
+        {
+          "layer": 26,
+          "head": 24,
+          "label": "L26.H24",
+          "mean_selectivity": 0.007523
+        },
+        {
+          "layer": 28,
+          "head": 2,
+          "label": "L28.H2",
+          "mean_selectivity": 0.006561
+        }
+      ],
+      "random5_heads": [
+        {
+          "layer": 27,
+          "head": 21,
+          "label": "L27.H21"
+        },
+        {
+          "layer": 29,
+          "head": 3,
+          "label": "L29.H3"
+        },
+        {
+          "layer": 26,
+          "head": 0,
+          "label": "L26.H0"
+        },
+        {
+          "layer": 26,
+          "head": 26,
+          "label": "L26.H26"
+        },
+        {
+          "layer": 28,
+          "head": 9,
+          "label": "L28.H9"
+        }
+      ],
+      "ablation": {
+        "baseline_solve_pct": 100.0,
+        "top5_retained_solve_pct": 88.0,
+        "top5_solve_drop_pp": 12.0,
+        "top5_retained_legal_pct": 98.0,
+        "random5_retained_solve_pct": 96.0,
+        "random5_solve_drop_pp": 4.0,
+        "random5_retained_legal_pct": 99.0,
+        "causal_excess_drop_pp": 8.0,
+        "drop_ratio": 3.0
+      }
+    }
+  }
+}
