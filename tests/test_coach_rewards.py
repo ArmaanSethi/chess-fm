@@ -264,3 +264,46 @@ class TestCoachRewardScoringAndFactory:
         assert "fake_check" in summary["violation_breakdown"]
         assert "postmortem" in summary["per_task_type"]
         assert "socratic_l1" in summary["per_task_type"]
+
+    def test_summarize_coach_eval_preserves_pv_and_is_idempotent(self):
+        fork_fen = "6k1/5p1p/4p3/4q3/3n4/2Q3P1/PP1N1P1P/6K1 b - - 3 37"
+        rows = [
+            {
+                "fen": CASE_0_FEN,
+                "task_type": "postmortem",
+                "best_move": "c7e8",
+                "student_move": "b6b5",
+                "pv": ["c7e8", "g7g6"],
+                "response": CASE_0_TEACHER,
+            },
+            {
+                "fen": fork_fen,
+                "task_type": "socratic_l3",
+                "best_move": "d4e2",
+                "pv": ["d4e2", "g1f1", "e2c3"],
+                # Mentions Ne2+, fork, c3, and PV reply Kf1 -> full 4/4 coverage.
+                "response": (
+                    "Play Ne2+ to fork the king and queen; after Kf1 you win the white queen on c3."
+                ),
+            },
+            {
+                "fen": fork_fen,
+                "task_type": "socratic_l3",
+                "best_move": "d4e2",
+                "pv": ["d4e2", "g1f1", "e2c3"],
+                # Omits PV reply Kf1 -> 3/4 = 0.75 coverage ONLY if pv is preserved (otherwise 3/3 = 1.0!).
+                "response": (
+                    "Play Ne2+ to fork the white king on g1 and the white queen on c3 right away."
+                ),
+            },
+        ]
+        enriched, summary = summarize_coach_eval(rows)
+        assert enriched[0]["pv"] == ["c7e8", "g7g6"]
+        assert enriched[1]["pv"] == ["d4e2", "g1f1", "e2c3"]
+        assert enriched[1]["tactical_fact_coverage"] == pytest.approx(1.0)
+        assert enriched[2]["tactical_fact_coverage"] == pytest.approx(0.75)
+
+        # Standalone re-scoring on enriched output MUST be strictly idempotent.
+        enriched_again, summary_again = summarize_coach_eval(enriched)
+        assert summary_again == summary
+        assert enriched_again == enriched

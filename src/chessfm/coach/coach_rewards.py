@@ -615,17 +615,19 @@ def summarize_coach_eval(
         best_move = str(row.get("best_move_uci") or row.get("best_move") or "").strip()
         student_move = str(row.get("student_move") or row.get("played_move_uci") or "").strip()
 
+        raw_pv = row.get("pv") or row.get("principal_variation")
+        pv_list = list(raw_pv) if isinstance(raw_pv, list) else []
+
         tf = row.get("tactical_facts")
         if not isinstance(tf, dict) or not tf.get("fen"):
             tf = None
             if best_move:
                 try:
-                    pv = row.get("pv") or row.get("principal_variation")
                     tf = extract_tactical_facts(
                         fen,
                         student_move=student_move or None,
                         best_move=best_move,
-                        pv=pv if isinstance(pv, list) else None,
+                        pv=pv_list or None,
                         cp_loss=row.get("cp_loss"),
                         eval_before_cp=row.get("eval_before_cp"),
                         eval_after_cp=row.get("eval_after_cp"),
@@ -706,6 +708,7 @@ def summarize_coach_eval(
                 "task_type": task_type,
                 "best_move": best_move,
                 "student_move": student_move,
+                "pv": pv_list,
                 "response": cleaned,
                 "v1_passed": v1_ok,
                 "v2_passed": v2_ok,

@@ -12,6 +12,7 @@ from chessfm.coach.tactical_facts import (
     HangingPieceFact,
     PieceSquareRef,
     TacticalFacts,
+    _mentions_move,
     compute_tactical_fact_coverage,
     extract_tactical_facts,
     format_tactical_facts_for_prompt,
@@ -293,7 +294,36 @@ class TestElevenTacticalPatterns:
         # a2/c2 are blocked by White pawns and a4/c4 are covered by Black's b5 pawn.
         fen_trap = "4k3/8/8/1pp5/p7/1B6/P1P5/4K3 b - - 0 1"
         facts = extract_tactical_facts(fen_trap, best_move="c5c4")
+        assert facts["gives_check"] is False
         assert "trapped_piece" in facts["tactical_motifs"]
+        assert facts["tactical_motif"] == "trapped_piece"
+
+    def test_trapped_piece_not_falsely_triggered_by_check_or_castling_check(self):
+        # Checking move Rf8+: Black rook on d6 is defended by c7 and has 8 open squares,
+        # so legal_moves only contains check evasions — MUST NOT fire trapped_piece.
+        fen_chk = "6k1/2p5/3r4/4p3/8/B7/8/5RK1 w - - 0 1"
+        f_chk = extract_tactical_facts(fen_chk, best_move="f1f8")
+        assert f_chk["gives_check"] is True
+        assert "trapped_piece" not in f_chk["tactical_motifs"]
+        assert f_chk["tactical_motif"] != "trapped_piece"
+
+        # Castling with check O-O-O+: White rook on b7 has 14 open squares — MUST NOT fire trapped_piece.
+        fen_castle_chk = "r3k2n/1R6/8/8/8/8/8/3K4 b q - 0 1"
+        f_castle = extract_tactical_facts(fen_castle_chk, best_move="e8c8")
+        assert f_castle["gives_check"] is True
+        assert f_castle["is_castling"] == "queenside"
+        assert "trapped_piece" not in f_castle["tactical_motifs"]
+        assert f_castle["tactical_motif"] != "trapped_piece"
+
+    def test_trapped_piece_not_falsely_triggered_by_pinned_piece(self):
+        # Re1 pins Black knight on e6 to Black king on e8. The knight is attacked by Re1
+        # and has 8 open pseudo-legal squares (0 legal escapes solely due to the pin).
+        fen_pin = "4k3/8/4n3/8/8/8/8/R5K1 w - - 0 1"
+        f_pin = extract_tactical_facts(fen_pin, best_move="a1e1")
+        assert f_pin["gives_check"] is False
+        assert "pin" in f_pin["tactical_motifs"]
+        assert "trapped_piece" not in f_pin["tactical_motifs"]
+        assert f_pin["tactical_motif"] != "trapped_piece"
 
 
 class TestPromptFormattingAndCoverage:
@@ -344,3 +374,26 @@ class TestPromptFormattingAndCoverage:
 
         # Empty text -> 0.0
         assert compute_tactical_fact_coverage("", facts, task_type="postmortem") == 0.0
+
+    def test_mentions_move_castling_oo_does_not_match_ooo(self):
+        assert (
+            _mentions_move("You should castle queenside with O-O-O for safety.", "O-O", "e1g1")
+            is False
+        )
+        assert _mentions_move("Castle kingside with O-O for king safety.", "O-O", "e1g1") is True
+        assert (
+            _mentions_move("Castle queenside with O-O-O for king safety.", "O-O-O", "e1c1") is True
+        )
+        assert _mentions_move("Consider 0-0-0 to activate the rook.", "0-0", "e1g1") is False
+        assert _mentions_move("Consider 0-0 to tuck your king.", "0-0", "e1g1") is True
+
+        # End-to-end coverage check: recommending O-O-O when best move is O-O gets no Anchor-1 move credit.
+        fen_oo = "r3k2r/pppp1ppp/8/8/8/8/PPP2PPP/R3K2R w KQkq - 0 1"
+        facts_oo = extract_tactical_facts(fen_oo, best_move="e1g1")
+        cov_wrong_wing = compute_tactical_fact_coverage(
+            "You should play O-O-O here.", facts_oo, task_type="postmortem"
+        )
+        cov_right_wing = compute_tactical_fact_coverage(
+            "You should play O-O here.", facts_oo, task_type="postmortem"
+        )
+        assert cov_wrong_wing < cov_right_wing

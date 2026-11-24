@@ -74,6 +74,8 @@ def _color_name(color: chess.Color) -> str:
 
 
 def _token_regex(token: str) -> re.Pattern[str]:
+    if "-" in token:
+        return re.compile(rf"(?<![A-Za-z0-9-]){re.escape(token)}(?![A-Za-z0-9-])", re.IGNORECASE)
     return re.compile(rf"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z0-9])", re.IGNORECASE)
 
 
@@ -444,7 +446,7 @@ def _detect_back_rank_threat(
 def _detect_trapped_piece(board_after: chess.Board, mover: chess.Color) -> bool:
     """Return True if an attacked enemy minor/major piece has no safe legal escape square."""
     enemy = not mover
-    if board_after.is_game_over():
+    if board_after.is_game_over() or board_after.is_check():
         return False
     for sq in chess.SQUARES:
         piece = board_after.piece_at(sq)
@@ -453,6 +455,8 @@ def _detect_trapped_piece(board_after: chess.Board, mover: chess.Color) -> bool:
         if piece.piece_type in (chess.PAWN, chess.KING):
             continue
         if not board_after.is_attacked_by(mover, sq):
+            continue
+        if board_after.is_pinned(enemy, sq):
             continue
 
         piece_val = _PIECE_VALUES[piece.piece_type]
