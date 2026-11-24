@@ -382,3 +382,26 @@ def test_filter_zero_variance_groups_and_mixin():
     assert out["completion_mask"][:4].sum().item() == 0
     assert out["completion_mask"][4:].sum().item() == 12
     assert trainer._last_zero_variance_filtered_frac == pytest.approx(0.5)
+
+
+def test_sft_resume_flag_and_find_latest_checkpoint(tmp_path):
+    from chessfm.training.train_sft import find_latest_checkpoint, parse_args
+
+    assert parse_args([]).resume is False
+    assert parse_args(["--resume"]).resume is True
+    assert parse_args(["--no-resume"]).resume is False
+
+    missing = tmp_path / "does_not_exist"
+    assert find_latest_checkpoint(missing) is None
+
+    out_dir = tmp_path / "sft_out"
+    out_dir.mkdir()
+    assert find_latest_checkpoint(out_dir) is None
+
+    (out_dir / "checkpoint-50").mkdir()
+    (out_dir / "checkpoint-200").mkdir()
+    (out_dir / "checkpoint-100").mkdir()
+    (out_dir / "checkpoint-notanumber").mkdir()
+    (out_dir / "final").mkdir()
+
+    assert find_latest_checkpoint(out_dir) == str(out_dir / "checkpoint-200")

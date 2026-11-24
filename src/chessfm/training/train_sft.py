@@ -352,10 +352,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Include sorted UCI legal moves in prompts (isolated comparison mode only)",
     )
+    parser.add_argument(
+        "--resume",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Resume from the latest checkpoint-<step> subdirectory inside --output if present",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args(argv)
     args.lr = resolve_sft_lr(args.lr, full_ft=args.full_ft)
     return args
+
+
+def find_latest_checkpoint(output_dir: Path) -> str | None:
+    """Return the highest-step ``checkpoint-<N>`` directory under ``output_dir``, if any."""
+    if not output_dir.exists():
+        return None
+    candidates: list[tuple[int, Path]] = []
+    for entry in output_dir.iterdir():
+        if entry.is_dir() and entry.name.startswith("checkpoint-"):
+            suffix = entry.name.removeprefix("checkpoint-")
+            if suffix.isdigit():
+                candidates.append((int(suffix), entry))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda pair: pair[0])
+    return str(candidates[-1][1])
 
 
 def main(argv: list[str] | None = None):
@@ -481,7 +503,10 @@ def main(argv: list[str] | None = None):
     )
 
     train_start = time.monotonic()
-    trainer.train()
+    resume_ckpt = find_latest_checkpoint(args.output) if args.resume else None
+    if resume_ckpt is not None:
+        print(f"Resuming SFT from latest checkpoint: {resume_ckpt}")
+    trainer.train(resume_from_checkpoint=resume_ckpt)
     wall_clock_seconds = round(time.monotonic() - train_start, 2)
 
     print("\nSaving model...")

@@ -292,6 +292,7 @@ def _exec_sft(
     full_ft: bool = False,
     optim: str = "",
     packing: bool = False,
+    resume: bool = False,
 ) -> str:
     _ensure_installed()
     out_dir = f"{VOL_MOUNT}/checkpoints/{output_subdir}"
@@ -326,6 +327,8 @@ def _exec_sft(
         cmd.extend(["--optim", optim])
     if packing:
         cmd.append("--packing")
+    if resume:
+        cmd.append("--resume")
     if include_ascii:
         cmd.append("--include-ascii")
     if include_piece_list:
@@ -624,6 +627,7 @@ def run_sft(
     full_ft: bool = False,
     optim: str = "",
     packing: bool = False,
+    resume: bool = False,
 ) -> str:
     return _exec_sft(
         model,
@@ -643,6 +647,7 @@ def run_sft(
         full_ft=full_ft,
         optim=optim,
         packing=packing,
+        resume=resume,
     )
 
 
@@ -670,6 +675,7 @@ def run_sft_a100(
     full_ft: bool = False,
     optim: str = "",
     packing: bool = False,
+    resume: bool = False,
 ) -> str:
     return _exec_sft(
         model,
@@ -689,6 +695,7 @@ def run_sft_a100(
         full_ft=full_ft,
         optim=optim,
         packing=packing,
+        resume=resume,
     )
 
 
@@ -716,6 +723,7 @@ def run_sft_h100(
     full_ft: bool = True,
     optim: str = "paged_adamw_8bit",
     packing: bool = False,
+    resume: bool = False,
 ) -> str:
     return _exec_sft(
         model,
@@ -735,6 +743,7 @@ def run_sft_h100(
         full_ft=full_ft,
         optim=optim,
         packing=packing,
+        resume=resume,
     )
 
 
@@ -763,6 +772,7 @@ def run_sft_modern(
     full_ft: bool = False,
     optim: str = "",
     packing: bool = False,
+    resume: bool = False,
 ) -> str:
     return _exec_sft(
         model,
@@ -782,6 +792,7 @@ def run_sft_modern(
         full_ft=full_ft,
         optim=optim,
         packing=packing,
+        resume=resume,
     )
 
 
@@ -2159,6 +2170,7 @@ def main(
     out_dir: str = "",
     eval_workers: int = 32,
     skip_coach: bool = False,
+    sft_resume: bool = False,
 ) -> None:
     gpu_tier = gpu.strip().lower()
     if gpu_tier not in {"l4", "a100", "h100"}:
@@ -2228,6 +2240,8 @@ def main(
             sft_kwargs["grad_accum"] = grad_accum
         if optim:
             sft_kwargs["optim"] = optim
+        if sft_resume:
+            sft_kwargs["resume"] = True
         ckpt = sft_fn.remote(**sft_kwargs)
         print(f"SFT checkpoint saved to Modal volume: {ckpt}")
     elif task == "sft-student":
