@@ -97,6 +97,7 @@ VALID_TASKS = (
     "p4a-vllm-batch",
     "export-gguf",
     "export-onnx",
+    "interp-suite",
     "upload-hf",
 )
 
@@ -2185,6 +2186,29 @@ def run_coach_benchmark_batch_a100(jobs_json: str) -> str:
     return json.dumps(outputs)
 
 
+@app.function(
+    gpu="A100-80GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_interp_suite_a100(output_subdir: str = "interp", resume: bool = False) -> str:
+    """Run all 4 Mechanistic Interpretability experiments in one warm A100-80GB session."""
+    _ensure_installed()
+    out_dir = f"{VOL_MOUNT}/results/{output_subdir}"
+    cmd = [
+        "python",
+        "scripts/run_interp_suite.py",
+        "--output-dir",
+        out_dir,
+    ]
+    if resume:
+        cmd.append("--resume")
+    _run(cmd)
+    volume.commit()
+    return out_dir
+
+
 @app.local_entrypoint()
 def main(
     task: str = "smoke-pipeline",
@@ -2580,6 +2604,15 @@ def main(
         print(
             f"ONNX WebGPU export artifacts saved to Modal volume: {export_dir}. "
             "Download with: modal volume get chessfm-artifacts exports ./exports"
+        )
+    elif task == "interp-suite":
+        out_dir = run_interp_suite_a100.remote(
+            output_subdir=output_subdir or "interp",
+            resume=resume,
+        )
+        print(
+            f"Interp suite completed! Artifacts saved to Modal volume: {out_dir}. "
+            "Download with: modal volume get chessfm-artifacts results/interp ./results/interp"
         )
     elif task == "smoke-pipeline":
         sft_subdir = output_subdir or "sft_smoke"
