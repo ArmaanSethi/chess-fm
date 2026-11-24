@@ -287,6 +287,13 @@ def build_grpo_config(args) -> GRPOConfig:
     if scale_rewards is not None and "scale_rewards" in grpo_params:
         extra_kwargs["scale_rewards"] = scale_rewards
 
+    num_iterations = getattr(args, "num_iterations", None)
+    if num_iterations is not None:
+        if num_iterations < 1:
+            raise ValueError(f"num_iterations must be >= 1, got {num_iterations}")
+        if "num_iterations" in grpo_params:
+            extra_kwargs["num_iterations"] = int(num_iterations)
+
     loss_type = getattr(args, "loss_type", None)
     if loss_type:
         if "loss_type" in grpo_params:
@@ -414,6 +421,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Per-device training batch size (must satisfy batch*world_size %% num_generations == 0)",
     )
     parser.add_argument("--grad-accum", type=int, default=2, help="Gradient accumulation steps")
+    parser.add_argument(
+        "--num-iterations",
+        type=int,
+        default=1,
+        help="GRPO policy updates per rollout generation (>=2 activates PPO/DAPO Clip-Higher)",
+    )
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
     parser.add_argument(
         "--temperature",
@@ -568,6 +581,19 @@ def main():
         world_size=world_size,
     )
 
+    if args.num_iterations < 1:
+        raise ValueError(f"num_iterations must be >= 1, got {args.num_iterations}")
+    if args.filter_zero_variance and args.per_device_batch_size <= args.num_generations:
+        logger.warning(
+            "filter_zero_variance=True with per_device_batch_size (%d) <= num_generations (%d) "
+            "places only 1 prompt group per micro-batch, so the all-zero-variance NaN guard "
+            "prevents masking degenerate groups; set per_device_batch_size >= 2 * num_generations "
+            "(e.g. %d) to activate zero-variance group filtering.",
+            args.per_device_batch_size,
+            args.num_generations,
+            2 * args.num_generations,
+        )
+
     effective_alpha = args.lora_alpha if args.lora_alpha is not None else 2 * args.lora_r
     print("=" * 60)
     print("ChessFM RL Training (GRPO via TRL)")
@@ -577,6 +603,7 @@ def main():
     print(f"Max Steps:        {args.steps}")
     print(f"Generations/grp:  {args.num_generations}")
     print(f"Batch size/dev:   {args.per_device_batch_size}")
+    print(f"Num iterations:   {args.num_iterations}")
     print(f"Temperature:      {args.temperature}")
     print(f"Beta (KL):        {args.beta}")
     print(f"Clip bounds:      [{args.epsilon}, {args.epsilon_high}]")
@@ -691,6 +718,7 @@ def main():
                 "num_generations": args.num_generations,
                 "per_device_batch_size": args.per_device_batch_size,
                 "grad_accum": args.grad_accum,
+                "num_iterations": args.num_iterations,
                 "lr": args.lr,
                 "temperature": args.temperature,
                 "beta": args.beta,

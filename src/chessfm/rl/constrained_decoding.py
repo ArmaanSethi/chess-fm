@@ -35,6 +35,41 @@ def legal_uci_moves(fen: str) -> list[str]:
     return sorted(move.uci() for move in board.legal_moves)
 
 
+def non_repeating_legal_uci_moves(board: chess.Board) -> tuple[list[str], bool]:
+    """Return ``(allowed_uci_moves, filtered)`` avoiding 2-fold (then 3-fold) repetitions.
+
+    Tests each legal move via ``push()``/``pop()`` without mutating ``board``.
+    Tier 1 excludes moves causing >=2-fold repetition; if none remain, Tier 2
+    excludes moves causing >=3-fold repetition; if none remain, Tier 3 falls
+    back to all legal moves. ``filtered`` is ``True`` iff at least one
+    repeating legal move was excluded.
+    """
+    legal_moves = sorted(board.legal_moves, key=lambda m: m.uci())
+    if not legal_moves:
+        return [], False
+
+    non_2fold: list[str] = []
+    non_3fold: list[str] = []
+    for move in legal_moves:
+        board.push(move)
+        try:
+            rep2 = board.is_repetition(2)
+            rep3 = board.is_repetition(3) if rep2 else False
+        finally:
+            board.pop()
+        uci = move.uci()
+        if not rep2:
+            non_2fold.append(uci)
+        if not rep3:
+            non_3fold.append(uci)
+
+    if non_2fold:
+        return non_2fold, len(non_2fold) < len(legal_moves)
+    if non_3fold:
+        return non_3fold, len(non_3fold) < len(legal_moves)
+    return [m.uci() for m in legal_moves], False
+
+
 def _encode_text(tokenizer: Any, text: str) -> list[int]:
     """Encode ``text`` to token IDs without special tokens."""
     try:
@@ -189,6 +224,7 @@ class LegalMoveLogitsProcessor:
         eos_token_ids: int | Sequence[int] | None = None,
         prefixes: Sequence[str] = DEFAULT_MOVE_PREFIXES,
         trie: LegalMovePrefixTrie | None = None,
+        allowed_moves: Iterable[str] | None = None,
     ) -> None:
         self.fen = fen
         self.tokenizer = tokenizer
@@ -196,11 +232,12 @@ class LegalMoveLogitsProcessor:
         self.require_think_close = require_think_close
         self.think_close_tag = think_close_tag
         self.eos_token_ids = _normalize_eos_ids(tokenizer, eos_token_ids)
-        self.trie = (
-            trie
-            if trie is not None
-            else LegalMovePrefixTrie.from_fen(fen, tokenizer, prefixes=prefixes)
-        )
+        if trie is not None:
+            self.trie = trie
+        elif allowed_moves is not None:
+            self.trie = LegalMovePrefixTrie(allowed_moves, tokenizer, prefixes=prefixes)
+        else:
+            self.trie = LegalMovePrefixTrie.from_fen(fen, tokenizer, prefixes=prefixes)
         self._think_close_ids = _encode_text(tokenizer, think_close_tag)
 
     def _extract_move_prefix(self, generated_ids: list[int]) -> list[int] | None:

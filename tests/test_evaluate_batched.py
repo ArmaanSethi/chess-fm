@@ -749,3 +749,244 @@ def test_evaluate_model_bumps_engine_max_restarts(tmp_path, monkeypatch):
         batch_size=2,
     )
     assert created_engines[-1]._max_restarts == MATCH_ENGINE_MAX_RESTARTS + 8
+
+
+class _PreferenceBatchedModel:
+    """Greedy model that picks the first unmasked move from an ordered preference list."""
+
+    def __init__(self, tokenizer: _CharTokenizer, preferred_moves: list[str]) -> None:
+        self.device = "cpu"
+        self.tokenizer = tokenizer
+        self.preferred_moves = list(preferred_moves)
+        self.think_ids = tokenizer.encode("<think>plan</think>")
+
+    def generate(self, **kwargs):
+        input_ids = kwargs["input_ids"]
+        logits_processors = kwargs.get("logits_processor") or []
+        batch_size = input_ids.shape[0]
+        seqs = input_ids.clone()
+
+        # Emit <think>plan</think> first (unconstrained).
+        for tid in self.think_ids:
+            col = torch.full((batch_size, 1), tid, dtype=torch.long)
+            seqs = torch.cat([seqs, col], dim=1)
+
+        # Now greedily generate 4 UCI characters + EOS, preferring earlier moves in preferred_moves.
+        max_steps = 6
+        for step_idx in range(max_steps):
+            scores = torch.full((batch_size, self.tokenizer.vocab_size), -10.0)
+            for row in range(batch_size):
+                scores[row, self.tokenizer.eos_token_id] = 100.0 if step_idx >= 4 else -5.0
+                for rank, mv in enumerate(self.preferred_moves):
+                    if step_idx < len(mv):
+                        tid = self.tokenizer.encode(mv[step_idx])[0]
+                        bonus = 50.0 - rank * 5.0
+                        if scores[row, tid] < bonus:
+                            scores[row, tid] = bonus
+            for proc in logits_processors:
+                scores = proc(seqs, scores)
+            next_tok = scores.argmax(dim=-1, keepdim=True)
+            seqs = torch.cat([seqs, next_tok], dim=1)
+        return seqs
+
+
+def test_batched_logits_processor_allowed_moves_per_row_and_validation():
+    tok = _CharTokenizer(pad_token_id=1, padding_side="left")
+    with pytest.raises(ValueError, match="allowed_moves_per_row length"):
+        BatchedLegalMoveLogitsProcessor(
+            [START_FEN, START_FEN],
+            tok,
+            allowed_moves_per_row=[["e2e4"]],
+        )
+
+    proc = BatchedLegalMoveLogitsProcessor(
+        [START_FEN, START_FEN],
+        tok,
+        prompt_length=0,
+        require_think_close=False,
+        allowed_moves_per_row=[["d2d4"], ["g1f3"]],
+    )
+    assert proc.processors[0].trie.legal_moves == ("d2d4",)
+    assert proc.processors[1].trie.legal_moves == ("g1f3",)
+
+    with pytest.raises(ValueError, match="allowed_moves_per_row length"):
+        generate_completions_batched(
+            _AdversarialBatchedModel(tok),
+            tok,
+            ["p1", "p2"],
+            decoding_mode="constrained",
+            fens=[START_FEN, START_FEN],
+            allowed_moves_per_row=[["e2e4"]],
+        )
+
+
+def test_avoid_repetition_rejected_in_strict_mode(tmp_path, monkeypatch):
+    tok = _CharTokenizer(pad_token_id=1, padding_side="right")
+    model = _DeterministicScriptedModel(tok, lambda _p: "<think>x</think>e2e4")
+
+    with pytest.raises(ValueError, match="--avoid-repetition requires decoding_mode='constrained'"):
+        evaluate.evaluate_model(
+            model,
+            tok,
+            "strict-reject",
+            num_games=1,
+            use_random_opponent=True,
+            decoding_mode="strict",
+            avoid_repetition=True,
+        )
+
+    with pytest.raises(ValueError, match="--avoid-repetition requires decoding_mode='constrained'"):
+        play_games_batched(
+            model,
+            tok,
+            [(0, "white", START_FEN)],
+            engine=None,
+            batch_size=1,
+            use_random_opponent=True,
+            decoding_mode="strict",
+            avoid_repetition=True,
+        )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["evaluate.py", "--decoding-mode", "strict", "--avoid-repetition"],
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        evaluate.main()
+    assert excinfo.value.code == 2
+
+
+def test_avoid_repetition_breaks_oscillation_in_sequential_and_batched(tmp_path, monkeypatch):
+    monkeypatch.setattr(evaluate, "PGNS_DIR", tmp_path / "pgns")
+    monkeypatch.setattr(evaluate, "RESULTS_DIR", tmp_path)
+
+    # White King on a1, White Rook on h2, Black King on h8, Black Rook on a8 (wait, a-file check).
+    # Simple oscillating position: White Knight on g1 + King e1 + Pawn e2; Black Knight on g8 + King e8.
+    # Model always prefers g1f3 / f3g1, fallback e2e4. Opponent always toggles g8f6 / f6g8!
+    osc_fen = "4k1n1/8/8/8/8/8/4P3/4K1N1 w - - 0 1"
+
+    class _OscillatingOpponentEngine:
+        def configure(self, _opts):
+            pass
+
+        def play(self, board, _limit):
+            for uci in ("g8f6", "f6g8"):
+                mv = chess.Move.from_uci(uci)
+                if mv in board.legal_moves:
+                    return chess.engine.PlayResult(move=mv, ponder=None)
+            return chess.engine.PlayResult(move=next(iter(board.legal_moves)), ponder=None)
+
+    class _OscEnv:
+        def __init__(self):
+            self.engine = _OscillatingOpponentEngine()
+            self.board = chess.Board(osc_fen)
+            self.move_count = 0
+
+        def reset(self, fen=None):
+            self.board = chess.Board(fen) if fen else chess.Board(osc_fen)
+            self.move_count = 0
+            return self.board.fen()
+
+        def get_fen(self):
+            return self.board.fen()
+
+        def get_turn(self):
+            return "white" if self.board.turn == chess.WHITE else "black"
+
+        def get_legal_moves(self):
+            return [m.uci() for m in self.board.legal_moves]
+
+        def step(self, move_uci):
+            from chessfm.rl.chess_env import StepResult
+
+            move = chess.Move.from_uci(move_uci)
+            if move not in self.board.legal_moves:
+                return StepResult(done=True, legal=False, info={})
+            self.board.push(move)
+            self.move_count += 1
+            if self.board.is_game_over(claim_draw=True):
+                return StepResult(
+                    done=True, legal=True, info={"result": self.board.result(claim_draw=True)}
+                )
+            if self.move_count >= 12:
+                return StepResult(done=True, legal=True, info={"result": "max_moves"})
+            return StepResult(done=False, legal=True, info={})
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(evaluate, "ChessEnv", _OscEnv)
+    monkeypatch.setattr(evaluate, "MAX_GAME_MOVES", 12)
+    tok = _CharTokenizer(pad_token_id=1, padding_side="right")
+    model = _PreferenceBatchedModel(tok, preferred_moves=["g1f3", "f3g1", "e2e4", "e4e5", "e5e6"])
+
+    # Without avoid_repetition (sequential): hits 3-fold repetition draw ("1/2-1/2") in 8 plies.
+    openings_file = tmp_path / "openings.txt"
+    openings_file.write_text(osc_fen + "\n", encoding="utf-8")
+
+    res_std = evaluate.evaluate_model(
+        model,
+        tok,
+        "osc-std",
+        num_games=1,
+        alternate_colors=False,
+        model_color="white",
+        decoding_mode="constrained",
+        openings=openings_file,
+        batch_size=1,
+        avoid_repetition=False,
+    )
+    assert res_std["avoid_repetition"] is False
+    assert res_std["repetition_filtered_plies"] == 0
+    assert res_std["draws"] == 1
+    pgn_std = (tmp_path / "pgns" / res_std["pgn_file"].split("/")[-1]).read_text(encoding="utf-8")
+    assert '[AvoidRepetition "false"]' in pgn_std
+
+    # With avoid_repetition (sequential): filters repeating f3g1 and advances pawn instead!
+    manifest_seq = tmp_path / "manifest_seq.json"
+    res_seq = evaluate.evaluate_model(
+        model,
+        tok,
+        "osc-seq-norep",
+        num_games=1,
+        alternate_colors=False,
+        model_color="white",
+        decoding_mode="constrained",
+        openings=openings_file,
+        batch_size=1,
+        avoid_repetition=True,
+        manifest_output=manifest_seq,
+    )
+    assert res_seq["avoid_repetition"] is True
+    assert res_seq["repetition_filtered_plies"] >= 1
+    m_seq = json.loads(manifest_seq.read_text(encoding="utf-8"))
+    assert m_seq["avoid_repetition"] is True
+    assert m_seq["repetition_filtered_plies"] == res_seq["repetition_filtered_plies"]
+    assert m_seq["tiers"]["tier4_match"]["avoid_repetition"] is True
+    assert (
+        m_seq["tiers"]["tier4_match"]["repetition_filtered_plies"]
+        == res_seq["repetition_filtered_plies"]
+    )
+    pgn_seq = (tmp_path / "pgns" / res_seq["pgn_file"].split("/")[-1]).read_text(encoding="utf-8")
+    assert '[AvoidRepetition "true"]' in pgn_seq
+
+    # With avoid_repetition (batched): also filters repeating moves across concurrent games.
+    manifest_batch = tmp_path / "manifest_batch.json"
+    res_batch = evaluate.evaluate_model(
+        model,
+        tok,
+        "osc-batch-norep",
+        num_games=2,
+        alternate_colors=False,
+        model_color="white",
+        decoding_mode="constrained",
+        openings=openings_file,
+        batch_size=2,
+        avoid_repetition=True,
+        manifest_output=manifest_batch,
+    )
+    assert res_batch["avoid_repetition"] is True
+    assert res_batch["repetition_filtered_plies"] >= 2
+    m_batch = json.loads(manifest_batch.read_text(encoding="utf-8"))
+    assert m_batch["avoid_repetition"] is True
+    assert m_batch["tiers"]["tier4_match"]["repetition_filtered_plies"] >= 2

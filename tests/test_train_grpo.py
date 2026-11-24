@@ -304,5 +304,32 @@ def test_filter_zero_variance_groups_guards_empty_active_mask():
     assert frac == 0.0
 
 
+def test_parse_args_and_build_grpo_config_num_iterations(tmp_path):
+    from chessfm.rl.train_grpo import build_grpo_config
+
+    defaults = parse_args([])
+    assert defaults.num_iterations == 1
+
+    custom = parse_args(
+        [
+            "--num-iterations",
+            "2",
+            "--per-device-batch-size",
+            "16",
+            "--num-generations",
+            "8",
+            "--output",
+            str(tmp_path / "out"),
+        ]
+    )
+    assert custom.num_iterations == 2
+    cfg = build_grpo_config(custom)
+    assert cfg.num_iterations == 2
+
+    invalid = parse_args(["--num-iterations", "0", "--output", str(tmp_path / "bad")])
+    with pytest.raises(ValueError, match="num_iterations must be >= 1"):
+        build_grpo_config(invalid)
+
+
 if __name__ == "__main__":
     unittest.main()

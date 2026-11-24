@@ -12,6 +12,7 @@ from chessfm.rl.constrained_decoding import (
     LegalMoveLogitsProcessor,
     LegalMovePrefixTrie,
     legal_uci_moves,
+    non_repeating_legal_uci_moves,
 )
 
 # ---------------------------------------------------------------------------
@@ -553,3 +554,112 @@ def test_dual_mode_generator_validation_errors():
 
     with pytest.raises(ValueError, match="num_samples"):
         gen.generate_move(START_FEN, num_samples=0)
+
+
+def test_non_repeating_legal_uci_moves_excludes_2fold_and_preserves_board():
+    board = chess.Board()
+    for uci in ("g1f3", "g8f6", "f3g1"):
+        board.push_uci(uci)
+    orig_fen = board.fen()
+    orig_stack = list(board.move_stack)
+
+    allowed, filtered = non_repeating_legal_uci_moves(board)
+
+    assert filtered is True
+    assert "f6g8" not in allowed  # repeats starting position (2-fold)
+    assert "e7e5" in allowed
+    assert board.fen() == orig_fen
+    assert board.move_stack == orig_stack
+
+
+def test_non_repeating_legal_uci_moves_custom_opening_fen_2fold():
+    opening_fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+    board = chess.Board(opening_fen)
+    # 2. Nf3 Nf6 3. Ng1 Ng8 -> back to opening_fen (2nd occurrence), then 4. Nf3 Nf6 -> Ng1 causes 3rd!
+    for uci in ("g1f3", "g8f6", "f3g1", "f6g8"):
+        board.push_uci(uci)
+    assert board.is_repetition(2)
+    orig_stack = list(board.move_stack)
+
+    allowed, filtered = non_repeating_legal_uci_moves(board)
+    assert filtered is True
+    assert "g1f3" not in allowed  # would repeat position after 2. Nf3 (2-fold)
+    assert "d2d4" in allowed
+    assert board.move_stack == orig_stack
+
+
+def test_non_repeating_legal_uci_moves_tier2_and_tier3_fallbacks():
+    # Construct a board where White has only two legal moves (h1g1 and h1g2? Let's use clean K vs K+R/p).
+    # White King on a1, White pawn on h2 (blocked by Black pawn h3), Black King on c2:
+    # Actually simplest: White King on a1, Black King on c1, Black pawn on b3 (attacks a2, c2) ->
+    # Wait: King on a1 with Black King on c1 -> b1, b2 attacked by c1; a2 is only legal move!
+    # Let's build a 2-move king box: White King a1, Black King c2 (attacks b1, b2, b3, c1, c3, d1, d2, d3),
+    # White King only legal move is a2 -> single forced move for Tier 3!
+    # For Tier 2: White King a1, Black King c3, Black pawn b4 (attacks a3, c3) -> White has a2, b1, b2?
+    # Let's test Tier 2 deterministically with a 2-move White position:
+    # White King h1, Black King f2 (attacks g1, g2, g3), Black Rook a2? No, check!
+    # Clean Tier 2: White King h1, White pawn a2 blocked by Black pawn a3, Black King f3 (attacks g2, g3),
+    # Black Rook f2 (attacks g2, h2) -> White King only legal move is g1.
+    # Let's use White King h1, Black King f3, Black Pawn g3 (attacks h2, f2) -> legal moves for White: h1g1, h1g2!
+    fen_two_moves = "8/8/8/8/8/5kp1/8/7K w - - 0 1"
+    board = chess.Board(fen_two_moves)
+    assert sorted(m.uci() for m in board.legal_moves) == ["h1g1"]  # wait g2 is attacked by f3!
+
+    # Use Black King on e3 instead: e3 doesn't attack g2, g3 pawn attacks h2 & f2 -> White has h1g1 and h1g2.
+    fen_two_moves = "8/8/8/8/8/4k1p1/8/7K w - - 0 1"
+    board = chess.Board(fen_two_moves)
+    assert sorted(m.uci() for m in board.legal_moves) == ["h1g1", "h1g2"]
+    # Visit BOTH h1g1 (twice!) and h1g2 (once!) while Black toggles e3d3/d3e3:
+    # Occurrence 1 of g1-pos: h1g1, e3d3, g1h1, d3e3
+    # Occurrence 2 of g1-pos: h1g1, e3d3, g1h1, d3e3 (now pushing h1g1 gives 3-fold!)
+    # Occurrence 1 of g2-pos: h1g2, e3d3, g2h1, d3e3 (now pushing h1g2 gives 2-fold, NOT 3-fold!)
+    for uci in (
+        "h1g1",
+        "e3d3",
+        "g1h1",
+        "d3e3",
+        "h1g1",
+        "e3d3",
+        "g1h1",
+        "d3e3",
+        "h1g2",
+        "e3d3",
+        "g2h1",
+        "d3e3",
+    ):
+        board.push_uci(uci)
+
+    allowed, filtered = non_repeating_legal_uci_moves(board)
+    # Tier 1 empty (both h1g1 and h1g2 repeat >= 2), Tier 2 keeps h1g2 (only 2-fold) and drops h1g1 (3-fold)!
+    assert allowed == ["h1g2"]
+    assert filtered is True
+
+    # Now repeat h1g2 once more so BOTH h1g1 and h1g2 cause 3-fold -> Tier 3 fallback returns all legal moves.
+    for uci in ("h1g2", "e3d3", "g2h1", "d3e3"):
+        board.push_uci(uci)
+    allowed_t3, filtered_t3 = non_repeating_legal_uci_moves(board)
+    assert allowed_t3 == ["h1g1", "h1g2"]
+    assert filtered_t3 is False
+
+
+def test_non_repeating_legal_uci_moves_terminal_checkmate():
+    mate_board = chess.Board("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
+    assert mate_board.is_checkmate()
+    assert non_repeating_legal_uci_moves(mate_board) == ([], False)
+
+
+def test_logits_processor_respects_allowed_moves_subset():
+    tok = MockChessTokenizer()
+    proc = LegalMoveLogitsProcessor(
+        START_FEN,
+        tok,
+        prompt_length=0,
+        require_think_close=False,
+        allowed_moves=["d2d4"],
+    )
+    assert proc.trie.legal_moves == ("d2d4",)
+    scores = torch.zeros((1, tok.vocab_size), dtype=torch.float32)
+    input_ids = torch.zeros((1, 0), dtype=torch.long)
+    masked = proc(input_ids, scores)
+    assert torch.isfinite(masked[0, tok.token_to_id["d"]])
+    assert torch.isinf(masked[0, tok.token_to_id["e"]])

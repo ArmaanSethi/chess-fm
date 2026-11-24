@@ -634,6 +634,156 @@ class TestModalTrainRouting:
         assert mt.resolve_track_model(model="", track="v1") == "Qwen/Qwen3-4B"
         assert mt.resolve_track_model(model="", track="") == "Qwen/Qwen3-4B"
 
+    def test_phase3_grpo_eval_and_private_hf_forwarding(self, monkeypatch: pytest.MonkeyPatch):
+        mt = self._load_modal_train()
+        cmds: list[list[str]] = []
+        monkeypatch.setattr(mt, "_ensure_installed", lambda: None)
+        monkeypatch.setattr(mt, "_run", lambda cmd, cwd=mt.REMOTE_REPO: cmds.append(list(cmd)))
+        monkeypatch.setattr(mt.volume, "commit", lambda: None)
+
+        mt._exec_grpo(
+            model="/vol/checkpoints/sft_e2a_20k_r64/final_merged",
+            stage=1,
+            steps=200,
+            output_subdir="grpo_e3a",
+            num_generations=8,
+            per_device_batch_size=16,
+            grad_accum=1,
+            max_positions=40000,
+            checkpoint_every=50,
+            resume=False,
+            include_ascii=False,
+            include_piece_list=True,
+            reward_mode="wdl_loss",
+            lr=1.5e-5,
+            beta=0.04,
+            epsilon=0.20,
+            epsilon_high=0.28,
+            filter_zero_variance=True,
+            num_iterations=2,
+            temperature=0.9,
+            seed=123,
+        )
+        grpo_cmd = cmds[-1]
+        assert (
+            "--num-iterations" in grpo_cmd
+            and grpo_cmd[grpo_cmd.index("--num-iterations") + 1] == "2"
+        )
+        assert (
+            "--checkpoint-every" in grpo_cmd
+            and grpo_cmd[grpo_cmd.index("--checkpoint-every") + 1] == "50"
+        )
+        assert (
+            "--temperature" in grpo_cmd and grpo_cmd[grpo_cmd.index("--temperature") + 1] == "0.9"
+        )
+        assert "--seed" in grpo_cmd and grpo_cmd[grpo_cmd.index("--seed") + 1] == "123"
+        assert "--resume" not in grpo_cmd
+
+        mt._exec_eval(
+            model="/vol/checkpoints/grpo_e3a/stage1_final_merged",
+            games=40,
+            stockfish_level=1,
+            random_opponent=False,
+            decoding_mode="constrained",
+            avoid_repetition=True,
+        )
+        eval_cmd = cmds[-2]
+        assert "--avoid-repetition" in eval_cmd
+
+        # Verify run_upload_hf defaults to private=True and appends --private.
+        upload_fn = getattr(mt.run_upload_hf, "local", mt.run_upload_hf)
+        upload_fn(
+            local_dir="/vol/checkpoints/grpo_e3a/stage1_final_merged",
+            repo_id="winsonly/chessfm-qwen3-4b-e3a-dapo",
+        )
+        assert "--private" in cmds[-1]
+
+        upload_fn(
+            local_dir="/vol/checkpoints/grpo_e3a/stage1_final_merged",
+            repo_id="winsonly/chessfm-qwen3-4b-e3a-dapo",
+            private=False,
+        )
+        assert "--private" not in cmds[-1]
+
+    def test_main_forwards_phase3_grpo_eval_and_upload_flags(self, monkeypatch: pytest.MonkeyPatch):
+        mt = self._load_modal_train()
+        grpo_calls: list[dict] = []
+        eval_calls: list[dict] = []
+        upload_calls: list[dict] = []
+
+        class _Recorder:
+            def __init__(self, bucket):
+                self._bucket = bucket
+
+            def remote(self, **kwargs):
+                self._bucket.append(kwargs)
+                return "ok"
+
+        monkeypatch.setattr(mt, "run_grpo_a100", _Recorder(grpo_calls))
+        monkeypatch.setattr(mt, "run_eval", _Recorder(eval_calls))
+        monkeypatch.setattr(mt, "run_upload_hf", _Recorder(upload_calls))
+
+        mt.main(
+            task="grpo",
+            gpu="a100",
+            model="/vol/checkpoints/sft_e2a_20k_r64/final_merged",
+            stage=1,
+            steps=200,
+            num_generations=8,
+            batch_size=16,
+            grad_accum=1,
+            num_iterations=2,
+            checkpoint_every=50,
+            resume=False,
+            temperature=0.85,
+            seed=7,
+            filter_zero_variance=True,
+        )
+        assert grpo_calls[0]["num_iterations"] == 2
+        assert grpo_calls[0]["checkpoint_every"] == 50
+        assert grpo_calls[0]["resume"] is False
+        assert grpo_calls[0]["temperature"] == 0.85
+        assert grpo_calls[0]["seed"] == 7
+
+        mt.main(
+            task="eval",
+            model="/vol/checkpoints/grpo_e3a/stage1_final_merged",
+            games=40,
+            decoding_mode="constrained",
+            avoid_repetition=True,
+        )
+        assert eval_calls[0]["avoid_repetition"] is True
+
+        mt.main(
+            task="upload-hf",
+            local_dir="/vol/checkpoints/grpo_e3a/stage1_final_merged",
+            repo_id="winsonly/chessfm-qwen3-4b-e3a-dapo",
+        )
+        assert upload_calls[0]["private"] is True
+
+        pass_calls: list[dict] = []
+        monkeypatch.setattr(mt, "run_pass_at_k", _Recorder(pass_calls))
+        mt.main(
+            task="pass-at-k",
+            model="/vol/checkpoints/grpo_e3a/stage1_final_merged",
+            puzzles="/vol/data/phase2/test_puzzles_900.jsonl",
+            output="/vol/results/phase2/pass_at_k_e3a.json",
+            raw_output="/vol/results/phase2/pass_at_k_e3a_raw.jsonl",
+            num_puzzles=200,
+            k=8,
+            temperature=0.7,
+            top_p=0.95,
+            batch_size=16,
+            seed=42,
+            include_piece_list=True,
+        )
+        assert pass_calls[0]["model"] == "/vol/checkpoints/grpo_e3a/stage1_final_merged"
+        assert pass_calls[0]["num_puzzles"] == 200
+        assert pass_calls[0]["k"] == 8
+        assert pass_calls[0]["temperature"] == pytest.approx(0.7)
+        assert pass_calls[0]["top_p"] == pytest.approx(0.95)
+        assert pass_calls[0]["raw_output"] == "/vol/results/phase2/pass_at_k_e3a_raw.jsonl"
+
 
 # ---------------------------------------------------------------------------
 # upload_hf tests

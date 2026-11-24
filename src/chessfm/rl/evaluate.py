@@ -25,6 +25,7 @@ import random
 import subprocess
 import time
 from collections import deque
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -116,6 +117,7 @@ def generate_completion(
     decoding_mode: str = "strict",
     fen: str | None = None,
     require_think_close: bool = True,
+    allowed_moves: Sequence[str] | None = None,
 ) -> str:
     """Generate a completion for ``prompt`` and return ONLY the newly generated text.
 
@@ -148,6 +150,7 @@ def generate_completion(
             tokenizer,
             prompt_length=input_len,
             require_think_close=require_think_close,
+            allowed_moves=allowed_moves,
         )
         try:
             from transformers import LogitsProcessorList
@@ -175,20 +178,32 @@ class BatchedLegalMoveLogitsProcessor:
         tokenizer,
         prompt_length: int = 0,
         require_think_close: bool = True,
+        allowed_moves_per_row: Sequence[Sequence[str] | None] | None = None,
     ) -> None:
         from chessfm.rl.constrained_decoding import LegalMoveLogitsProcessor
 
         self.fens = list(fens)
         self.prompt_length = prompt_length
         self.require_think_close = require_think_close
+        if allowed_moves_per_row is not None and len(allowed_moves_per_row) != len(self.fens):
+            raise ValueError(
+                f"allowed_moves_per_row length ({len(allowed_moves_per_row)}) must match "
+                f"fens length ({len(self.fens)})."
+            )
+        row_allowed = (
+            list(allowed_moves_per_row)
+            if allowed_moves_per_row is not None
+            else [None] * len(self.fens)
+        )
         self.processors = [
             LegalMoveLogitsProcessor(
                 fen,
                 tokenizer,
                 prompt_length=prompt_length,
                 require_think_close=require_think_close,
+                allowed_moves=allowed,
             )
-            for fen in self.fens
+            for fen, allowed in zip(self.fens, row_allowed, strict=True)
         ]
 
     def __call__(self, input_ids, scores):
@@ -213,6 +228,7 @@ def generate_completions_batched(
     decoding_mode: str = "strict",
     fens: list[str] | None = None,
     require_think_close: bool = True,
+    allowed_moves_per_row: Sequence[Sequence[str] | None] | None = None,
 ) -> list[str]:
     """Generate completions for a batch of prompts using left-padded decoding.
 
@@ -232,6 +248,11 @@ def generate_completions_batched(
             raise ValueError(
                 "fens must be provided with the same length as prompts when "
                 "decoding_mode='constrained'."
+            )
+        if allowed_moves_per_row is not None and len(allowed_moves_per_row) != len(prompts):
+            raise ValueError(
+                f"allowed_moves_per_row length ({len(allowed_moves_per_row)}) must match "
+                f"prompts length ({len(prompts)})."
             )
 
     has_padding_side = hasattr(tokenizer, "padding_side")
@@ -278,6 +299,7 @@ def generate_completions_batched(
                 tokenizer,
                 prompt_length=padded_prompt_len,
                 require_think_close=require_think_close,
+                allowed_moves_per_row=allowed_moves_per_row,
             )
             try:
                 from transformers import LogitsProcessorList
@@ -400,6 +422,7 @@ def play_game(
     maia_elo: int | None = None,
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    avoid_repetition: bool = False,
 ) -> tuple:
     """Play one game between the model and the opponent in ``env``.
 
@@ -414,11 +437,16 @@ def play_game(
 
     A model forfeit on an illegal move is recorded truthfully in ``stats``.
     """
+    if avoid_repetition and decoding_mode != "constrained":
+        raise ValueError(
+            "--avoid-repetition requires decoding_mode='constrained' to preserve strict Pass@1 purity."
+        )
     stats = {
         "total_moves": 0,
         "legal_moves": 0,
         "formatted_outputs": 0,
         "illegal_by_model": 0,
+        "repetition_filtered_plies": 0,
         "wins": 0,
         "losses": 0,
         "draws": 0,
@@ -443,6 +471,13 @@ def play_game(
                 include_piece_list=include_piece_list,
                 include_legal_moves=include_legal_moves,
             )
+            allowed_moves: list[str] | None = None
+            if avoid_repetition and decoding_mode == "constrained":
+                from chessfm.rl.constrained_decoding import non_repeating_legal_uci_moves
+
+                allowed_moves, filtered = non_repeating_legal_uci_moves(env.board)
+                if filtered:
+                    stats["repetition_filtered_plies"] += 1
             completion = generate_completion(
                 model,
                 tokenizer,
@@ -450,6 +485,7 @@ def play_game(
                 decoding_mode=decoding_mode,
                 fen=fen,
                 require_think_close=enable_thinking,
+                allowed_moves=allowed_moves,
             )
             move_uci = parse_move_from_output(completion) or "xxxx"
             stats["total_moves"] += 1
@@ -515,6 +551,7 @@ def _new_game_stats() -> dict:
         "legal_moves": 0,
         "formatted_outputs": 0,
         "illegal_by_model": 0,
+        "repetition_filtered_plies": 0,
         "wins": 0,
         "losses": 0,
         "draws": 0,
@@ -591,6 +628,7 @@ def play_games_batched(
     maia_elo: int | None = None,
     include_piece_list: bool = False,
     include_legal_moves: bool = False,
+    avoid_repetition: bool = False,
 ) -> list[tuple[chess.pgn.Game, dict]]:
     """Play multiple games concurrently using a rolling active pool.
 
@@ -604,6 +642,10 @@ def play_games_batched(
     """
     if batch_size < 1:
         raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+    if avoid_repetition and decoding_mode != "constrained":
+        raise ValueError(
+            "--avoid-repetition requires decoding_mode='constrained' to preserve strict Pass@1 purity."
+        )
 
     total_games = len(game_specs)
     pending: deque[tuple[int, str, str | None]] = deque(game_specs)
@@ -689,6 +731,16 @@ def play_games_batched(
             )
             for fen in fens
         ]
+        allowed_moves_per_row: list[list[str]] | None = None
+        if avoid_repetition and decoding_mode == "constrained":
+            from chessfm.rl.constrained_decoding import non_repeating_legal_uci_moves
+
+            allowed_moves_per_row = []
+            for state in active:
+                allowed, filtered = non_repeating_legal_uci_moves(state.board)
+                if filtered:
+                    state.stats["repetition_filtered_plies"] += 1
+                allowed_moves_per_row.append(allowed)
         completions = generate_completions_batched(
             model,
             tokenizer,
@@ -696,6 +748,7 @@ def play_games_batched(
             decoding_mode=decoding_mode,
             fens=fens if decoding_mode == "constrained" else None,
             require_think_close=enable_thinking,
+            allowed_moves_per_row=allowed_moves_per_row,
         )
 
         next_active: list[_BatchedGameState] = []
@@ -790,6 +843,7 @@ def evaluate_model(
     include_legal_moves: bool = False,
     stockfish_elo: int | None = None,
     batch_size: int = 1,
+    avoid_repetition: bool = False,
 ) -> dict:
     """Run ``num_games`` games of ``model`` (with ``tokenizer``) and write reports.
 
@@ -810,6 +864,10 @@ def evaluate_model(
     if decoding_mode not in ("strict", "constrained"):
         raise ValueError(
             f"Unsupported decoding_mode {decoding_mode!r}; expected 'strict' or 'constrained'."
+        )
+    if avoid_repetition and decoding_mode != "constrained":
+        raise ValueError(
+            "--avoid-repetition requires decoding_mode='constrained' to preserve strict Pass@1 purity."
         )
     if batch_size < 1:
         raise ValueError(f"batch_size must be >= 1, got {batch_size}")
@@ -878,7 +936,11 @@ def evaluate_model(
         print(f"ChessFM Evaluation: {model_name} vs {opponent}", flush=True)
         color_desc = f"Alternating (starting {model_color})" if alternate_colors else model_color
         print(f"Model color: {color_desc}", flush=True)
-        print(f"Decoding mode: {decoding_mode} | Batch size: {batch_size}", flush=True)
+        print(
+            f"Decoding mode: {decoding_mode} | Batch size: {batch_size} | "
+            f"Avoid repetition: {avoid_repetition}",
+            flush=True,
+        )
         print(
             f"Include ASCII: {include_ascii} | Piece list: {include_piece_list} | "
             f"Legal moves: {include_legal_moves} | Enable thinking: {enable_thinking}",
@@ -898,6 +960,7 @@ def evaluate_model(
         losses = 0
         draws = 0
         illegal_by_model = 0
+        repetition_filtered_plies = 0
         color_buckets = {
             "white": {"wins": 0, "losses": 0, "draws": 0},
             "black": {"wins": 0, "losses": 0, "draws": 0},
@@ -943,6 +1006,7 @@ def evaluate_model(
                     maia_elo=maia_elo,
                     include_piece_list=include_piece_list,
                     include_legal_moves=include_legal_moves,
+                    avoid_repetition=avoid_repetition,
                 )
                 if stats["illegal_by_model"]:
                     print(
@@ -966,6 +1030,7 @@ def evaluate_model(
                 maia_elo=maia_elo,
                 include_piece_list=include_piece_list,
                 include_legal_moves=include_legal_moves,
+                avoid_repetition=avoid_repetition,
             )
 
         for (g, game_color, _), (game, stats) in zip(game_specs, played_games, strict=True):
@@ -974,6 +1039,7 @@ def evaluate_model(
             game.headers["Opponent"] = opponent
             game.headers["ModelColor"] = game_color
             game.headers["Seed"] = str(seed)
+            game.headers["AvoidRepetition"] = "true" if avoid_repetition else "false"
             game.headers["Result"] = stats["result"]
 
             games_list.append(game)
@@ -984,6 +1050,7 @@ def evaluate_model(
             losses += stats["losses"]
             draws += stats["draws"]
             illegal_by_model += stats["illegal_by_model"]
+            repetition_filtered_plies += stats.get("repetition_filtered_plies", 0)
             color_buckets[game_color]["wins"] += stats["wins"]
             color_buckets[game_color]["losses"] += stats["losses"]
             color_buckets[game_color]["draws"] += stats["draws"]
@@ -1059,6 +1126,8 @@ def evaluate_model(
         "color_balanced": color_balanced,
         "score_ci_95": [round(ci_low, 4), round(ci_high, 4)],
         "decoding_mode": decoding_mode,
+        "avoid_repetition": bool(avoid_repetition),
+        "repetition_filtered_plies": repetition_filtered_plies,
         "include_ascii": include_ascii,
         "include_piece_list": include_piece_list,
         "include_legal_moves": include_legal_moves,
@@ -1092,6 +1161,8 @@ def evaluate_model(
             "timestamp_utc": timestamp_utc,
             "model_id": model_name,
             "decoding_mode": decoding_mode,
+            "avoid_repetition": bool(avoid_repetition),
+            "repetition_filtered_plies": repetition_filtered_plies,
             "enable_thinking": bool(enable_thinking),
             "include_ascii": bool(include_ascii),
             "include_piece_list": bool(include_piece_list),
@@ -1107,6 +1178,8 @@ def evaluate_model(
                     "opponent_backend": opponent_backend,
                     "opponent_elo": opponent_elo,
                     "stockfish_elo": stockfish_elo,
+                    "avoid_repetition": bool(avoid_repetition),
+                    "repetition_filtered_plies": repetition_filtered_plies,
                     "overall": _color_split_summary(
                         {"wins": wins, "losses": losses, "draws": draws}
                     ),
@@ -1200,6 +1273,14 @@ def main():
         help="Decoding mode: 'strict' (unconstrained Pass@1) or 'constrained' (100%%-legal trie)",
     )
     parser.add_argument(
+        "--avoid-repetition",
+        action="store_true",
+        help=(
+            "Filter immediate 2-fold (fallback: 3-fold) repeating moves from the constrained "
+            "legal-move trie when non-repeating legal moves exist (requires --decoding-mode constrained)"
+        ),
+    )
+    parser.add_argument(
         "--include-ascii",
         action="store_true",
         help="Include an ASCII board rendering in prompts (must match training prompt format)",
@@ -1229,6 +1310,8 @@ def main():
     args = parser.parse_args()
     if args.batch_size < 1:
         parser.error(f"--batch-size must be >= 1, got {args.batch_size}")
+    if args.avoid_repetition and args.decoding_mode != "constrained":
+        parser.error("--avoid-repetition requires --decoding-mode constrained.")
     if args.maia_elo is not None and args.maia_elo <= 0:
         parser.error(f"--maia-elo must be a positive integer, got {args.maia_elo}")
     if args.stockfish_elo is not None and args.stockfish_elo < MIN_STOCKFISH_ELO:
@@ -1270,6 +1353,7 @@ def main():
         include_legal_moves=args.include_legal_moves,
         stockfish_elo=args.stockfish_elo,
         batch_size=args.batch_size,
+        avoid_repetition=args.avoid_repetition,
     )
 
 

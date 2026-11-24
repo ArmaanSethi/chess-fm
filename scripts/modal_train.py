@@ -88,6 +88,7 @@ VALID_TASKS = (
     "grpo",
     "eval",
     "static-eval",
+    "pass-at-k",
     "coach-eval",
     "coach-benchmark",
     "distill-teacher",
@@ -343,6 +344,9 @@ def _exec_grpo(
     loss_type: str = "",
     scale_rewards: bool = True,
     filter_zero_variance: bool = False,
+    num_iterations: int = 0,
+    temperature: float = -1.0,
+    seed: int = -1,
 ) -> str:
     _ensure_installed()
     out_dir = f"{VOL_MOUNT}/checkpoints/{output_subdir}"
@@ -390,6 +394,12 @@ def _exec_grpo(
         cmd.extend(["--loss-type", loss_type])
     if filter_zero_variance:
         cmd.append("--filter-zero-variance")
+    if num_iterations > 0:
+        cmd.extend(["--num-iterations", str(num_iterations)])
+    if temperature >= 0:
+        cmd.extend(["--temperature", str(temperature)])
+    if seed >= 0:
+        cmd.extend(["--seed", str(seed)])
     if positions:
         cmd.extend(["--positions", positions])
     if max_positions > 0:
@@ -427,6 +437,7 @@ def _exec_eval(
     stockfish_elo: int = 0,
     manifest_output: str = "",
     seed: int = -1,
+    avoid_repetition: bool = False,
 ) -> None:
     _ensure_installed()
     cmd = [
@@ -445,6 +456,8 @@ def _exec_eval(
     ]
     if random_opponent:
         cmd.append("--random-opponent")
+    if avoid_repetition:
+        cmd.append("--avoid-repetition")
     if include_ascii:
         cmd.append("--include-ascii")
     if include_piece_list:
@@ -776,6 +789,9 @@ def run_grpo(
     loss_type: str = "",
     scale_rewards: bool = True,
     filter_zero_variance: bool = False,
+    num_iterations: int = 0,
+    temperature: float = -1.0,
+    seed: int = -1,
 ) -> str:
     return _exec_grpo(
         model,
@@ -805,6 +821,9 @@ def run_grpo(
         loss_type=loss_type,
         scale_rewards=scale_rewards,
         filter_zero_variance=filter_zero_variance,
+        num_iterations=num_iterations,
+        temperature=temperature,
+        seed=seed,
     )
 
 
@@ -842,6 +861,9 @@ def run_grpo_a100(
     loss_type: str = "",
     scale_rewards: bool = True,
     filter_zero_variance: bool = True,
+    num_iterations: int = 0,
+    temperature: float = -1.0,
+    seed: int = -1,
 ) -> str:
     return _exec_grpo(
         model,
@@ -871,6 +893,9 @@ def run_grpo_a100(
         loss_type=loss_type,
         scale_rewards=scale_rewards,
         filter_zero_variance=filter_zero_variance,
+        num_iterations=num_iterations,
+        temperature=temperature,
+        seed=seed,
     )
 
 
@@ -909,6 +934,9 @@ def run_grpo_modern(
     loss_type: str = "",
     scale_rewards: bool = True,
     filter_zero_variance: bool = False,
+    num_iterations: int = 0,
+    temperature: float = -1.0,
+    seed: int = -1,
 ) -> str:
     return _exec_grpo(
         model,
@@ -938,6 +966,9 @@ def run_grpo_modern(
         loss_type=loss_type,
         scale_rewards=scale_rewards,
         filter_zero_variance=filter_zero_variance,
+        num_iterations=num_iterations,
+        temperature=temperature,
+        seed=seed,
     )
 
 
@@ -964,6 +995,7 @@ def run_eval(
     stockfish_elo: int = 0,
     manifest_output: str = "",
     seed: int = -1,
+    avoid_repetition: bool = False,
 ) -> None:
     _exec_eval(
         model,
@@ -982,6 +1014,7 @@ def run_eval(
         stockfish_elo=stockfish_elo,
         manifest_output=manifest_output,
         seed=seed,
+        avoid_repetition=avoid_repetition,
     )
 
 
@@ -1009,6 +1042,7 @@ def run_eval_modern(
     stockfish_elo: int = 0,
     manifest_output: str = "",
     seed: int = -1,
+    avoid_repetition: bool = False,
 ) -> None:
     _exec_eval(
         model,
@@ -1027,6 +1061,7 @@ def run_eval_modern(
         stockfish_elo=stockfish_elo,
         manifest_output=manifest_output,
         seed=seed,
+        avoid_repetition=avoid_repetition,
     )
 
 
@@ -1120,6 +1155,68 @@ def run_static_eval_modern(
 
 
 @app.function(
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_pass_at_k(
+    model: str = DEFAULT_V1_MODEL,
+    puzzles: str = "/vol/data/phase2/test_puzzles_900.jsonl",
+    output: str = "pass_at_k_summary.json",
+    raw_output: str = "",
+    num_puzzles: int = 200,
+    k: int = 8,
+    temperature: float = 0.7,
+    top_p: float = 0.95,
+    batch_size: int = 16,
+    seed: int = 42,
+    include_ascii: bool = False,
+    include_piece_list: bool = True,
+    include_legal_moves: bool = False,
+    enable_thinking: bool = True,
+) -> str:
+    _ensure_installed()
+    out_path = output if output.startswith("/") else f"{VOL_MOUNT}/results/{output}"
+    cmd = [
+        "python",
+        "-m",
+        "chessfm.eval.pass_at_k",
+        "--model",
+        model,
+        "--puzzles",
+        puzzles,
+        "--output",
+        out_path,
+        "--num-puzzles",
+        str(num_puzzles),
+        "--k",
+        str(k),
+        "--temperature",
+        str(temperature),
+        "--top-p",
+        str(top_p),
+        "--batch-size",
+        str(batch_size),
+        "--seed",
+        str(seed),
+        "--enable-thinking" if enable_thinking else "--no-enable-thinking",
+    ]
+    if raw_output:
+        raw_path = raw_output if raw_output.startswith("/") else f"{VOL_MOUNT}/results/{raw_output}"
+        cmd.extend(["--raw-output", raw_path])
+    if include_ascii:
+        cmd.append("--include-ascii")
+    if include_piece_list:
+        cmd.append("--include-piece-list")
+    if include_legal_moves:
+        cmd.append("--include-legal-moves")
+    _run(cmd)
+    volume.commit()
+    return out_path
+
+
+@app.function(
     volumes={VOL_MOUNT: volume},
     secrets=_SECRETS,
     timeout=60 * 30,
@@ -1131,6 +1228,7 @@ def run_upload_hf(
     path_in_repo: str = "",
     commit_message: str = "Upload ChessFM artifacts",
     dry_run: bool = False,
+    private: bool = True,
 ) -> str:
     _ensure_installed()
     cmd = [
@@ -1145,6 +1243,8 @@ def run_upload_hf(
         "--commit-message",
         commit_message,
     ]
+    if private:
+        cmd.append("--private")
     if path_in_repo:
         cmd.extend(["--path-in-repo", path_in_repo])
     if dry_run:
@@ -1584,6 +1684,16 @@ def main(
     stockfish_elo: int = 0,
     manifest_output: str = "",
     seed: int = -1,
+    num_iterations: int = 0,
+    checkpoint_every: int = 0,
+    resume: bool = True,
+    temperature: float = -1.0,
+    avoid_repetition: bool = False,
+    private: bool = True,
+    raw_output: str = "",
+    num_puzzles: int = 200,
+    k: int = 8,
+    top_p: float = 0.95,
 ) -> None:
     gpu_tier = gpu.strip().lower()
     if gpu_tier not in {"l4", "a100", "h100"}:
@@ -1706,6 +1816,15 @@ def main(
             grpo_kwargs["epsilon_high"] = epsilon_high
         if loss_type:
             grpo_kwargs["loss_type"] = loss_type
+        if num_iterations > 0:
+            grpo_kwargs["num_iterations"] = num_iterations
+        if checkpoint_every > 0:
+            grpo_kwargs["checkpoint_every"] = checkpoint_every
+        grpo_kwargs["resume"] = resume
+        if temperature >= 0:
+            grpo_kwargs["temperature"] = temperature
+        if seed >= 0:
+            grpo_kwargs["seed"] = seed
         ckpt = grpo_fn.remote(**grpo_kwargs)
         print(f"GRPO Stage {stage} checkpoint saved to Modal volume: {ckpt}")
     elif task == "eval":
@@ -1726,6 +1845,7 @@ def main(
             stockfish_elo=stockfish_elo,
             manifest_output=manifest_output,
             seed=seed,
+            avoid_repetition=avoid_repetition,
         )
         print(
             "Evaluation complete. Download reports with: modal volume get chessfm-artifacts results ./results"
@@ -1750,6 +1870,24 @@ def main(
             coaching_jsonl=coaching_jsonl,
         )
         print(f"Static 4-tier eval manifest saved to Modal volume: {out_path}")
+    elif task == "pass-at-k":
+        out_path = run_pass_at_k.remote(
+            model=resolved_model,
+            puzzles=puzzles or f"{VOL_MOUNT}/data/phase2/test_puzzles_900.jsonl",
+            output=output or output_subdir or "pass_at_k_summary.json",
+            raw_output=raw_output,
+            num_puzzles=num_puzzles,
+            k=k,
+            temperature=temperature if temperature > 0 else 0.7,
+            top_p=top_p,
+            batch_size=batch_size if batch_size > 0 else 16,
+            seed=seed if seed >= 0 else 42,
+            include_ascii=include_ascii,
+            include_piece_list=include_piece_list,
+            include_legal_moves=include_legal_moves,
+            enable_thinking=enable_thinking,
+        )
+        print(f"pass@k evaluation summary saved to Modal volume: {out_path}")
     elif task == "upload-hf":
         if not local_dir or not repo_id:
             raise ValueError("upload-hf requires --local-dir and --repo-id")
@@ -1760,6 +1898,7 @@ def main(
             path_in_repo=path_in_repo,
             commit_message=commit_message,
             dry_run=dry_run,
+            private=private,
         )
         print(f"Hugging Face Hub upload complete: {uploaded}")
     elif task == "distill-teacher":
