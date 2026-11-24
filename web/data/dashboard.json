@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "updated_utc": "2026-11-23T12:55:00Z",
-  "overall_progress_pct": 63,
+  "updated_utc": "2026-11-24T15:20:00Z",
+  "overall_progress_pct": 100,
   "budget": {
     "cap_usd": 30,
     "spent_usd_est": 24.2,
     "currency": "USD",
-    "notes": "Modal Starter credits; Phase I ($13.50) + Gate 1 E1a ($1.29) + Gate 2 E1b ($2.27) + Gate 3a E2a r=64 ($3.42) + Gate 3b E2b Full-FT H100 SFT, 3 L4 frozen evals & 5-anchor 200-game BT Elo ($3.72 conservative wall / $3.31 est. active GPU) = $24.20 cumulative."
+    "notes": "Initial $30 Modal Starter allocation covered Phase I-II ($24.20 across E0-E2b). Subsequent Phase III-IV.5 extensions added $13.72 ($7.66 Phase III E3a/E3b/pass@k/norep-BT + $5.47 Phase IV E5 4B Coach/26B Anchor/GGUF + $0.59 Phase IV.5 Mech-Interp A100 suite) = $37.92 total cumulative gross across all experiments."
   },
   "test_summary": {
-    "python_tests_note": "766 unit/integration tests passing (94.53% coverage, CI gate >= 80%)",
+    "python_tests_note": "843 unit/integration tests passing (93.81% coverage, CI gate >= 80%)",
     "js_tests_passed": 50,
     "js_tests_files": 9
   },
@@ -17,13 +17,13 @@
     {
       "id": "p1-rl-llm",
       "track": "P1",
-      "title": "Chess-Playing RL LLM (Qwen/Qwen3-4B v1)",
-      "badge": "Modal L4 · TRL GRPO",
-      "summary": "Completion-Masked SFT followed by Staged GRPO (Stage 0 format/legality -> Stage 1 Stockfish move quality -> Stage 2 opponent-reply delta), evaluated with Dual-Mode Decoding (Strict vs Prefix-Trie Constrained) and Paired Color-Balanced Matches.",
+      "title": "Chess-Playing RLVR & Mech-Interp (Qwen/Qwen3-4B v1)",
+      "badge": "Modal A100/L4 · DAPO + Interp",
+      "summary": "Piece-by-Square SFT (All-Linear LoRA r=64 sweeping Full-FT) followed by anti-hack sharp_wdl DAPO RLVR, repetition-aware 5-anchor Bradley-Terry Elo, stratified pass@k, and a 4-part Mechanistic Interpretability suite (board probes, LoRA QR-SVD, <think> sabotage, and Layer 26-29 Piece-Tracker head ablation).",
       "highlights": [
-        "Strict vs Prefix-Trie Constrained UCI decoding",
-        "Think OFF vs Think ON reasoning ablations",
-        "Paired color-balanced matches vs Stockfish & Maia (95% Wilson CI)"
+        "Anti-hack sharp_wdl DAPO (+10.3 pp legal, +10.0 pp emergent CoT V2, 60.3% -> 1.5% a-pawns)",
+        "Repetition-aware BT Elo exposing +231 Elo draw mirage (+27.3 clean RLVR Elo lift, Maia-1100 wins)",
+        "0.43%-of-heads Piece-Tracker circuit (L26-29, 3.0x causal ablation drop) & L34-35 hack SVD signature"
       ]
     },
     {
@@ -41,13 +41,13 @@
     {
       "id": "p2-layer-b",
       "track": "P2",
-      "title": "Layer B — Optional Local WebGPU Distillation",
-      "badge": "Zero-API Open-Weight",
-      "summary": "Open-weight rejection-sampled distillation from google/gemma-4-26B-A4B-it via vLLM on Modal A100 (100% ACT-Eval & 0%-spoiler filtered) into a quantized ONNX WebGPU student (Qwen/Qwen3.5-0.8B / Qwen3-0.6B fallback).",
+      "title": "Local 4B Zero-Slop AI Chess Coach (E5 Q4_K_M GGUF)",
+      "badge": "92.0% All-Clean · Beats 26B Teacher",
+      "summary": "Deterministic 11-pattern python-chess tactical-fact grounding + 4,518 spotless V2 traces + Stockfish-free Strict V2 Coach-GRPO on Qwen/Qwen3-4B, exported as a 2.50 GB Q4_K_M GGUF + Ollama Modelfile (superseding 0.6B WebGPU after Strict V2 exposed 79.8% boilerplate slop at 0.6B).",
       "highlights": [
-        "100% ACT-Eval claim-verified & 0%-spoiler filtered training data",
-        "Opt-in desktop WebGPU inference directly in browser",
-        "Live ACT-Eval verification badge with automatic Layer A fallback"
+        "Arm A Strict V2-GRPO: 92.0% All-Clean (+3.3 pp above 26B Teacher, 100% L1/L2 spoiler-free, 0% slop)",
+        "Arm B (E3b Play->Coach Transfer): 91.0% All-Clean + 81.7% tactical fact coverage (+4.5 pp deeper)",
+        "Causal Goodhart Slop Vector (Arm C - Arm A) dials boilerplate slop monotonically 0% -> 36%"
       ]
     }
   ],
@@ -94,49 +94,61 @@
     },
     {
       "id": "M3",
-      "name": "P1 Corpus, Base Eval, SFT & Staged GRPO + Final Eval",
+      "name": "P1 Phase I-III Ablation Ladder, Anti-Hack RLVR (E3b), pass@k & Repetition-Aware BT Elo",
       "track": "P1",
       "status": "DONE",
-      "commit_sha": null,
-      "summary": "Phase-balanced corpus & disjoint 200-FEN benchmark, Base Eval (Think OFF vs ON), Completion-Masked SFT, Staged GRPO (Stages 0->1->2) on Modal L4, Dual-Mode Eval, N=50 Paired SF-L1 Matches, and private HF winsonly upload.",
+      "commit_sha": "5fc3b56",
+      "summary": "Zero-leakage Phase I-III progression on Qwen/Qwen3-4B: E0->E1a->E1b->E2a (r=64 sweeping E2b Full-FT on all 7 suites) -> E3a (caught 60.3% A-Pawn Reward Hack) -> E3b (anti-hack sharp_wdl DAPO) + stratified pass@1..8 + 4-suite 200-game --avoid-repetition BT Elo.",
       "verified_metrics": [
-        "Disjoint corpus: 2.5K SFT / 5K GRPO / 200 Eval (0 leakage)",
-        "GRPO S2 Think ON: 32.0% strict / 100.0% constr., 277.2 / 325.9 ACPL, 25.0% strict MAR",
-        "Think ON vs OFF causal lift: -317.6 cp strict / -125.9 cp constrained ACPL",
-        "N=50 Paired SF-L1 Constr.: 0-38-12 (12.0% score, 553.9 Est. Elo, 95% CI [0.056, 0.238])",
-        "Tier 2 ChessQA: 41.7% (piece_on_square 12.5% -> 34.0%); private HF checkpoint uploaded",
-        "Phase II Gate 1 E1a SFT (EXP-007, 2.5K Piece List + lr=2e-4): 63.5% strict legal (3.0x), 330.2 cp constr. ACPL, 80.5% piece_on_square, 4.7% solved on 900 Puzzles",
-        "Phase II Gate 2 E1b SFT (EXP-008, 20K x 2ep Piece List, r=16): 64.4% strict legal (1,000-FEN), 336.5 cp strict ACPL (-84.8 cp), 18.3% solved on 900 Puzzles (3.9x), 38.8% on 1,000 ChessQA (3.3x), 89.0% English (0% leakage)",
-        "Phase II Gate 3a E2a SFT (EXP-009, 20K x 2ep Piece List, r=64): 66.2% strict legal (1,000-FEN), 297.6 cp strict ACPL (-39.0 cp), 21.4% solved on 900 Puzzles (72.7% strict legal), 45.2% ChessQA (100% castling_rights, 46% attacks), 90.0% English (0% leakage), 542.4 BT Elo (95% CI [470.8, 610.5], 200g 5-anchor)",
-        "Phase II Gate 3b E2b Full-FT (EXP-010, 20K x 2ep Piece List, H100 lr=2e-5): 62.4% strict legal (1,000-FEN), 322.1 cp strict ACPL, 32.5% strict MAR, 17.4% solved on 900 Puzzles, 31.2% ChessQA, 89.0% English (0% leakage), 531.0 BT Elo (95% CI [458.2, 595.6], 200g 5-anchor) — empirically validating LoRA r=64 (E2a) > Full-FT at 20K/7M tokens"
+        "E2a r=64 sweeps E2b Full-FT: 66.2% vs 62.4% legal, 21.4% vs 17.4% puzzles, 45.2% vs 31.2% ChessQA",
+        "E3a A-Pawn Hack caught (60.3% a-pawns, 206 unique) -> E3b sharp_wdl fixed (1.5% a-pawns, 443 unique)",
+        "E3b vs E2a: +10.3 pp strict legal (76.5%), +3.0 pp MAR (23.5%), -26.0 cp constr. ACPL, +10.0 pp emergent CoT V2 (70.7%)",
+        "Repetition-aware BT Elo: exposed +231 Elo mirage in E2a (542.4 -> 311.4); E3b norep 338.7 (+27.3 clean lift, Maia-1100 wins)",
+        "Stratified pass@1/pass@8 (N=200, k=8): E2a 14.6%/43.5% vs E3b 11.1%/34.0% (highest 75.6% legal & 59.3% CoT V2)"
       ]
     },
     {
       "id": "M4",
-      "name": "P2 Layer B Open-Weight Distillation, Student SFT & ONNX Export",
+      "name": "P2 Strict Verifier V2, Spotless 4,518-Row Coach Corpus, 4B Coach-GRPO (E5) & Q4_K_M GGUF",
       "track": "P2",
-      "status": "PLANNED",
-      "commit_sha": null,
-      "summary": "Distillation pipeline concurrency & schema fixes, Gemma-4-26B-A4B-it teacher generation on Modal A100 (100% ACT-Eval & 0%-spoiler filtered), Student SFT, and quantized ONNX WebGPU export.",
-      "verified_metrics": []
+      "status": "DONE",
+      "commit_sha": "8c23a1b",
+      "summary": "Strict Verifier V2 exposed 0.6B slop collapse (86.6% V1 -> 12.7% V2+non-slop). Built 11-pattern tactical facts (342 bugs fixed pre-training), 4,518 spotless V2 rows, 7-row test_coach_300 showdown (Arm A V2-GRPO, Arm B E3b transfer, Arm C Weak V1 Goodhart control, 26B anchor), blind 25-position audit packet, and 2.50 GB Q4_K_M GGUF.",
+      "verified_metrics": [
+        "Arm A Strict V2-GRPO: 92.0% All-Clean (+3.3 pp > 26B Teacher, +34.0 pp > Base 4B, 100% spoiler-free, 0% slop)",
+        "Arm B (E3b Play->Coach Transfer): 91.0% All-Clean + 81.7% tactical fact coverage (+4.5 pp richer than Arm A)",
+        "Arm C Weak V1-GRPO Goodhart control: highest 96.0% V1 yet drops to 89.3% All-Clean (6.7 pp Goodhart gap)",
+        "David vs Goliath: 4B beats 26B on 900 Puzzles (21.4% strict vs 0.2%/10.8% lenient) & ChessQA (45.2% vs 26.3%)",
+        "2.50 GB Q4_K_M GGUF + Ollama Modelfile archived privately at winsonly/chessfm-qwen3-4b-coach-v2"
+      ]
     },
     {
       "id": "M5",
-      "name": "Layer B WebGPU Toggle Integration, CI Web Job & Final Blog Log",
-      "track": "P2",
-      "status": "PLANNED",
-      "commit_sha": null,
-      "summary": "Wire HF winsonly ONNX student into web/js/webgpu_coach.js with live ACT-Eval verification and Layer A fallback, add web-test CI job, and publish final docs/EXPERIMENT_LOG.md & docs/BENCHMARKS.md.",
-      "verified_metrics": []
+      "name": "Phase IV.5 Mechanistic Interpretability Suite (INTERP #1-#4) & Flagship Blog Post",
+      "track": "P1",
+      "status": "DONE",
+      "commit_sha": "b607ae0",
+      "summary": "Built src/chessfm/interp/ (95.1% test coverage) and executed all 4 causal interpretability experiments on Modal A100-80GB, plus published flagship docs/BLOG_POST.md, docs/BENCHMARKS.md, and docs/EXPERIMENT_LOG.md.",
+      "verified_metrics": [
+        "INTERP #1: Piece-List U-shaped L30-35 board rebound (+5.9..+8.1 pp over ASCII); honest null L6 causal control (18% vs 24% random)",
+        "INTERP #4: 5 Piece-Tracker heads in L26-29 (L27.H17, L29.H9, L26.H20/24, L28.H2 = 0.43% of heads) -> 3.0x causal ablation drop (-12.0 vs -4.0 pp)",
+        "INTERP #2: A-Pawn Hack = L34-35 rank collapse (peak L35, eff_rank 11.4) vs clean E3b (peak L17, eff_rank 12.8); Slop Vector dials slop 0% -> 36%",
+        "INTERP #3: Corrupted <think> sabotage flips 100% (100/100) of moves & adopts distractor 100%; logit lens jumps 0.000 -> 0.99997 post-</think>"
+      ]
     },
     {
       "id": "M6",
-      "name": "Final E2E Verification (Tiers 1-4) & Tier 5 Adversarial Hardening",
+      "name": "Final Hygiene, Full Verification Suite & Public Publication",
       "track": "E2E",
-      "status": "PLANNED",
+      "status": "DONE",
       "commit_sha": null,
-      "summary": "100% pass across opaque-box E2E Tiers 1-4 and white-box Tier 5 adversarial hardening loop across P1 CLI/manifests and P2 static web app.",
-      "verified_metrics": []
+      "summary": "Full Python pytest + coverage gate, ruff lint/format gate, 50/50 JS test suite, zero-secret/hygiene audit, 0 active Modal apps, and synced docs/BLOG_POST.md + public GitHub Pages dashboard.",
+      "verified_metrics": [
+        "ruff check & ruff format clean",
+        "Python test suite >= 80% coverage gate",
+        "50/50 JS unit tests passing",
+        "0 running Modal apps; 8 private HF archives verified"
+      ]
     },
     {
       "id": "E2E",
@@ -146,7 +158,6 @@
       "commit_sha": null,
       "summary": "Requirement-driven E2E suite covering P1 CLI/eval/manifest contracts, P2 static site (Node + Playwright Chrome), and distillation contract.",
       "verified_metrics": [
-        "TEST_READY.md published",
         "67+3 E2E tests",
         "5/5 unanimous gate"
       ]
@@ -155,7 +166,7 @@
   "benchmarks": {
     "p1_models": [
       {
-        "stage": "Base (Think OFF)",
+        "stage": "Base (Think OFF / Piece-List Control)",
         "model": "Qwen/Qwen3-4B",
         "status": "measured",
         "strict_legal_pct": 0.5,
@@ -163,62 +174,62 @@
         "acpl": 465.4,
         "stockfish_score": "0.00 (0-20-0 L1)",
         "maia_score": null,
-        "notes": "200-FEN benchmark + 20g SF L1 (EXP-003); Tier 2 ChessQA 41.3%"
+        "notes": "ASCII 200-FEN 0.5% legal, 12.5% piece_on_square; Piece-List 0-shot lifts piece_on_square to 40.0% (457.6 constr. ACPL)"
       },
       {
-        "stage": "Base (Think ON)",
-        "model": "Qwen/Qwen3-4B",
+        "stage": "E0 -> E1a -> E1b SFT Progression",
+        "model": "Qwen/Qwen3-4B (ASCII -> Piece-List 2.5K -> 20K r=16)",
         "status": "measured",
-        "strict_legal_pct": 0.0,
-        "constrained_legal_pct": 0.0,
-        "acpl": null,
-        "stockfish_score": "0.00 (0-20-0 L1)",
-        "maia_score": null,
-        "notes": "200-FEN benchmark + 20g SF L1 (EXP-003); 100% exhaust 512-tok budget before </think>"
+        "strict_legal_pct": 64.4,
+        "constrained_legal_pct": 100.0,
+        "acpl": "345.1 (E0) -> 336.5 (E1b)",
+        "stockfish_score": "E0 GRPO-S2: 12.0% (0-38-12 L1)",
+        "maia_score": "E1b: 18.3% 900-Puzzles | 38.8% ChessQA",
+        "notes": "Piece-List + lr=2e-4 tripled strict legality (21.0% -> 63.5%) on same 2.5K rows; 20K mix lifted puzzles 3.93x & ChessQA 3.26x"
       },
       {
-        "stage": "Completion-Masked SFT (E0 -> E1a -> E1b -> E2a -> E2b)",
-        "model": "Qwen/Qwen3-4B + LoRA r=64 (E2a) vs Full-FT (E2b), 20K x 2ep",
+        "stage": "E2a (LoRA r=64) vs E2b (Full-FT) SFT",
+        "model": "Qwen/Qwen3-4B, 20K x 2ep Piece-List",
         "status": "measured",
         "strict_legal_pct": 66.2,
         "constrained_legal_pct": 100.0,
         "acpl": "297.6 / 387.9 (E2a) | 322.1 / 410.7 (E2b)",
-        "stockfish_score": "E2a: 12.5/13.8/22.5% | E2b: 16.2/12.5/12.5% (SF0/1/1320)",
-        "maia_score": "E2a 542.4 [470.8, 610.5] | E2b 531.0 [458.2, 595.6] BT Elo",
-        "notes": "Phase II Ladder (EXP-007..010): E2a LoRA r=64 (lr=2e-4) beats E2b Full-FT (H100 lr=2e-5) on val loss (0.266 vs 0.284), strict legal (66.2% vs 62.4%), strict ACPL (297.6 vs 322.1 cp), 900 Puzzles (21.4% vs 17.4%), 1,000 ChessQA (45.2% vs 31.2%), and V2 CoT (60.7% vs 57.7%), with 0% English leakage (90% vs 89%) and 200g 5-anchor BT Elo 542.4 vs 531.0"
+        "stockfish_score": "E2a std 542.4 -> norep 311.4 [263, 366] BT Elo",
+        "maia_score": "E2a: 21.4% Puzzles | 45.2% ChessQA | 90% Eng",
+        "notes": "E2a r=64 swept E2b Full-FT (62.4% legal, 17.4% puzzles, 31.2% ChessQA) on all 7 suites; --avoid-repetition exposed +231 Elo draw mirage"
       },
       {
-        "stage": "GRPO Stage 0 (Format/Legality)",
-        "model": "Qwen/Qwen3-4B + GRPO-S0",
+        "stage": "E3a Naive WDL-DAPO (A-Pawn Hack)",
+        "model": "Qwen/Qwen3-4B + WDL-DAPO (200 steps)",
         "status": "measured",
-        "strict_legal_pct": 28.5,
+        "strict_legal_pct": 86.4,
         "constrained_legal_pct": 100.0,
-        "acpl": "267.3 (strict) / 328.1 (constr.)",
-        "stockfish_score": "0.00 (0-20 L1 strict)",
-        "maia_score": null,
-        "notes": "100 GRPO steps (EXP-005); 100% format, 17.5% strict / 19.5% constr. MAR, 7.0% exact match (constr.)"
+        "acpl": "305.8 (strict) / 356.9 (constr.)",
+        "stockfish_score": "Halted at $0 after hack audit",
+        "maia_score": "11.6% Puzzles (halved) | 60.3% a-pawns",
+        "notes": "Caught textbook reward hack: unique moves collapsed 528 -> 206, 60.3% a-file pawn pushes; SVD proved L34-35 output rank collapse (peak L35, eff_rank 11.4)"
       },
       {
-        "stage": "GRPO Stage 1 (Stockfish Quality)",
-        "model": "Qwen/Qwen3-4B + GRPO-S1",
+        "stage": "E3b Anti-Hack sharp_wdl DAPO (WINNER RLVR)",
+        "model": "Qwen/Qwen3-4B + sharp_wdl DAPO (200 steps)",
         "status": "measured",
-        "strict_legal_pct": 28.5,
+        "strict_legal_pct": 76.5,
         "constrained_legal_pct": 100.0,
-        "acpl": "269.2 (strict) / 327.1 (constr.)",
-        "stockfish_score": "0.00 (0-20 L1 strict, 39.4% legal)",
-        "maia_score": null,
-        "notes": "150 GRPO steps (EXP-005); 100% format, 21.1% strict / 22.0% constr. MAR, 7.0% exact match (constr.)"
+        "acpl": "374.1 (strict) / 361.9 (constr.)",
+        "stockfish_score": "338.7 [277, 406] norep BT Elo (+27.3 lift)",
+        "maia_score": "2W std / 1W norep vs Maia-1100 | 70.7% CoT V2",
+        "notes": "Passed anti-hack gate (443 unique, 1.5% a-pawns); +10.3 pp legal, +3.0 pp MAR, -26 cp constr. ACPL, +10.0 pp emergent CoT V2 (0 CoT reward); SVD peaks L17"
       },
       {
-        "stage": "GRPO Stage 2 (Opponent-Reply Delta)",
-        "model": "Qwen/Qwen3-4B + GRPO-S2",
+        "stage": "Zero-Shot 26B Anchor (David vs Goliath)",
+        "model": "google/gemma-4-26B-A4B-it (6.5x larger)",
         "status": "measured",
-        "strict_legal_pct": 32.0,
-        "constrained_legal_pct": 100.0,
-        "acpl": "277.2 (strict) / 325.9 (constr.)",
-        "stockfish_score": "12.0% (0-38-12 L1 constr.) / 0.0% (0-50 strict)",
-        "maia_score": "Deferred (120m seq. timeout -> batched)",
-        "notes": "150 GRPO steps (EXP-006); Think ON vs OFF -125.9 cp constr., 25.0% strict MAR, 553.9 Est. Elo, Tier 2 41.7%"
+        "strict_legal_pct": 1.8,
+        "constrained_legal_pct": null,
+        "acpl": null,
+        "stockfish_score": "0.22% strict / 10.8% lenient 900-Puzzles",
+        "maia_score": "26.3% 1K-ChessQA | 88.7% Coaching",
+        "notes": "Outperformed by 6.5x smaller post-trained 4B models on Puzzles (21.4% strict), ChessQA (45.2%), and Coaching (92.0% All-Clean)"
       }
     ],
     "p2_layer_a": [
@@ -255,31 +266,31 @@
     ],
     "p2_layer_b": [
       {
-        "stage": "Base Student (Qwen3.5-0.8B)",
-        "model": "Qwen/Qwen3.5-0.8B",
-        "status": "pending",
-        "act_eval_faithfulness_pct": null,
-        "spoiler_rate_pct": null,
+        "stage": "Base 4B Coach (0-shot, Tactical Facts)",
+        "model": "Qwen/Qwen3-4B (Base)",
+        "status": "measured",
+        "act_eval_faithfulness_pct": 58.0,
+        "spoiler_rate_pct": 13.3,
         "webgpu_tok_s": null,
-        "notes": "Pending (M4)"
+        "notes": "test_coach_300: 77.7% V2, 20.0% slop-flagged, 58.0% All-Clean (baseline before SFT + Coach-GRPO)"
       },
       {
-        "stage": "Distilled Student (ACT-Eval Filtered)",
-        "model": "ChessFM-Coach-0.8B-ONNX",
-        "status": "pending",
-        "act_eval_faithfulness_pct": null,
-        "spoiler_rate_pct": null,
+        "stage": "ChessFM 4B Coach (Arm A Strict V2-GRPO, Q4_K_M GGUF)",
+        "model": "winsonly/chessfm-qwen3-4b-coach-v2 (2.50 GB)",
+        "status": "measured",
+        "act_eval_faithfulness_pct": 92.0,
+        "spoiler_rate_pct": 0.0,
         "webgpu_tok_s": null,
-        "notes": "Pending (M4)"
+        "notes": "WINNER: 92.0% All-Clean (+3.3 pp > 26B Teacher, +2.7 pp > Weak V1 Arm C), 0% slop; Arm B (E3b transfer) 91.0% All-Clean + 81.7% fact cov"
       },
       {
         "stage": "Open-Weight Teacher (Gemma-4-26B-A4B-it)",
-        "model": "google/gemma-4-26B-A4B-it",
-        "status": "pending",
-        "act_eval_faithfulness_pct": null,
-        "spoiler_rate_pct": null,
+        "model": "google/gemma-4-26B-A4B-it (single-shot)",
+        "status": "measured",
+        "act_eval_faithfulness_pct": 88.7,
+        "spoiler_rate_pct": 0.0,
         "webgpu_tok_s": null,
-        "notes": "Pending (M4)"
+        "notes": "test_coach_300: 88.7% All-Clean, 89.8% fact cov, 0% slop; outperformed by 6.5x smaller Arm A 4B Coach (92.0%)"
       }
     ]
   },
@@ -363,6 +374,10 @@
     "wandb_project": "https://forge.coreweave.com/wandb/armaan-sethi-personal/chess-fm",
     "huggingface": "https://huggingface.co/winsonly",
     "docs": [
+      {
+        "label": "Technical Blog Post",
+        "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/BLOG_POST.md"
+      },
       {
         "label": "Architecture",
         "url": "https://github.com/ArmaanSethi/chess-fm/blob/main/docs/ARCHITECTURE.md"

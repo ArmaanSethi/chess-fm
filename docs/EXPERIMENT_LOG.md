@@ -544,6 +544,70 @@ Computed via `chessfm.eval.bradley_terry.estimate_bradley_terry_elo(n_bootstrap=
 
 - **Phase I + Phase II Cumulative Modal Spend (`E0 -> E1a -> E1b -> E2a -> E2b`):** **`$24.20`** conservative wall-clock (`$23.37` est. active GPU).
 
+---
+
+### EXP-011a — Phase III (`E3a`): Naive WDL-DAPO & Live Discovery of the "A-Pawn Reward Hack"
+- **Date:** 2026-11-24 | **Commit:** `48efb2f`
+- **Setup:** DAPO-style GRPO (`G=8`, `num_iterations=2`, `ε_low=0.20`, `ε_high=0.28`, `β=0.04`, All-Linear LoRA `r=32`, `lr=1.5e-5`, 200 steps on A100-80GB) initialized from `E2a` (`r=64` merged) on `rl_positions_40k.txt` with `reward_mode="wdl_loss"`.
+- **W&B Runs:** `wttum19y` (steps 0–100), `8jp3zto0` (resumed steps 100–200).
+- **Finding (Reward Hacking Caught by Output Inspection):** On headline aggregate metrics, `E3a` appeared to surge (`strict legal 66.2% → 86.4%`, `constr. ACPL 387.90 → 356.87 cp`, `mean WDL loss 19.04% → 16.42%`, `CoT V2 60.66% → 82.43%`). Direct move-distribution audit (`results/phase2/e3b/move_diversity_audit.json`) exposed a textbook reward hack:
+  - Unique predicted moves collapsed **`528 → 206`**.
+  - Strict `a`-file pawn pushes (`^a[2-7]a[2-7]$`) exploded **`1.2% (12) → 60.3% (603/1,000)`** (`61.2%` a-file vertical moves; `a2a3` alone `18.7%`).
+  - Exact best-move rate halved **`8.1% → 4.0%`** and 900-Puzzle solve rate crashed **`21.44% → 11.56%`** (`104/900`).
+- **Root Cause:** Under naive `wdl_loss`, any legal quiet edge-pawn push receives `+1.1` to `+2.1` reward (`+1.0` legality + linear WDL retention), whereas attempting an aggressive tactical capture that risks an illegal coordinate receives `-1.0`. On quiet positions, pushing the `a`-pawn is almost always legal and rarely loses >15% WDL, creating a massive risk-reward cliff. Redundant BT match evals were halted immediately at `$0`.
+
+---
+
+### EXP-011b — Phase III (`E3b`): Anti-Hack `sharp_wdl` DAPO, Stratified `pass@k`, and Repetition-Aware BT Elo
+- **Date:** 2026-11-24 | **Commit:** `5fc3b56` | **W&B:** `ev86punb`
+- **Private HF Archive (`private=True`, Model Card + 13 manifests):** `https://huggingface.co/winsonly/chessfm-qwen3-4b-e3b-sharp-dapo`
+- **Mathematical Fix (`sharp_wdl` in `src/chessfm/rl/rewards.py`) + Sharp Data (`rl_sharp_tactical.txt`):**
+  - Replaced linear WDL + flat `+1.0` legality cliff with quadratic sharp WDL (`_SHARP_WDL_ILLEGAL_REWARD = -0.5`, threshold `0.15`, exact/near-best `≤15 cp` bonus `+0.5`, format `+0.1`) so passive edge-pawn pushes on sharp tactical positions score near `0.0` instead of `+1.8`.
+  - Filtered `20,000` sharp tactical RL positions with `0.00%` normalized-FEN overlap against all frozen test sets (`rl_sharp_tactical_leakage_audit.json`).
+- **Verified Results (`E3b` vs `E2a` / `E3a`):**
+  - **Anti-Hack Gate PASSED:** `unique_moves = 443`, `top1 = 3.7%` (`h2h3`), strict `a`-file pawn pushes collapsed **`60.3% → 1.5%`** (`15/1,000`).
+  - **Static `test_fens_1000`:** Strict Legal **`66.2% → 76.5%` (`+10.3 pp`)**, Strict MAR (`≤50 cp` all) **`20.5% → 23.5%`** (new best), Exact Best restored **`8.0%`**, Constrained ACPL **`387.90 → 361.94 cp` (`-25.96 cp`)**, Constrained MAR **`30.2% → 31.5%`**.
+  - **Emergent CoT Faithfulness (ZERO CoT Reward):** Strict CoT V2 claim accuracy jumped **`60.66% → 70.68%` (`+10.02 pp`)** and zero-violation rate jumped **`19.8% → 33.8%` (`+14.0 pp`)** solely from outcome-only `sharp_wdl` RLVR.
+  - **Frozen Suites:** 900 Puzzles `16.56%` (`78.33%` strict legal, `62.39%` puzzle CoT V2), 1,000 ChessQA `44.6%`, 100 English `89.0%` (`0.0%` leakage).
+  - **Stratified `pass@1..pass@8` (`N=200`, `k=8`, `T=0.7`, `results/phase2/e3b/pass_at_k_e2a_vs_e3a_vs_e3b.json`):** `E2a` `14.56% / 43.50%` (legal `68.56%`, CoT V2 `52.25%`) vs `E3a` `8.06% / 36.00%` vs `E3b` `11.13% / 34.00%` (highest legal `75.62%`, CoT V2 `59.32%`), empirically confirming Yue et al. (NeurIPS 2025) that RLVR sharpens reliability and legality while narrowing high-`k` exploration.
+  - **4-Suite 200-Game Repetition-Aware BT Elo (`repetition_autopsy.json`):** Adding `--avoid-repetition` exposed **`+230.92 Elo` of artificial 3-fold draw inflation** in `E2a` (`542.35 → 311.43 [263.14, 365.87]`), while `E3b` achieved **`406.07` std** (5 wins incl. **2 wins vs Maia-1100**) and **`338.74 [277.01, 406.07]` norep** (**`+27.31` clean de-biased RLVR Elo lift** over `E2a norep`, incl. **1 win vs Maia-1100**).
+- **Phase III Modal Spend (`E3a` + `E3b` + `pass@k` + 400g BT matches):** `+$7.66` gross (`$31.86` cumulative).
+
+---
+
+### EXP-012 — Phase IV (`E5`): Zero-Slop `4B` AI Chess Coach, Controlled Play→Coach Transfer, Live Goodhart Showdown, and `26B` Anchor
+- **Date:** 2026-11-24 | **Commits:** `a42fed4`..`8c23a1b`
+- **Private HF Archive (`private=True`, 17 files incl. `2.50 GB` `Q4_K_M` GGUF + Ollama `Modelfile` + Model Card):** `https://huggingface.co/winsonly/chessfm-qwen3-4b-coach-v2`
+- **Data Engineering (`4,518` Spotless V2 Rows, `coach_data_audit.json`):**
+  - Built deterministic 11-pattern `python-chess` tactical-fact extractor (`src/chessfm/coach/tactical_facts.py`), audited and fixed 342 pre-training edge-case bugs (`70906a2`: `_detect_trapped_piece` under check/pin, `"O-O"` matching inside `"O-O-O"`).
+  - Verified **`100.0%` Strict V2 pass, `0.0%` L1/L2 spoilers, `0` slop flags, `0.00%` overlap** across all 5 frozen test sets.
+- **Controlled 7-Row `test_coach_300` Showdown (`e5_coach_comparison_summary.json`):**
+  - **Base `Qwen3-4B`:** `58.00%` All-Clean (`77.67%` V2, `86.67%` L1/L2 spoiler-free, `20.0%` slop).
+  - **`Gemma-4-26B` Teacher (single-shot):** `88.67%` All-Clean (`100.0%` spoiler-free, `89.78%` fact coverage).
+  - **`Arm A` SFT (`Base → SFT`):** `88.67%` All-Clean (`100.0%` spoiler-free, `79.56%` fact cov).
+  - **`Arm B` SFT (`E3b → SFT`):** `88.33%` All-Clean (`98.33%` spoiler-free, `79.25%` fact cov).
+  - **`Arm C` Weak `V1-GRPO` (`jmmbro8m`, Goodhart control):** Highest weak V1 (**`96.00%`**) yet drops to **`89.33%` All-Clean** (`6.67 pp` V1−V2 Goodhart gap, lowest `76.44%` fact cov; step-by-step curves in `goodhart_arm_a_vs_arm_c_curves.json`).
+  - **`Arm A` Strict `V2-GRPO` (`9mmapmp2`, WINNER):** **`92.00%` All-Clean (`+3.33 pp` above `26B` Teacher, `+34.0 pp` above Base `4B`, `100.0%` spoiler-free, `0.0%` slop)** — passed GGUF export gate and exported to `Q4_K_M` (`2.50 GB`) + Ollama `Modelfile`.
+  - **`Arm B` Strict `V2-GRPO` (`E3b` Transfer):** **`91.00%` All-Clean (`+2.33 pp` above `26B` Teacher)** + **`81.67%` Tactical Fact Coverage (`+4.53 pp` richer than `Arm A`)**, demonstrating that Chess-RL initialization enabled Coach-GRPO to improve BOTH factual precision (`88.3% → 91.0%`) and tactical depth (`79.3% → 81.7%`) simultaneously.
+- **Piece #3 (`Gemma-4-26B` Zero-Shot Anchor, `gemma26b_puzzles_chessqa.json`):** `0.22%` strict / `10.78%` lenient on `test_puzzles_900` and `26.30%` on `test_chessqa_1000` — outperformed by `6.5×` smaller `4B` models (`E2a`: `21.44%` strict puzzles, `45.20%` ChessQA).
+- **Blind Human Audit Packet:** Generated anonymized 25-position packet `results/phase2/e5/blind_audit_25.md` + `blind_audit_25_key.json`.
+- **Phase IV Modal Spend (P4A `26B` vLLM batch + P4B 2× SFT + 3× Coach-GRPO + 13 evals + CPU GGUF):** `+$5.47` gross (`~$37.33` cumulative).
+
+---
+
+### EXP-013 — Phase IV.5 (`P4C-INTERP`): Mechanistic Interpretability Suite (`INTERP #1`–`#4`, A100-80GB)
+- **Date:** 2026-11-24 | **Commit:** `b607ae0`
+- **Modal Apps:** `ap-h9kQcUa4PfudxnSUyoT6NM` (INTERP #1 + #2, ~12m A100-80GB, `~$0.50`), `ap-6Rl1vwcYS9PMuMgplYkim9` (`--resume` INTERP #3 + #4, `130.29s` A100-80GB, `$0.0905`).
+- **Artifacts (`results/interp/`):** `interp1_board_probes_and_steering.json`, `interp2_lora_svd_and_slop_steering.json`, `interp3_logit_lens_and_cot_sabotage.json`, `interp4_attention_circuits_and_ablation.json`, `interp_suite_manifest.json`.
+- **Unified Causal Circuit Discovery:**
+  1. **INTERP #1 (Linear Board-State Probes + Null Layer-6 Steering Control):** Probing 64 squares × 13 piece classes across layers `[0, 6, 12, 18, 24, 30, 35]` (`800` train / `200` held-out FENs, centered global-RMS linear probe) revealed that ASCII checkpoints (`Base_ASCII`, `E0_ASCII`) decay monotonically (`71.34% → 60.91%` at L35), whereas Piece-List checkpoints (`E1a`, `E2a`, `E3b`) exhibit a **U-shaped late-layer recovery** at Layers 30–35 (`+5.6` to `+8.1 pp` above Base ASCII at L35). Causal Board Surgery at Layer 6 produced a null excess over norm-matched orthogonal random control (`18.0%` vs `24.0%` random move flips), demonstrating that the final prompt token at Layer 6 is not a closed bottleneck because Piece-List tokens remain in the KV cache for later layers to re-attend to.
+  2. **INTERP #4 (Piece-Tracker Attention Circuit + Causal Zero-Ablation):** Span-based BPE attention-head selectivity ranking across `60` solved puzzles (`1,152` heads) found all Top-5 Piece-Tracker heads tightly clustered in **Layers 26–29** (`L27.H17`, `L29.H9`, `L26.H20`, `L26.H24`, `L28.H2`)—immediately preceding INTERP #1's Layer 30–35 board-state rebound. Zero-ablating just those 5 heads (`0.43%` of attention heads) caused a **`3.0×` larger solve-rate drop (`-12.00 pp`)** than zero-ablating 5 layer-matched random heads from the same Layers 26–29 (`-4.00 pp`; `+8.00 pp` causal excess drop).
+  3. **INTERP #2 (Exact QR-SVD LoRA Weight-Diffing + Goodhart "Slop Vector" Steering):** Exact QR-SVD across all 252 LoRA modules revealed that all 4 RL runs place `71–72%` of update energy in MLPs vs `28–29%` in Attention. Crucially, the A-Pawn Reward Hack (`E3a`) concentrated its largest diffs in the **final two output layers (`L34–L35`, peak `L35`)** and collapsed effective rank (`12.83 → 11.41`, `40.66%` energy in singular vector 1), whereas Anti-Hack `sharp_wdl` (`E3b`) peaked in mid-network planning (**`Layer 17`**) and boosted updates at **`Layer 29`** (the Piece-Tracker layer). On Coaching, injecting `mean(h_ArmC) - mean(h_ArmA)` into `Arm A` across `α ∈ [-2, -1, 0, +1, +2]` monotonically increased boilerplate slop (`0.0% → 20.0% → 26.0% → 22.0% → 36.0%`), widened `V1 − V2` (`2 pp → 6 pp`), and reduced distinct-4gram diversity (`0.873 → 0.857`).
+  4. **INTERP #3 (Logit Lens + Causal `<think>` Sabotage):** On `N=100` solved `E3b` puzzles, injecting a corrupted `<think>` prefill flipped the model's move **`100.0%` (`100/100`)** and caused **`100.0%` adoption of the injected distractor**, proving `<think>` is 100% causally load-bearing. Logit lens showed `P(target_move)` rising from `0.000` inside `<think>` to `0.99997` (`100%` top-1) immediately post-`</think>`.
+- **Phase IV.5 Modal Spend:** `+$0.59` gross (**`~$37.92` total cumulative gross across the entire project**).
+
+
+
 
 
 
