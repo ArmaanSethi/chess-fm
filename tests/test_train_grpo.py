@@ -330,6 +330,9 @@ def test_parse_args_and_build_grpo_config_num_iterations(tmp_path):
     with pytest.raises(ValueError, match="num_iterations must be >= 1"):
         build_grpo_config(invalid)
 
+    sharp = parse_args(["--reward-mode", "sharp_wdl"])
+    assert sharp.reward_mode == "sharp_wdl"
+
 
 if __name__ == "__main__":
     unittest.main()

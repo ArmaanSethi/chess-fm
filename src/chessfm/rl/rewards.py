@@ -60,6 +60,14 @@ _MAX_QUALITY_LOSS = 200.0
 _LICHESS_CP_COEFF = 0.00368208
 _WDL_QUALITY_WEIGHT = 2.0
 
+# Anti-hack sharp WDL reward constants (eliminates passive edge-pawn reward hacking).
+_SHARP_WDL_ILLEGAL_REWARD = -0.5
+_SHARP_WDL_THRESHOLD = 0.15
+_SHARP_WDL_QUALITY_WEIGHT = 1.5
+_SHARP_WDL_EXACT_BONUS = 0.5
+_SHARP_WDL_NEAR_BEST_CP = 15.0
+_SHARP_WDL_FORMAT_BONUS = 0.1
+
 _CACHE_ENGINE_ERRORS = (chess.engine.EngineError, OSError)
 
 
@@ -553,17 +561,80 @@ def combined_reward(
       caller's job (see ``train_grpo.make_reward_func``) to treat that as
       neutral-and-counted rather than as a bad move.
     """
-    if reward_mode not in ("legacy", "wdl_loss"):
+    if reward_mode not in ("legacy", "wdl_loss", "sharp_wdl"):
         raise ValueError(
-            f"Unsupported reward_mode {reward_mode!r}; expected 'legacy' or 'wdl_loss'."
+            f"Unsupported reward_mode {reward_mode!r}; expected 'legacy', 'wdl_loss', or 'sharp_wdl'."
         )
+    is_sharp_wdl = reward_mode == "sharp_wdl"
     is_wdl = (stage in (3, "wdl", "wdl_loss")) or (reward_mode == "wdl_loss")
-    if not is_wdl and stage not in (0, 1, 2):
+    if not is_wdl and not is_sharp_wdl and stage not in (0, 1, 2):
         raise ValueError(f"Unsupported stage {stage!r}; expected 0, 1, 2, 3, 'wdl', or 'wdl_loss'.")
 
     components: dict[str, float] = {}
 
     r_legal = reward_legality(fen, move_uci)
+    if is_sharp_wdl:
+        if r_legal < 0:
+            components["legality"] = _SHARP_WDL_ILLEGAL_REWARD
+            return {"total": _SHARP_WDL_ILLEGAL_REWARD, "components": components, "legal": False}
+        if engine is None:
+            raise ValueError(
+                f"Stage {stage} (reward_mode={reward_mode!r}) reward requires a Stockfish engine, "
+                "but engine=None. This is a configuration error, not a runnable state."
+            )
+        board = chess.Board(fen)
+        mover = board.turn
+        if cache is not None:
+            best_before, best_mv = cache.get_best(
+                engine, board, move_quality_depth, for_color=mover
+            )
+            if best_before is None:
+                raise EngineAnalysisError(f"analysis failed for {fen} -> {move_uci}")
+            eval_after = cache.get_after_move_cp(
+                engine, board, move_uci, move_quality_depth, for_color=mover
+            )
+        else:
+            try:
+                info_before = engine.analyse(board, chess.engine.Limit(depth=move_quality_depth))
+            except _CACHE_ENGINE_ERRORS as exc:
+                raise EngineAnalysisError(f"analysis failed for {fen} -> {move_uci}") from exc
+            white_cp = _white_cp_from_info(info_before)
+            if white_cp is None:
+                raise EngineAnalysisError(f"analysis failed for {fen} -> {move_uci}")
+            best_before = white_cp if mover == chess.WHITE else -white_cp
+            pv = info_before.get("pv") if isinstance(info_before, dict) else None
+            best_mv = pv[0].uci() if pv else None
+            after_board = board.copy()
+            after_board.push(chess.Move.from_uci(move_uci))
+            eval_after = best_cp(engine, after_board, move_quality_depth, for_color=mover)
+        if eval_after is None:
+            raise EngineAnalysisError(f"analysis failed for {fen} -> {move_uci}")
+
+        wdl_loss = max(0.0, cp_to_expected_score(best_before) - cp_to_expected_score(eval_after))
+        r_sharp_quality = (
+            _SHARP_WDL_QUALITY_WEIGHT * max(0.0, 1.0 - (wdl_loss / _SHARP_WDL_THRESHOLD)) ** 2
+        )
+        cp_loss = max(0.0, best_before - eval_after)
+        is_near_best = (cp_loss <= _SHARP_WDL_NEAR_BEST_CP) or (
+            best_mv is not None and move_uci.strip().lower() == best_mv.strip().lower()
+        )
+        r_exact = _SHARP_WDL_EXACT_BONUS if is_near_best else 0.0
+        r_format = _SHARP_WDL_FORMAT_BONUS if reward_format(output) > 0 else 0.0
+        r_budget = reward_budget(output)
+
+        components["legality"] = 0.0
+        components["format"] = r_format
+        components["sharp_wdl_quality"] = r_sharp_quality
+        components["exact_bonus"] = r_exact
+        if r_budget:
+            components["budget"] = r_budget
+        total = r_format + r_budget + r_sharp_quality + r_exact
+        if game_result:
+            r_outcome = reward_outcome(game_result, our_color)
+            components["outcome"] = r_outcome
+            total += r_outcome
+        return {"total": total, "components": components, "legal": True}
+
     components["legality"] = r_legal
     if r_legal < 0:
         return {"total": r_legal, "components": components, "legal": False}

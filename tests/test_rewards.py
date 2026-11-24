@@ -395,6 +395,103 @@ class TestExpectedScoreAndWDLReward(unittest.TestCase):
         with self.assertRaises(ValueError):
             combined_reward(self.FEN, "e2e4", good_out, stage=99)
 
+    def test_combined_reward_sharp_wdl_boundaries_and_cache(self):
+        class _SeqEngine:
+            def __init__(self, cps, best_uci=None):
+                self._cps = list(cps)
+                self._best_uci = best_uci
+
+            def analyse(self, board, limit):
+                cp = self._cps.pop(0)
+                pv = [chess.Move.from_uci(self._best_uci)] if self._best_uci else []
+                return {"score": _FakeScore(cp), "pv": pv}
+
+        good_out = "<think>develop central pawn and claim space.</think>\ne2e4"
+        bad_fmt_out = "e2e4"
+
+        # 1. Illegal move -> -0.5 short-circuit (no format/quality bonus)
+        illegal_res = combined_reward(
+            self.FEN, "e2e5", good_out, stage=1, engine=_SeqEngine([0, 0]), reward_mode="sharp_wdl"
+        )
+        self.assertFalse(illegal_res["legal"])
+        self.assertAlmostEqual(illegal_res["total"], -0.5)
+        self.assertEqual(illegal_res["components"], {"legality": -0.5})
+
+        # 2. Exact best move (wdl_loss=0, cp_loss=0) + valid format -> 1.5 + 0.5 + 0.1 = +2.1
+        exact_res = combined_reward(
+            self.FEN,
+            "e2e4",
+            good_out,
+            stage=1,
+            engine=_SeqEngine([50, 50], best_uci="e2e4"),
+            reward_mode="sharp_wdl",
+        )
+        self.assertTrue(exact_res["legal"])
+        self.assertAlmostEqual(exact_res["components"]["legality"], 0.0)
+        self.assertAlmostEqual(exact_res["components"]["sharp_wdl_quality"], 1.5)
+        self.assertAlmostEqual(exact_res["components"]["exact_bonus"], 0.5)
+        self.assertAlmostEqual(exact_res["components"]["format"], 0.1)
+        self.assertAlmostEqual(exact_res["total"], 2.1)
+
+        # 3. Passive move losing >= 0.15 WDL (0 cp -> -300 cp => wdl_loss ~ 0.25) -> 0.0 quality + 0.1 format
+        passive_res = combined_reward(
+            self.FEN,
+            "a2a3",
+            good_out,
+            stage=1,
+            engine=_SeqEngine([0, -300], best_uci="e2e4"),
+            reward_mode="sharp_wdl",
+        )
+        self.assertAlmostEqual(passive_res["components"]["sharp_wdl_quality"], 0.0)
+        self.assertAlmostEqual(passive_res["components"]["exact_bonus"], 0.0)
+        self.assertAlmostEqual(passive_res["total"], 0.1)
+
+        # 4. Near-best move (cp_loss <= 15, wdl_loss ~ 0.0092) + valid format gets exact_bonus + quadratic WDL
+        near_res = combined_reward(
+            self.FEN,
+            "d2d4",
+            good_out,
+            stage=1,
+            engine=_SeqEngine([10, 0], best_uci="e2e4"),
+            reward_mode="sharp_wdl",
+        )
+        expected_wdl_loss = cp_to_expected_score(10.0) - cp_to_expected_score(0.0)
+        expected_q = 1.5 * (1.0 - expected_wdl_loss / 0.15) ** 2
+        self.assertAlmostEqual(near_res["components"]["sharp_wdl_quality"], expected_q)
+        self.assertAlmostEqual(near_res["components"]["exact_bonus"], 0.5)
+        self.assertAlmostEqual(near_res["total"], expected_q + 0.5 + 0.1)
+
+        # 5. Missing format gives format=0.0 (not negative), and exact_bonus triggers on best_mv match
+        fmt0_res = combined_reward(
+            self.FEN,
+            "e2e4",
+            bad_fmt_out,
+            stage=1,
+            engine=_SeqEngine([50, 20], best_uci="e2e4"),
+            reward_mode="sharp_wdl",
+        )
+        self.assertAlmostEqual(fmt0_res["components"]["format"], 0.0)
+        self.assertAlmostEqual(fmt0_res["components"]["exact_bonus"], 0.5)
+
+        # 6. Cache reuse works identically in sharp_wdl mode
+        cache = StockfishEvalCache(max_size=16)
+        cached_res = combined_reward(
+            self.FEN,
+            "e2e4",
+            good_out,
+            stage=1,
+            engine=_SeqEngine([50, 50], best_uci="e2e4"),
+            reward_mode="sharp_wdl",
+            cache=cache,
+        )
+        self.assertAlmostEqual(cached_res["total"], 2.1)
+
+        # 7. Missing engine raises ValueError
+        with self.assertRaises(ValueError):
+            combined_reward(
+                self.FEN, "e2e4", good_out, stage=0, engine=None, reward_mode="sharp_wdl"
+            )
+
 
 class TestStockfishEvalCache(unittest.TestCase):
     FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"

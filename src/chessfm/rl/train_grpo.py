@@ -403,8 +403,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--reward-mode",
         type=str,
         default="legacy",
-        choices=["legacy", "wdl_loss"],
-        help="Reward mode ('legacy' for stages 0/1/2, 'wdl_loss' for expected-score delta)",
+        choices=["legacy", "wdl_loss", "sharp_wdl"],
+        help=(
+            "Reward mode ('legacy' for stages 0/1/2, 'wdl_loss' for expected-score delta, "
+            "'sharp_wdl' for anti-hack quadratic WDL quality with near-best bonus)"
+        ),
     )
     parser.add_argument("--steps", type=int, default=500, help="Number of max training steps")
     parser.add_argument("--model", type=str, default=DEFAULT_BASE_MODEL, help="Base model to train")
@@ -648,12 +651,12 @@ def main():
     print(f"Loaded {len(dataset)} prompts/positions for training")
 
     engine = None
-    needs_engine = args.stage >= 1 or args.reward_mode == "wdl_loss"
+    needs_engine = args.stage >= 1 or args.reward_mode in ("wdl_loss", "sharp_wdl")
     if needs_engine:
         engine = open_engine()
         if engine is None:
             raise SystemExit(
-                "Stockfish engine not found. Stages 1/2 and wdl_loss reward mode require "
+                "Stockfish engine not found. Stages 1/2 and wdl_loss/sharp_wdl reward modes require "
                 "Stockfish for move evaluation. Install it (brew install stockfish / "
                 "apt install stockfish) or run with --stage 0 --reward-mode legacy."
             )
