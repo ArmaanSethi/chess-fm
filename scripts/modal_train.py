@@ -92,6 +92,7 @@ VALID_TASKS = (
     "coach-eval",
     "coach-benchmark",
     "distill-teacher",
+    "p4a-vllm-batch",
     "export-gguf",
     "export-onnx",
     "upload-hf",
@@ -229,6 +230,29 @@ onnx_image = (
     .add_local_dir(str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE)
 )
 
+# Dedicated CPU-only image for llama.cpp GGUF conversion & Q4_K_M quantization.
+gguf_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("git", "cmake", "build-essential", "libcurl4-openssl-dev")
+    .run_commands(
+        "git clone --depth 1 https://github.com/ggml-org/llama.cpp /opt/llama.cpp",
+        "cmake -S /opt/llama.cpp -B /opt/llama.cpp/build -DLLAMA_CURL=OFF -DGGML_NATIVE=OFF",
+        "cmake --build /opt/llama.cpp/build --target llama-quantize -j4",
+        "cp /opt/llama.cpp/build/bin/llama-quantize /usr/local/bin/llama-quantize",
+    )
+    .pip_install(
+        "torch>=2.1.0",
+        "transformers>=4.51.0,<4.52",
+        "safetensors",
+        "numpy",
+        "sentencepiece",
+        "protobuf",
+        "gguf",
+    )
+    .env({**_BASE_ENV, "LLAMA_CPP_DIR": "/opt/llama.cpp"})
+    .add_local_dir(str(REPO_ROOT), remote_path=REMOTE_REPO, ignore=_REPO_IGNORE)
+)
+
 app = modal.App(APP_NAME, image=image)
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
@@ -347,6 +371,8 @@ def _exec_grpo(
     num_iterations: int = 0,
     temperature: float = -1.0,
     seed: int = -1,
+    max_prompt_length: int = 0,
+    max_completion_length: int = 0,
 ) -> str:
     _ensure_installed()
     out_dir = f"{VOL_MOUNT}/checkpoints/{output_subdir}"
@@ -400,6 +426,10 @@ def _exec_grpo(
         cmd.extend(["--temperature", str(temperature)])
     if seed >= 0:
         cmd.extend(["--seed", str(seed)])
+    if max_prompt_length > 0:
+        cmd.extend(["--max-prompt-length", str(max_prompt_length)])
+    if max_completion_length > 0:
+        cmd.extend(["--max-completion-length", str(max_completion_length)])
     if positions:
         cmd.extend(["--positions", positions])
     if max_positions > 0:
@@ -792,6 +822,8 @@ def run_grpo(
     num_iterations: int = 0,
     temperature: float = -1.0,
     seed: int = -1,
+    max_prompt_length: int = 0,
+    max_completion_length: int = 0,
 ) -> str:
     return _exec_grpo(
         model,
@@ -824,6 +856,8 @@ def run_grpo(
         num_iterations=num_iterations,
         temperature=temperature,
         seed=seed,
+        max_prompt_length=max_prompt_length,
+        max_completion_length=max_completion_length,
     )
 
 
@@ -864,6 +898,8 @@ def run_grpo_a100(
     num_iterations: int = 0,
     temperature: float = -1.0,
     seed: int = -1,
+    max_prompt_length: int = 0,
+    max_completion_length: int = 0,
 ) -> str:
     return _exec_grpo(
         model,
@@ -896,6 +932,8 @@ def run_grpo_a100(
         num_iterations=num_iterations,
         temperature=temperature,
         seed=seed,
+        max_prompt_length=max_prompt_length,
+        max_completion_length=max_completion_length,
     )
 
 
@@ -937,6 +975,8 @@ def run_grpo_modern(
     num_iterations: int = 0,
     temperature: float = -1.0,
     seed: int = -1,
+    max_prompt_length: int = 0,
+    max_completion_length: int = 0,
 ) -> str:
     return _exec_grpo(
         model,
@@ -969,6 +1009,8 @@ def run_grpo_modern(
         num_iterations=num_iterations,
         temperature=temperature,
         seed=seed,
+        max_prompt_length=max_prompt_length,
+        max_completion_length=max_completion_length,
     )
 
 
@@ -1339,6 +1381,319 @@ def run_distill_teacher(
 
 
 @app.function(
+    image=vllm_image,
+    gpu="A100-80GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 45,
+)
+def run_p4a_vllm_batch(
+    model: str = DEFAULT_TEACHER_MODEL,
+    coach_test_path: str = f"{VOL_MOUNT}/data/phase2/test_coach_300.jsonl",
+    fresh_seed_path: str = f"{VOL_MOUNT}/data/phase2/coach_fresh_1k_seed.jsonl",
+    puzzles_path: str = f"{VOL_MOUNT}/data/phase2/test_puzzles_900.jsonl",
+    chessqa_path: str = f"{VOL_MOUNT}/data/phase2/test_chessqa_1000.jsonl",
+    out_dir: str = f"{VOL_MOUNT}/results/phase2/e5",
+    workers: int = 24,
+    eval_workers: int = 32,
+) -> str:
+    """Execute all 3 Phase 4A vLLM workloads in ONE warm A100-80GB container boot.
+
+    Workloads:
+    1. Row 6 Teacher (single-shot, temperature=0.2, tactical facts) on test_coach_300.jsonl.
+    2. Distill 1,000 fresh tactical-fact-grounded traces (max_attempts=3, Strict V2 filtered).
+    3. Piece #3 Frontier Baseline (zero-shot Piece-by-Square, temperature=0.0, no legal moves list)
+       on test_puzzles_900.jsonl (max_tokens=512) and test_chessqa_1000.jsonl (max_tokens=128).
+    """
+    import concurrent.futures
+    import json
+    import threading
+    from datetime import datetime, timezone
+
+    import requests
+
+    container_t0 = time.monotonic()
+    _ensure_installed()
+
+    from chessfm.config import make_prompt, render_piece_list
+    from chessfm.fens import read_jsonl
+    from chessfm.training.manifest import _get_git_sha
+
+    out_root = Path(out_dir)
+    out_root.mkdir(parents=True, exist_ok=True)
+    port = 8001
+    base_url = f"http://127.0.0.1:{port}/v1"
+
+    server_proc = subprocess.Popen(
+        [
+            "python",
+            "-m",
+            "vllm.entrypoints.openai.api_server",
+            "--model",
+            model,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--max-model-len",
+            "4096",
+            "--gpu-memory-utilization",
+            "0.90",
+            "--dtype",
+            "bfloat16",
+        ],
+        cwd=REMOTE_REPO,
+    )
+
+    stage_timings: dict[str, float] = {}
+    try:
+        health_url = f"http://127.0.0.1:{port}/health"
+        for _ in range(450):
+            if server_proc.poll() is not None:
+                raise RuntimeError(f"vLLM server exited early with code {server_proc.returncode}")
+            try:
+                if requests.get(health_url, timeout=2).status_code == 200:
+                    break
+            except requests.RequestException:
+                pass
+            time.sleep(2)
+        else:
+            raise TimeoutError("Timed out waiting for local vLLM server to become ready.")
+
+        vllm_ready_t = time.monotonic()
+        vllm_startup_s = round(vllm_ready_t - container_t0, 2)
+        print(f"[p4a-vllm-batch] vLLM ready in {vllm_startup_s}s", flush=True)
+
+        # Stage 1: Row 6 Teacher single-shot on test_coach_300.jsonl
+        t_s1 = time.monotonic()
+        row6_out = str(out_root / "coach_eval_teacher_26b.jsonl")
+        _run(
+            [
+                "python",
+                "-m",
+                "chessfm.data_generation.distill_open_teacher",
+                "--input",
+                coach_test_path,
+                "--output",
+                row6_out,
+                "--base-url",
+                base_url,
+                "--model",
+                model,
+                "--include-tactical-facts",
+                "--single-shot",
+                "--temperature",
+                "0.2",
+                "--workers",
+                str(workers),
+            ]
+        )
+        stage_timings["row6_teacher_300_s"] = round(time.monotonic() - t_s1, 2)
+        volume.commit()
+        print(
+            f"[p4a-vllm-batch] Stage 1 (Row 6 Teacher 300) done in {stage_timings['row6_teacher_300_s']}s",
+            flush=True,
+        )
+
+        # Stage 2: Distill 1,000 fresh tactical-fact-grounded traces
+        t_s2 = time.monotonic()
+        fresh_out = str(out_root / "coach_fresh_1k_distilled.jsonl")
+        _run(
+            [
+                "python",
+                "-m",
+                "chessfm.data_generation.distill_open_teacher",
+                "--input",
+                fresh_seed_path,
+                "--output",
+                fresh_out,
+                "--base-url",
+                base_url,
+                "--model",
+                model,
+                "--include-tactical-facts",
+                "--max-attempts",
+                "3",
+                "--workers",
+                str(workers),
+            ]
+        )
+        stage_timings["fresh_1k_distill_s"] = round(time.monotonic() - t_s2, 2)
+        volume.commit()
+        print(
+            f"[p4a-vllm-batch] Stage 2 (Fresh 1K distill) done in {stage_timings['fresh_1k_distill_s']}s",
+            flush=True,
+        )
+
+        # Shared threaded HTTP helper for Piece #3 (Puzzles 900 + ChessQA 1000)
+        tls = threading.local()
+
+        def _post_chat(user_content: str, max_tokens: int) -> dict:
+            sess = getattr(tls, "session", None)
+            if sess is None:
+                sess = requests.Session()
+                tls.session = sess
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": user_content}],
+                "temperature": 0.0,
+                "max_tokens": max_tokens,
+            }
+            resp = sess.post(f"{base_url}/chat/completions", json=payload, timeout=180)
+            resp.raise_for_status()
+            data = resp.json()
+            choice = data["choices"][0]
+            msg = choice.get("message") or {}
+            content = str(msg.get("content") or "")
+            reasoning = str(msg.get("reasoning_content") or "")
+            if reasoning and "<think>" not in content.lower():
+                raw_output = f"<think>\n{reasoning}\n</think>\n{content}"
+            else:
+                raw_output = content
+            usage = data.get("usage") or {}
+            return {
+                "raw_output": raw_output,
+                "content": content,
+                "reasoning_content": reasoning,
+                "completion_tokens": int(usage.get("completion_tokens") or 0),
+                "prompt_tokens": int(usage.get("prompt_tokens") or 0),
+                "finish_reason": choice.get("finish_reason"),
+            }
+
+        # Stage 3A: Piece #3 Puzzles 900 (exact Piece-by-Square prompt, NO legal moves list)
+        t_s3a = time.monotonic()
+        puzzle_rows = read_jsonl(Path(puzzles_path))
+
+        def _eval_puzzle(item: dict) -> dict:
+            fen = item["fen"]
+            prompt = make_prompt(
+                fen,
+                include_ascii=False,
+                include_piece_list=True,
+                include_legal_moves=False,
+            )
+            try:
+                res = _post_chat(prompt, max_tokens=512)
+            except Exception as exc:
+                res = {
+                    "raw_output": "",
+                    "content": "",
+                    "reasoning_content": "",
+                    "completion_tokens": 0,
+                    "prompt_tokens": 0,
+                    "finish_reason": f"error:{exc}",
+                }
+            return {
+                "fen": fen,
+                "best_move": item.get("best_move"),
+                "line": item.get("line"),
+                "rating": item.get("rating"),
+                "split_group": item.get("split_group"),
+                "primary_theme": item.get("primary_theme"),
+                "difficulty_band": item.get("difficulty_band"),
+                **res,
+            }
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=eval_workers) as ex:
+            puzzle_outputs = list(ex.map(_eval_puzzle, puzzle_rows))
+
+        puzzles_out = out_root / "gemma26b_puzzles_900_raw.jsonl"
+        with puzzles_out.open("w", encoding="utf-8") as fh:
+            for rec in puzzle_outputs:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        stage_timings["piece3_puzzles_900_s"] = round(time.monotonic() - t_s3a, 2)
+        volume.commit()
+        print(
+            f"[p4a-vllm-batch] Stage 3A (Piece #3 Puzzles 900) done in {stage_timings['piece3_puzzles_900_s']}s",
+            flush=True,
+        )
+
+        # Stage 3B: Piece #3 ChessQA 1000 (exact _build_chessqa_prompt user content)
+        t_s3b = time.monotonic()
+        chessqa_rows = read_jsonl(Path(chessqa_path))
+
+        def _build_chessqa_user_content(item: dict) -> str:
+            question = str(item.get("question", ""))
+            fen = item.get("fen")
+            if isinstance(fen, str) and fen.strip():
+                extra_str = f"Pieces: {render_piece_list(fen)}"
+                lines = question.splitlines()
+                if lines and lines[0].lstrip().upper().startswith("FEN:"):
+                    rest = "\n".join(lines[1:])
+                    return f"{lines[0]}\n{extra_str}" + (f"\n{rest}" if rest else "")
+                return f"FEN: {fen}\n{extra_str}\n{question}"
+            return question
+
+        def _eval_chessqa(item: dict) -> dict:
+            user_content = _build_chessqa_user_content(item)
+            try:
+                res = _post_chat(user_content, max_tokens=128)
+            except Exception as exc:
+                res = {
+                    "raw_output": "",
+                    "content": "",
+                    "reasoning_content": "",
+                    "completion_tokens": 0,
+                    "prompt_tokens": 0,
+                    "finish_reason": f"error:{exc}",
+                }
+            return {
+                "fen": item.get("fen"),
+                "category": item.get("category"),
+                "subcategory": item.get("subcategory"),
+                "answer": item.get("answer", item.get("expected", "")),
+                **res,
+            }
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=eval_workers) as ex:
+            chessqa_outputs = list(ex.map(_eval_chessqa, chessqa_rows))
+
+        chessqa_out = out_root / "gemma26b_chessqa_1000_raw.jsonl"
+        with chessqa_out.open("w", encoding="utf-8") as fh:
+            for rec in chessqa_outputs:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        stage_timings["piece3_chessqa_1000_s"] = round(time.monotonic() - t_s3b, 2)
+
+        total_container_s = round(time.monotonic() - container_t0, 2)
+        active_gpu_s = round(time.monotonic() - vllm_ready_t, 2)
+        rate_per_sec = 2.50 / 3600.0
+        manifest = {
+            "model": model,
+            "gpu": "A100-80GB",
+            "rate_usd_per_hr": 2.50,
+            "git_sha": _get_git_sha(),
+            "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "vllm_startup_seconds": vllm_startup_s,
+            "active_gpu_seconds": active_gpu_s,
+            "container_wall_clock_seconds": total_container_s,
+            "estimated_active_cost_usd": round(active_gpu_s * rate_per_sec, 4),
+            "estimated_conservative_cost_usd": round(total_container_s * rate_per_sec, 4),
+            "stage_timings_seconds": stage_timings,
+            "outputs": {
+                "row6_teacher": row6_out,
+                "fresh_1k_distilled": fresh_out,
+                "piece3_puzzles_900_raw": str(puzzles_out),
+                "piece3_chessqa_1000_raw": str(chessqa_out),
+            },
+            "counts": {
+                "puzzles_rows": len(puzzle_outputs),
+                "chessqa_rows": len(chessqa_outputs),
+            },
+        }
+        manifest_path = out_root / "p4a_vllm_batch_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        volume.commit()
+        print(json.dumps(manifest, indent=2), flush=True)
+        return str(manifest_path)
+    finally:
+        server_proc.terminate()
+        try:
+            server_proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            server_proc.kill()
+
+
+@app.function(
     gpu="L4",
     volumes={VOL_MOUNT: volume},
     secrets=_SECRETS,
@@ -1353,6 +1708,9 @@ def run_coach_eval() -> None:
 
 
 @app.function(
+    image=gguf_image,
+    cpu=4.0,
+    memory=16384,
     volumes={VOL_MOUNT: volume},
     secrets=_SECRETS,
     timeout=60 * 60,
@@ -1362,23 +1720,29 @@ def run_export_gguf(
     output_subdir: str = "gguf_export",
     quant: str = "q4_k_m",
     family: str = "gemma4",
+    coach_v2: bool = False,
+    keep_f16: bool = False,
 ) -> str:
-    _ensure_installed()
+    os.makedirs(f"{VOL_MOUNT}/exports", exist_ok=True)
+    os.makedirs(f"{VOL_MOUNT}/hf_cache", exist_ok=True)
     out_dir = f"{VOL_MOUNT}/exports/{output_subdir}"
-    _run(
-        [
-            "python",
-            "scripts/export_gguf.py",
-            "--model",
-            model,
-            "--output",
-            out_dir,
-            "--quant",
-            quant,
-            "--family",
-            family,
-        ]
-    )
+    cmd = [
+        "python",
+        "scripts/export_gguf.py",
+        "--model",
+        model,
+        "--output",
+        out_dir,
+        "--quant",
+        quant,
+        "--family",
+        family,
+    ]
+    if coach_v2:
+        cmd.append("--coach-v2")
+    if keep_f16:
+        cmd.append("--keep-f16")
+    _run(cmd)
     volume.commit()
     return out_dir
 
@@ -1457,37 +1821,30 @@ def run_export_onnx(
     return out_dir
 
 
-@app.function(
-    image=modern_image,
-    gpu="L4",
-    volumes={VOL_MOUNT: volume},
-    secrets=_SECRETS,
-    timeout=60 * 60,
-)
-def run_coach_benchmark_l4(
-    model: str = FALLBACK_STUDENT_MODEL,
-    benchmark: str = "data_generation/coaching_sample.jsonl",
-    output_subdir: str = "coach_benchmark",
+def _exec_coach_benchmark(
+    model: str,
+    benchmark: str,
+    output_subdir: str,
     limit: int = 0,
+    use_tactical_facts: bool = True,
+    batch_size: int = 16,
+    max_rows: int = 0,
+    base_model: str = "",
 ) -> str:
-    """Generate coaching outputs on a held-out coaching JSONL and score with ACT-Eval + spoiler checks."""
+    """Shared batched Coach benchmark runner supporting merged models & PEFT LoRA adapters."""
     import json
-    import sys
     from datetime import datetime, timezone
 
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     _ensure_installed()
-    src_path = f"{REMOTE_REPO}/src"
-    if src_path not in sys.path:
-        sys.path.insert(0, src_path)
 
-    from chessfm.coach.socratic import contains_move_spoiler
-    from chessfm.coach.verifier import verify_claims
+    from chessfm.coach.coach_rewards import summarize_coach_eval
     from chessfm.data_generation.distill_open_teacher import (
         SYSTEM_PROMPT,
         _is_non_coaching_row,
+        _resolve_tactical_facts,
         build_teacher_prompt,
         infer_task_type,
         strip_reasoning_blocks,
@@ -1498,39 +1855,76 @@ def run_coach_benchmark_l4(
     if not bench_path.is_absolute():
         bench_path = Path(REMOTE_REPO) / bench_path
     rows = [r for r in read_jsonl(bench_path) if r.get("fen") and not _is_non_coaching_row(r)]
-    if limit > 0:
-        rows = rows[:limit]
+    effective_limit = max_rows if max_rows > 0 else limit
+    if effective_limit > 0:
+        rows = rows[:effective_limit]
 
-    tokenizer = AutoTokenizer.from_pretrained(model)
+    model_path = Path(model)
+    adapter_cfg_path = model_path / "adapter_config.json"
+    if adapter_cfg_path.is_file():
+        from peft import PeftModel
+
+        adapter_cfg = json.loads(adapter_cfg_path.read_text(encoding="utf-8"))
+        resolved_base = base_model or str(adapter_cfg.get("base_model_name_or_path", ""))
+        if not resolved_base:
+            raise ValueError(
+                f"PEFT adapter at {model} has no base_model_name_or_path; pass --base-model"
+            )
+        tok_src = model if (model_path / "tokenizer_config.json").is_file() else resolved_base
+        tokenizer = AutoTokenizer.from_pretrained(tok_src)
+        base_lm = AutoModelForCausalLM.from_pretrained(
+            resolved_base,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        lm = PeftModel.from_pretrained(base_lm, model)
+        if hasattr(lm, "merge_and_unload"):
+            lm = lm.merge_and_unload()
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model)
+        lm = AutoModelForCausalLM.from_pretrained(
+            model,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    lm = AutoModelForCausalLM.from_pretrained(
-        model,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
+    tokenizer.padding_side = "left"
     lm.eval()
 
     start_t = time.monotonic()
-    outputs_jsonl: list[dict] = []
-    act_passed = 0
-    socratic_l12_total = 0
-    socratic_l12_clean = 0
-    per_task: dict[str, dict[str, int]] = {}
+    prepared_prompts: list[str] = []
+    prepared_meta: list[dict] = []
 
     for row in rows:
         fen = row["fen"]
         task_type = infer_task_type(row)
         best_move = str(row.get("best_move_uci") or row.get("best_move") or "")
-        messages = row.get("messages")
-        if isinstance(messages, list) and len(messages) >= 2:
-            prompt_messages = [m for m in messages if m.get("role") != "assistant"]
-        else:
-            user_prompt = build_teacher_prompt(row, task_type=task_type)
+        tf = _resolve_tactical_facts(row) if use_tactical_facts else None
+
+        if use_tactical_facts:
+            # Always build grounded tactical-fact prompt; never reuse raw ungrounded row["messages"].
+            prompt_row = {**row, "tactical_facts": tf} if tf is not None else row
+            user_prompt = build_teacher_prompt(
+                prompt_row,
+                task_type=task_type,
+                include_tactical_facts=True,
+            )
             prompt_messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ]
+        else:
+            messages = row.get("messages")
+            if isinstance(messages, list) and len(messages) >= 2:
+                prompt_messages = [m for m in messages if m.get("role") != "assistant"]
+            else:
+                user_prompt = build_teacher_prompt(row, task_type=task_type)
+                prompt_messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ]
 
         try:
             prompt_str = tokenizer.apply_chat_template(
@@ -1546,7 +1940,30 @@ def run_coach_benchmark_l4(
                 add_generation_prompt=True,
             )
 
-        inputs = tokenizer(prompt_str, return_tensors="pt").to(lm.device)
+        prepared_prompts.append(prompt_str)
+        prepared_meta.append(
+            {
+                "fen": fen,
+                "task_type": task_type,
+                "best_move": best_move,
+                "student_move": str(row.get("student_move") or row.get("played_move_uci") or ""),
+                "pv": row.get("pv") or row.get("principal_variation") or [],
+                "cp_loss": row.get("cp_loss"),
+                "tactical_facts": tf,
+            }
+        )
+
+    eff_bs = max(1, int(batch_size))
+    raw_responses: list[str] = []
+    for start_idx in range(0, len(prepared_prompts), eff_bs):
+        chunk_prompts = prepared_prompts[start_idx : start_idx + eff_bs]
+        inputs = tokenizer(
+            chunk_prompts,
+            return_tensors="pt",
+            padding=True,
+            truncation=False,
+        ).to(lm.device)
+        input_len = inputs["input_ids"].shape[1]
         with torch.no_grad():
             gen_ids = lm.generate(
                 **inputs,
@@ -1554,61 +1971,36 @@ def run_coach_benchmark_l4(
                 do_sample=False,
                 pad_token_id=tokenizer.pad_token_id,
             )
-        new_tokens = gen_ids[0][inputs["input_ids"].shape[1] :]
-        raw_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
-        cleaned = strip_reasoning_blocks(raw_text)
+        for seq in gen_ids:
+            new_tokens = seq[input_len:]
+            raw_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
+            raw_responses.append(strip_reasoning_blocks(raw_text))
 
-        report = verify_claims(fen, cleaned, engine=None)
-        passed = bool(report["passed"])
-        if passed:
-            act_passed += 1
-
-        spoiler = False
-        if task_type in ("socratic_l1", "socratic_l2") and best_move:
-            socratic_l12_total += 1
-            spoiler = bool(contains_move_spoiler(cleaned, best_move, fen))
-            if not spoiler:
-                socratic_l12_clean += 1
-
-        bucket = per_task.setdefault(task_type, {"total": 0, "act_passed": 0, "spoiler_free": 0})
-        bucket["total"] += 1
-        if passed:
-            bucket["act_passed"] += 1
-        if not spoiler:
-            bucket["spoiler_free"] += 1
-
-        outputs_jsonl.append(
-            {
-                "fen": fen,
-                "task_type": task_type,
-                "best_move": best_move,
-                "response": cleaned,
-                "act_eval_passed": passed,
-                "violations": report.get("violations", []),
-                "spoiler_free": not spoiler,
-            }
-        )
-
+    eval_rows = [
+        {**meta, "response": resp} for meta, resp in zip(prepared_meta, raw_responses, strict=True)
+    ]
+    outputs_jsonl, summary = summarize_coach_eval(eval_rows)
     wall_s = round(time.monotonic() - start_t, 2)
-    n = max(1, len(outputs_jsonl))
-    summary = {
-        "model": model,
-        "benchmark": str(benchmark),
-        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "wall_clock_seconds": wall_s,
-        "total_cases": len(outputs_jsonl),
-        "act_eval_passed": act_passed,
-        "act_eval_pass_rate": round(act_passed / n, 4),
-        "socratic_l12_total": socratic_l12_total,
-        "socratic_l12_spoiler_free": socratic_l12_clean,
-        "socratic_l12_spoiler_free_rate": (
-            round(socratic_l12_clean / socratic_l12_total, 4) if socratic_l12_total else 1.0
-        ),
-        "per_task_type": per_task,
-    }
+    summary.update(
+        {
+            "model": model,
+            "base_model": base_model or None,
+            "benchmark": str(benchmark),
+            "use_tactical_facts": bool(use_tactical_facts),
+            "batch_size": eff_bs,
+            "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "wall_clock_seconds": wall_s,
+        }
+    )
 
-    out_jsonl_path = Path(f"{VOL_MOUNT}/results/{output_subdir}.jsonl")
-    out_summary_path = Path(f"{VOL_MOUNT}/results/{output_subdir}_summary.json")
+    if output_subdir.startswith("/"):
+        base_out = Path(output_subdir)
+        out_jsonl_path = base_out.with_suffix(".jsonl")
+        out_summary_path = base_out.parent / f"{base_out.stem}_summary.json"
+    else:
+        out_jsonl_path = Path(f"{VOL_MOUNT}/results/{output_subdir}.jsonl")
+        out_summary_path = Path(f"{VOL_MOUNT}/results/{output_subdir}_summary.json")
+
     out_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
     with out_jsonl_path.open("w", encoding="utf-8") as fh:
         for item in outputs_jsonl:
@@ -1617,6 +2009,65 @@ def run_coach_benchmark_l4(
     volume.commit()
     print(json.dumps(summary, indent=2))
     return str(out_summary_path)
+
+
+@app.function(
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60,
+)
+def run_coach_benchmark_l4(
+    model: str = FALLBACK_STUDENT_MODEL,
+    benchmark: str = "data_generation/coaching_sample.jsonl",
+    output_subdir: str = "coach_benchmark",
+    limit: int = 0,
+    use_tactical_facts: bool = True,
+    batch_size: int = 16,
+    max_rows: int = 0,
+    base_model: str = "",
+) -> str:
+    """Generate batched coaching outputs on L4 (stable image) and score with V1/V2 + Anti-Slop."""
+    return _exec_coach_benchmark(
+        model=model,
+        benchmark=benchmark,
+        output_subdir=output_subdir,
+        limit=limit,
+        use_tactical_facts=use_tactical_facts,
+        batch_size=batch_size,
+        max_rows=max_rows,
+        base_model=base_model,
+    )
+
+
+@app.function(
+    image=modern_image,
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60,
+)
+def run_coach_benchmark_modern_l4(
+    model: str = DEFAULT_STUDENT_MODEL,
+    benchmark: str = "data_generation/coaching_sample.jsonl",
+    output_subdir: str = "coach_benchmark",
+    limit: int = 0,
+    use_tactical_facts: bool = True,
+    batch_size: int = 16,
+    max_rows: int = 0,
+    base_model: str = "",
+) -> str:
+    """Generate batched coaching outputs on L4 (modern image) and score with V1/V2 + Anti-Slop."""
+    return _exec_coach_benchmark(
+        model=model,
+        benchmark=benchmark,
+        output_subdir=output_subdir,
+        limit=limit,
+        use_tactical_facts=use_tactical_facts,
+        batch_size=batch_size,
+        max_rows=max_rows,
+        base_model=base_model,
+    )
 
 
 @app.local_entrypoint()
@@ -1694,6 +2145,15 @@ def main(
     num_puzzles: int = 200,
     k: int = 8,
     top_p: float = 0.95,
+    max_prompt_length: int = 0,
+    max_completion_length: int = 0,
+    use_tactical_facts: bool = True,
+    max_rows: int = 0,
+    base_model: str = "",
+    coach_v2: bool = False,
+    keep_f16: bool = False,
+    out_dir: str = "",
+    eval_workers: int = 32,
 ) -> None:
     gpu_tier = gpu.strip().lower()
     if gpu_tier not in {"l4", "a100", "h100"}:
@@ -1825,6 +2285,10 @@ def main(
             grpo_kwargs["temperature"] = temperature
         if seed >= 0:
             grpo_kwargs["seed"] = seed
+        if max_prompt_length > 0:
+            grpo_kwargs["max_prompt_length"] = max_prompt_length
+        if max_completion_length > 0:
+            grpo_kwargs["max_completion_length"] = max_completion_length
         ckpt = grpo_fn.remote(**grpo_kwargs)
         print(f"GRPO Stage {stage} checkpoint saved to Modal volume: {ckpt}")
     elif task == "eval":
@@ -1913,17 +2377,39 @@ def main(
             workers=workers,
         )
         print(f"Verified distillation dataset saved to Modal volume: {out_path}")
+    elif task == "p4a-vllm-batch":
+        teacher_model = model or DEFAULT_TEACHER_MODEL
+        manifest_path = run_p4a_vllm_batch.remote(
+            model=teacher_model,
+            coach_test_path=benchmark
+            if benchmark != "data_generation/eval_benchmark.jsonl"
+            else f"{VOL_MOUNT}/data/phase2/test_coach_300.jsonl",
+            fresh_seed_path=data
+            if data != "data_generation/sft_train.jsonl"
+            else f"{VOL_MOUNT}/data/phase2/coach_fresh_1k_seed.jsonl",
+            puzzles_path=puzzles or f"{VOL_MOUNT}/data/phase2/test_puzzles_900.jsonl",
+            chessqa_path=chessqa or f"{VOL_MOUNT}/data/phase2/test_chessqa_1000.jsonl",
+            out_dir=out_dir or f"{VOL_MOUNT}/results/phase2/e5",
+            workers=workers,
+            eval_workers=eval_workers,
+        )
+        print(f"Phase 4A warm vLLM batch manifest saved to Modal volume: {manifest_path}")
     elif task == "coach-eval":
         run_coach_eval.remote()
         print("Coach evaluation suite complete.")
     elif task == "coach-benchmark":
-        summary_path = run_coach_benchmark_l4.remote(
+        bench_fn = run_coach_benchmark_modern_l4 if use_modern else run_coach_benchmark_l4
+        summary_path = bench_fn.remote(
             model=resolved_model,
             benchmark=benchmark
             if benchmark != "data_generation/eval_benchmark.jsonl"
             else "data_generation/coaching_sample.jsonl",
             output_subdir=output_subdir or "coach_benchmark",
             limit=limit,
+            use_tactical_facts=use_tactical_facts,
+            batch_size=batch_size if batch_size > 0 else 16,
+            max_rows=max_rows,
+            base_model=base_model,
         )
         print(f"Coach ACT-Eval benchmark summary saved to Modal volume: {summary_path}")
     elif task == "export-gguf":
@@ -1932,6 +2418,8 @@ def main(
             output_subdir=output_subdir or "gguf_export",
             quant=quant,
             family=family,
+            coach_v2=coach_v2,
+            keep_f16=keep_f16,
         )
         print(
             f"GGUF export artifacts saved to Modal volume: {export_dir}. "

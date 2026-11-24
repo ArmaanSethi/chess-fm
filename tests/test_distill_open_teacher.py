@@ -511,3 +511,52 @@ class TestTrainSftMessagesFormatting:
         )
         cfg_v4 = build_sft_config(args)
         assert cfg_v4.warmup_ratio == 0.1
+
+
+class TestTacticalFactsAndSingleShot:
+    def test_build_teacher_prompt_with_tactical_facts_flag(self):
+        fen = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+        legacy = build_teacher_prompt(
+            {"fen": fen, "best_move": "f3g5", "student_move": "a2a3"},
+            task_type="postmortem",
+        )
+        assert "Tactical Facts (Verified):" not in legacy
+
+        grounded = build_teacher_prompt(
+            {"fen": fen, "best_move": "f3g5", "student_move": "a2a3"},
+            task_type="postmortem",
+            include_tactical_facts=True,
+        )
+        assert "Tactical Facts (Verified):" in grounded
+        assert '"gives_check": false' in grounded
+        assert "black pawn on f7" in grounded
+
+    def test_distill_rows_single_shot_keeps_failed_rows_with_honest_scores(self):
+        fen = "3r1r1k/p1nb2R1/1p1p1n2/2pPpN2/2P1P3/P1NB3P/1P5K/6R1 b - - 1 28"
+        calls = 0
+
+        def fake_teacher(_sys: str, _usr: str) -> str:
+            nonlocal calls
+            calls += 1
+            # Passes V1, fails V2 (fake check: Nce8 does not force white king to move).
+            return (
+                "The best move is Nce8, which forces the white king to move and improves "
+                "your kingside defense."
+            )
+
+        rows, audit = distill_rows(
+            [{"fen": fen, "best_move": "c7e8", "student_move": "b6b5", "task_type": "postmortem"}],
+            fake_teacher,
+            max_attempts=3,
+            include_tactical_facts=True,
+            single_shot=True,
+        )
+        assert calls == 1  # single-shot MUST NOT retry!
+        assert len(rows) == 1  # single-shot MUST keep failed rows!
+        assert rows[0]["v1_passed"] is True
+        assert rows[0]["act_eval_passed"] is False
+        assert rows[0]["verified"] is False
+        assert any(v["type"] == "fake_check" for v in rows[0]["violations"])
+        assert "tactical_facts" in rows[0]
+        assert audit["single_shot"] is True
+        assert audit["verified_rows"] == 0

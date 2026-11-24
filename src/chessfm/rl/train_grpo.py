@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import json
 import logging
 import os
 import random
@@ -29,6 +30,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from trl import GRPOConfig
 
+from chessfm.coach.coach_rewards import VALID_COACH_REWARD_MODES, make_coach_reward_func
 from chessfm.config import (
     DEFAULT_BASE_MODEL,
     GRPO_BETA,
@@ -39,7 +41,16 @@ from chessfm.config import (
     MAX_PROMPT_LENGTH,
     build_chat_prompt,
 )
-from chessfm.fens import read_fens
+from chessfm.data_generation.distill_open_teacher import (
+    SYSTEM_PROMPT as COACH_SYSTEM_PROMPT,
+)
+from chessfm.data_generation.distill_open_teacher import (
+    _resolve_tactical_facts,
+    build_teacher_prompt,
+    format_chatml_prompt,
+    infer_task_type,
+)
+from chessfm.fens import read_fens, read_jsonl
 from chessfm.rl.engine import close_engine, open_engine
 from chessfm.rl.move_utils import extract_fen_from_prompt, parse_move_from_output
 from chessfm.rl.rewards import EngineAnalysisError, StockfishEvalCache, combined_reward
@@ -211,6 +222,109 @@ def load_positions(
     return positions
 
 
+def requires_stockfish_engine(stage: int, reward_mode: str) -> bool:
+    """Return True if the requested GRPO stage/reward mode requires Stockfish."""
+    if reward_mode in VALID_COACH_REWARD_MODES:
+        return False
+    return stage >= 1 or reward_mode in ("wdl_loss", "sharp_wdl")
+
+
+def _render_coach_prompt_messages(
+    messages: list[dict[str, str]],
+    tokenizer=None,
+) -> str:
+    """Render system+user coach messages with ``enable_thinking=False``."""
+    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        try:
+            try:
+                return tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                return tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+        except (ValueError, AttributeError, NotImplementedError):
+            pass
+
+    sys_msg = next(
+        (m["content"] for m in messages if m.get("role") == "system"), COACH_SYSTEM_PROMPT
+    )
+    user_msg = next((m["content"] for m in messages if m.get("role") == "user"), "")
+    return format_chatml_prompt(sys_msg, user_msg)
+
+
+def load_coach_prompts(
+    filepath: Path,
+    max_positions: int = 2000,
+    seed: int = 42,
+    tokenizer=None,
+) -> list[dict]:
+    """Load tactical-fact-grounded coaching prompts for Stockfish-FREE Coach-GRPO.
+
+    Preserves ``fen``, ``task_type``, ``best_move_uci``, and
+    ``tactical_facts_json`` columns so TRL 0.16 ``GRPOTrainer`` forwards them
+    verbatim into ``reward_func(**reward_kwargs)``.
+    """
+    if not filepath.exists():
+        raise SystemExit(f"Coach prompts file not found: {filepath}")
+
+    rows = [r for r in read_jsonl(filepath) if isinstance(r.get("fen"), str) and r["fen"].strip()]
+    if not rows:
+        raise SystemExit(f"Coach prompts file contains no valid rows: {filepath}")
+
+    if max_positions > 0 and len(rows) > max_positions:
+        rows = random.Random(seed).sample(rows, max_positions)
+
+    dataset_rows: list[dict] = []
+    for row in rows:
+        fen = row["fen"]
+        task_type = infer_task_type(row)
+        best_move_uci = str(row.get("best_move_uci") or row.get("best_move") or "").strip()
+        tf = _resolve_tactical_facts(row)
+        prompt_row = {**row, "tactical_facts": tf} if tf is not None else row
+
+        existing_msgs = row.get("messages")
+        use_existing = (
+            isinstance(existing_msgs, list)
+            and len(existing_msgs) >= 2
+            and any(m.get("role") == "system" for m in existing_msgs)
+            and any(
+                m.get("role") == "user"
+                and "Tactical Facts (Verified):" in str(m.get("content", ""))
+                for m in existing_msgs
+            )
+        )
+        if use_existing:
+            prompt_messages = [m for m in existing_msgs if m.get("role") != "assistant"]
+        else:
+            user_prompt = build_teacher_prompt(
+                prompt_row,
+                task_type=task_type,
+                include_tactical_facts=True,
+            )
+            prompt_messages = [
+                {"role": "system", "content": COACH_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+
+        dataset_rows.append(
+            {
+                "prompt": _render_coach_prompt_messages(prompt_messages, tokenizer=tokenizer),
+                "fen": fen,
+                "task_type": task_type,
+                "best_move_uci": best_move_uci,
+                "tactical_facts_json": json.dumps(tf or {}, ensure_ascii=False),
+            }
+        )
+    return dataset_rows
+
+
 def filter_zero_variance_groups(
     rewards,
     completion_mask,
@@ -305,6 +419,15 @@ def build_grpo_config(args) -> GRPOConfig:
                 loss_type,
             )
 
+    max_prompt_length = int(getattr(args, "max_prompt_length", MAX_PROMPT_LENGTH))
+    max_completion_length = int(getattr(args, "max_completion_length", MAX_COMPLETION_LENGTH))
+    reward_mode = getattr(args, "reward_mode", "legacy")
+    keep_all_checkpoints = args.checkpoint_every > 0 and (
+        reward_mode in VALID_COACH_REWARD_MODES
+        or (args.steps > 0 and (args.steps // args.checkpoint_every) > 3)
+    )
+    save_total_limit = None if keep_all_checkpoints else 3
+
     return GRPOConfig(
         output_dir=str(args.output),
         learning_rate=args.lr,
@@ -314,11 +437,11 @@ def build_grpo_config(args) -> GRPOConfig:
         gradient_accumulation_steps=args.grad_accum,
         temperature=args.temperature,
         beta=args.beta,
-        max_prompt_length=MAX_PROMPT_LENGTH,
-        max_completion_length=MAX_COMPLETION_LENGTH,
+        max_prompt_length=max_prompt_length,
+        max_completion_length=max_completion_length,
         logging_steps=10,
         save_steps=args.checkpoint_every,
-        save_total_limit=3,
+        save_total_limit=save_total_limit,
         report_to=report_to,
         seed=args.seed,
         bf16=use_gpu and torch.cuda.is_bf16_supported(),
@@ -403,11 +526,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--reward-mode",
         type=str,
         default="legacy",
-        choices=["legacy", "wdl_loss", "sharp_wdl"],
+        choices=["legacy", "wdl_loss", "sharp_wdl", "coach_v2", "coach_v1"],
         help=(
             "Reward mode ('legacy' for stages 0/1/2, 'wdl_loss' for expected-score delta, "
-            "'sharp_wdl' for anti-hack quadratic WDL quality with near-best bonus)"
+            "'sharp_wdl' for anti-hack quadratic WDL quality, 'coach_v2' for Stockfish-free "
+            "Strict V2 + coverage + anti-slop Coach-GRPO, 'coach_v1' for weak V1 ablation)"
         ),
+    )
+    parser.add_argument(
+        "--max-prompt-length",
+        type=int,
+        default=MAX_PROMPT_LENGTH,
+        help=f"Maximum prompt token length for GRPO (default: {MAX_PROMPT_LENGTH})",
+    )
+    parser.add_argument(
+        "--max-completion-length",
+        type=int,
+        default=MAX_COMPLETION_LENGTH,
+        help=f"Maximum completion token length for GRPO (default: {MAX_COMPLETION_LENGTH})",
     )
     parser.add_argument("--steps", type=int, default=500, help="Number of max training steps")
     parser.add_argument("--model", type=str, default=DEFAULT_BASE_MODEL, help="Base model to train")
@@ -638,20 +774,29 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    raw_positions = load_positions(
-        args.positions,
-        args.max_positions,
-        seed=args.seed,
-        tokenizer=tokenizer,
-        include_ascii=args.include_ascii,
-        include_piece_list=args.include_piece_list,
-        include_legal_moves=args.include_legal_moves,
-    )
+    is_coach_mode = args.reward_mode in VALID_COACH_REWARD_MODES
+    if is_coach_mode:
+        raw_positions = load_coach_prompts(
+            args.positions,
+            args.max_positions,
+            seed=args.seed,
+            tokenizer=tokenizer,
+        )
+    else:
+        raw_positions = load_positions(
+            args.positions,
+            args.max_positions,
+            seed=args.seed,
+            tokenizer=tokenizer,
+            include_ascii=args.include_ascii,
+            include_piece_list=args.include_piece_list,
+            include_legal_moves=args.include_legal_moves,
+        )
     dataset = Dataset.from_list(raw_positions)
     print(f"Loaded {len(dataset)} prompts/positions for training")
 
     engine = None
-    needs_engine = args.stage >= 1 or args.reward_mode in ("wdl_loss", "sharp_wdl")
+    needs_engine = requires_stockfish_engine(args.stage, args.reward_mode)
     if needs_engine:
         engine = open_engine()
         if engine is None:
@@ -666,12 +811,15 @@ def main():
 
     training_args = build_grpo_config(args)
 
-    reward_fn = make_reward_func(
-        args.stage,
-        engine=engine,
-        reward_mode=args.reward_mode,
-        use_cache=True,
-    )
+    if is_coach_mode:
+        reward_fn = make_coach_reward_func(mode=args.reward_mode)
+    else:
+        reward_fn = make_reward_func(
+            args.stage,
+            engine=engine,
+            reward_mode=args.reward_mode,
+            use_cache=True,
+        )
 
     if args.filter_zero_variance:
 
@@ -718,6 +866,8 @@ def main():
             hyperparameters={
                 "steps": args.steps,
                 "reward_mode": args.reward_mode,
+                "max_prompt_length": args.max_prompt_length,
+                "max_completion_length": args.max_completion_length,
                 "num_generations": args.num_generations,
                 "per_device_batch_size": args.per_device_batch_size,
                 "grad_accum": args.grad_accum,

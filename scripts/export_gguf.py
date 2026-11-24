@@ -31,6 +31,25 @@ CHESS_COACH_SYSTEM_PROMPT = (
     "UCI move or coaching explanation tailored to the student's level."
 )
 
+COACH_V2_SYSTEM_PROMPT = (
+    "You are an accurate, concise chess coach. You are given verified engine facts "
+    "(FEN, best move, principal variation, evaluation delta, and human Elo context). "
+    "Write clear, pedagogical coaching grounded strictly in those facts. Never invent "
+    "illegal moves, piece placements, or variations that contradict the position."
+)
+
+# Matches Qwen3's tokenizer.apply_chat_template(..., enable_thinking=False)
+# so Ollama does not silently switch Qwen3 into long <think> traces.
+QWEN3_NO_THINK_CHATML_TEMPLATE = (
+    "{{- if .System }}<|im_start|>system\n{{ .System }}<|im_end|>\n{{- end }}"
+    "{{- range .Messages }}"
+    '{{- if eq .Role "user" }}<|im_start|>user\n{{ .Content }}<|im_end|>\n'
+    '{{- else if eq .Role "assistant" }}<|im_start|>assistant\n<think>\n\n</think>\n\n'
+    "{{ .Content }}<|im_end|>\n{{- end }}"
+    "{{- end }}"
+    "<|im_start|>assistant\n<think>\n\n</think>\n\n"
+)
+
 FAMILY_STOP_TOKENS: dict[str, tuple[str, ...]] = {
     "gemma4": ("<turn|>", "<|turn>", "<eos>"),
     "qwen3": ("<|im_end|>", "<|im_start|>", "<|endoftext|>"),
@@ -61,22 +80,30 @@ def build_ollama_modelfile(
     gguf_path: str,
     model_family: str = "gemma4",
     temperature: float = 0.2,
+    *,
+    system_prompt: str | None = None,
+    include_chat_template: bool = False,
 ) -> str:
     """Generate a ready-to-run Ollama ``Modelfile`` for a ChessFM GGUF export.
 
-    Configures the ChessFM Coach system prompt, sampling temperature, and
-    family-specific chat template stop tokens for ``gemma4``, ``qwen3``, or
-    ``qwen25``.
+    Configures the ChessFM Coach system prompt, sampling temperature, optional
+    ChatML template (for Qwen3 ``enable_thinking=False`` Coach V2 parity), and
+    family-specific stop tokens for ``gemma4``, ``qwen3``, or ``qwen25``.
     """
     family = normalize_model_family(model_family)
     if temperature < 0.0:
         raise ValueError(f"temperature must be non-negative, got {temperature}")
 
+    active_system = CHESS_COACH_SYSTEM_PROMPT if system_prompt is None else system_prompt
     stop_lines = "\n".join(f'PARAMETER stop "{tok}"' for tok in FAMILY_STOP_TOKENS[family])
+    template_block = ""
+    if include_chat_template and family == "qwen3":
+        template_block = f'\nTEMPLATE """{QWEN3_NO_THINK_CHATML_TEMPLATE}"""\n'
+
     return (
         f"FROM {gguf_path}\n"
-        f"\n"
-        f'SYSTEM """{CHESS_COACH_SYSTEM_PROMPT}"""\n'
+        f"{template_block}\n"
+        f'SYSTEM """{active_system}"""\n'
         f"\n"
         f"PARAMETER temperature {temperature}\n"
         f"PARAMETER num_ctx 4096\n"
@@ -145,6 +172,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional path to a local llama.cpp checkout containing convert_hf_to_gguf.py",
     )
     parser.add_argument(
+        "--coach-v2",
+        action="store_true",
+        help=(
+            "Emit Coach V2 Modelfile (grounded coach SYSTEM prompt + Qwen3 "
+            "enable_thinking=False ChatML template)"
+        ),
+    )
+    parser.add_argument(
+        "--keep-f16",
+        action="store_true",
+        help="Keep intermediate *-f16.gguf file after successful quantization (default: remove)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the Modelfile and conversion plan without writing files or running llama.cpp",
@@ -166,6 +206,8 @@ def main(argv: list[str] | None = None) -> int:
         gguf_path=f"./{gguf_filename}",
         model_family=family,
         temperature=args.temperature,
+        system_prompt=COACH_V2_SYSTEM_PROMPT if args.coach_v2 else None,
+        include_chat_template=args.coach_v2,
     )
 
     converter = find_llama_cpp_converter(args.llama_cpp_dir)
@@ -211,6 +253,9 @@ def main(argv: list[str] | None = None) -> int:
             quant_cmd = [quantizer, str(raw_gguf), str(gguf_path), quant.upper()]
             print(f">>> {' '.join(quant_cmd)}", flush=True)
             subprocess.run(quant_cmd, check=True)
+            if not args.keep_f16 and raw_gguf.exists():
+                raw_gguf.unlink()
+                print(f"Removed intermediate f16 file: {raw_gguf}")
         else:
             print(
                 f"Converted f16 GGUF to {raw_gguf}. Quantize to {quant} with:\n"

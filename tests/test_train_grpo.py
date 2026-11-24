@@ -334,5 +334,84 @@ def test_parse_args_and_build_grpo_config_num_iterations(tmp_path):
     assert sharp.reward_mode == "sharp_wdl"
 
 
+def test_coach_grpo_modes_stockfish_free_and_config_retention(tmp_path):
+    import json
+
+    from chessfm.rl.train_grpo import (
+        build_grpo_config,
+        load_coach_prompts,
+        requires_stockfish_engine,
+    )
+
+    assert requires_stockfish_engine(0, "coach_v2") is False
+    assert requires_stockfish_engine(1, "coach_v2") is False
+    assert requires_stockfish_engine(1, "coach_v1") is False
+    assert requires_stockfish_engine(1, "legacy") is True
+    assert requires_stockfish_engine(0, "wdl_loss") is True
+    assert requires_stockfish_engine(0, "sharp_wdl") is True
+
+    coach_args = parse_args(
+        [
+            "--reward-mode",
+            "coach_v2",
+            "--steps",
+            "100",
+            "--checkpoint-every",
+            "25",
+            "--max-prompt-length",
+            "768",
+            "--max-completion-length",
+            "256",
+            "--output",
+            str(tmp_path / "coach_out"),
+        ]
+    )
+    assert coach_args.reward_mode == "coach_v2"
+    assert coach_args.max_prompt_length == 768
+    assert coach_args.max_completion_length == 256
+    cfg = build_grpo_config(coach_args)
+    assert cfg.max_prompt_length == 768
+    assert cfg.max_completion_length == 256
+    assert cfg.save_steps == 25
+    assert cfg.save_total_limit is None  # step 25, 50, 75, 100 retained without pruning
+
+    v1_args = parse_args(["--reward-mode", "coach_v1"])
+    assert v1_args.reward_mode == "coach_v1"
+
+    # Test load_coach_prompts renders with enable_thinking=False and preserves reward_kwargs columns.
+    prompts_file = tmp_path / "coach_prompts.jsonl"
+    prompts_file.write_text(
+        json.dumps(
+            {
+                "fen": START_FEN,
+                "task_type": "postmortem",
+                "best_move": "e2e4",
+                "student_move": "a2a3",
+                "cp_loss": 45,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    captured_kwargs: list[dict] = []
+
+    class _CoachTok:
+        def apply_chat_template(self, messages, **kwargs):
+            captured_kwargs.append(kwargs)
+            return "|".join(f"{m['role']}:{m['content']}" for m in messages)
+
+    loaded = load_coach_prompts(prompts_file, max_positions=10, seed=42, tokenizer=_CoachTok())
+    assert len(loaded) == 1
+    assert captured_kwargs[0]["enable_thinking"] is False
+    assert captured_kwargs[0]["add_generation_prompt"] is True
+    assert loaded[0]["fen"] == START_FEN
+    assert loaded[0]["task_type"] == "postmortem"
+    assert loaded[0]["best_move_uci"] == "e2e4"
+    assert "Tactical Facts (Verified):" in loaded[0]["prompt"]
+    tf = json.loads(loaded[0]["tactical_facts_json"])
+    assert tf["best_move_san"] == "e4"
+
+
 if __name__ == "__main__":
     unittest.main()

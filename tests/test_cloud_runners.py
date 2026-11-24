@@ -837,3 +837,131 @@ class TestUploadHF:
                 repo_id="winsonly/chessfm-test",
                 dry_run=False,
             )
+
+
+class TestPhase4ACloudAndExportPlumbing:
+    def test_export_gguf_coach_v2_modelfile_and_f16_cleanup(self, tmp_path: Path, monkeypatch):
+        mf = export_gguf.build_ollama_modelfile(
+            "./coach-v2-q4_k_m.gguf",
+            model_family="qwen3",
+            temperature=0.2,
+            system_prompt=export_gguf.COACH_V2_SYSTEM_PROMPT,
+            include_chat_template=True,
+        )
+        assert "FROM ./coach-v2-q4_k_m.gguf" in mf
+        assert "TEMPLATE" in mf
+        assert "<think>\n\n</think>\n\n" in mf
+        assert "accurate, concise chess coach" in mf
+        assert 'PARAMETER stop "<|im_end|>"' in mf
+
+        # Simulate convert + quantize and verify intermediate f16 removal when --keep-f16 is False.
+        fake_conv = tmp_path / "convert_hf_to_gguf.py"
+        fake_conv.write_text("", encoding="utf-8")
+        out_dir = tmp_path / "out_q4"
+
+        def _fake_run(cmd, check=True):
+            if str(fake_conv) in cmd:
+                outfile = Path(cmd[cmd.index("--outfile") + 1])
+                outfile.write_bytes(b"GGUF_F16")
+            else:
+                # llama-quantize raw_gguf gguf_path QUANT
+                Path(cmd[2]).write_bytes(b"GGUF_Q4")
+
+        monkeypatch.setattr(export_gguf, "find_llama_cpp_converter", lambda _d=None: fake_conv)
+        monkeypatch.setattr(
+            export_gguf.shutil, "which", lambda _name: "/usr/local/bin/llama-quantize"
+        )
+        monkeypatch.setattr(export_gguf.subprocess, "run", _fake_run)
+
+        rc = export_gguf.main(
+            [
+                "--model",
+                str(tmp_path / "coach_merged"),
+                "--output",
+                str(out_dir),
+                "--quant",
+                "q4_k_m",
+                "--family",
+                "qwen3",
+                "--coach-v2",
+            ]
+        )
+        assert rc == 0
+        assert (out_dir / "coach_merged-q4_k_m.gguf").is_file()
+        assert not (out_dir / "coach_merged-f16.gguf").exists()
+        assert "TEMPLATE" in (out_dir / "Modelfile").read_text(encoding="utf-8")
+
+    def test_modal_train_phase4a_forwarding_and_routing(self, monkeypatch: pytest.MonkeyPatch):
+        pytest.importorskip("modal")
+        mt = _load_script_module("modal_train_p4a_test", "modal_train.py")
+
+        cmds: list[list[str]] = []
+        monkeypatch.setattr(mt, "_ensure_installed", lambda: None)
+        monkeypatch.setattr(mt, "_run", lambda cmd: cmds.append(list(cmd)))
+        monkeypatch.setattr(mt.volume, "commit", lambda: None)
+
+        mt._exec_grpo(
+            model="/vol/checkpoints/e5_arm_a_sft/final_merged",
+            stage=0,
+            steps=100,
+            output_subdir="e5_arm_a_grpo",
+            num_generations=8,
+            per_device_batch_size=8,
+            grad_accum=2,
+            max_positions=2000,
+            checkpoint_every=25,
+            resume=False,
+            include_ascii=False,
+            reward_mode="coach_v2",
+            max_prompt_length=768,
+            max_completion_length=256,
+        )
+        cmd = cmds[-1]
+        assert cmd[cmd.index("--reward-mode") + 1] == "coach_v2"
+        assert cmd[cmd.index("--max-prompt-length") + 1] == "768"
+        assert cmd[cmd.index("--max-completion-length") + 1] == "256"
+
+        vllm_calls: list[dict] = []
+        bench_calls: list[dict] = []
+        gguf_calls: list[dict] = []
+
+        class _Rec:
+            def __init__(self, bucket):
+                self._b = bucket
+
+            def remote(self, **kwargs):
+                self._b.append(kwargs)
+                return "ok"
+
+        monkeypatch.setattr(mt, "run_p4a_vllm_batch", _Rec(vllm_calls))
+        monkeypatch.setattr(mt, "run_coach_benchmark_l4", _Rec(bench_calls))
+        monkeypatch.setattr(mt, "run_export_gguf", _Rec(gguf_calls))
+
+        mt.main(task="p4a-vllm-batch", workers=24, eval_workers=32)
+        assert len(vllm_calls) == 1
+        assert vllm_calls[0]["model"] == mt.DEFAULT_TEACHER_MODEL
+
+        mt.main(
+            task="coach-benchmark",
+            model="/vol/checkpoints/e5_arm_a_grpo/checkpoint-25",
+            benchmark="/vol/data/phase2/test_coach_100_slice.jsonl",
+            batch_size=16,
+            use_tactical_facts=True,
+            max_rows=100,
+            base_model="/vol/checkpoints/e5_arm_a_sft/final_merged",
+        )
+        assert len(bench_calls) == 1
+        assert bench_calls[0]["use_tactical_facts"] is True
+        assert bench_calls[0]["batch_size"] == 16
+        assert bench_calls[0]["max_rows"] == 100
+        assert bench_calls[0]["base_model"] == "/vol/checkpoints/e5_arm_a_sft/final_merged"
+
+        mt.main(
+            task="export-gguf",
+            model="/vol/checkpoints/e5_winner/final_merged",
+            family="qwen3",
+            coach_v2=True,
+        )
+        assert len(gguf_calls) == 1
+        assert gguf_calls[0]["coach_v2"] is True
+        assert gguf_calls[0]["keep_f16"] is False

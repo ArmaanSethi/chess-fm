@@ -42,7 +42,13 @@ from typing import Any
 import chess
 import requests
 
+from chessfm.coach.coach_rewards import verify_claims_v1
 from chessfm.coach.socratic import contains_move_spoiler
+from chessfm.coach.tactical_facts import (
+    compute_tactical_fact_coverage,
+    extract_tactical_facts,
+    format_tactical_facts_for_prompt,
+)
 from chessfm.coach.verifier import verify_claims
 from chessfm.config import DEFAULT_TEACHER_MODEL
 from chessfm.fens import read_jsonl
@@ -169,7 +175,39 @@ def infer_task_type(row: dict[str, Any]) -> str:
     return "postmortem"
 
 
-def build_teacher_prompt(facts: dict[str, Any], task_type: str = "postmortem") -> str:
+def _resolve_tactical_facts(facts: dict[str, Any]) -> dict[str, Any] | None:
+    """Return precomputed or freshly extracted tactical facts for ``facts``."""
+    existing = facts.get("tactical_facts")
+    if isinstance(existing, dict) and existing.get("fen"):
+        return existing
+
+    fen = facts.get("fen")
+    best_move = str(facts.get("best_move_uci") or facts.get("best_move") or "").strip()
+    if not isinstance(fen, str) or not fen.strip() or not best_move:
+        return None
+    student_move = str(facts.get("played_move_uci") or facts.get("student_move") or "").strip()
+    pv = facts.get("principal_variation") or facts.get("pv")
+    pv_list = [str(m) for m in pv] if isinstance(pv, list) else None
+    try:
+        return extract_tactical_facts(
+            fen,
+            student_move=student_move or None,
+            best_move=best_move,
+            pv=pv_list,
+            cp_loss=facts.get("cp_loss"),
+            eval_before_cp=facts.get("eval_before_cp"),
+            eval_after_cp=facts.get("eval_after_cp"),
+        )
+    except ValueError:
+        return None
+
+
+def build_teacher_prompt(
+    facts: dict[str, Any],
+    task_type: str = "postmortem",
+    *,
+    include_tactical_facts: bool = False,
+) -> str:
     """Construct a structured, engine-grounded prompt for an open-weight teacher."""
     if task_type not in VALID_TASK_TYPES:
         raise ValueError(
@@ -247,7 +285,24 @@ def build_teacher_prompt(facts: dict[str, Any], task_type: str = "postmortem") -
             "staying 100% consistent with the board and engine facts."
         )
 
-    return f"Engine Facts (JSON):\n{compact_facts}\n\nTask ({task_type}):\n{instruction}"
+    if not include_tactical_facts:
+        return f"Engine Facts (JSON):\n{compact_facts}\n\nTask ({task_type}):\n{instruction}"
+
+    tf = _resolve_tactical_facts(facts)
+    tf_block = (
+        f"\n\n{format_tactical_facts_for_prompt(tf, task_type=task_type)}" if tf is not None else ""
+    )
+    grounding_note = (
+        " Ground every claim strictly in the Tactical Facts above: never claim a check if "
+        "gives_check is false, never claim center tension if has_center_tension is false, "
+        "always respect side_to_move, and use varied position-specific prose rather than "
+        "generic boilerplate."
+    )
+    if task_type in ("socratic_l1", "socratic_l2"):
+        grounding_note += (
+            " Strictly avoid spoiling the best move or naming both origin and destination squares."
+        )
+    return f"Engine Facts (JSON):\n{compact_facts}{tf_block}\n\nTask ({task_type}):\n{instruction}{grounding_note}"
 
 
 class OpenAICompatibleTeacher:
@@ -371,22 +426,90 @@ def _distill_single_row(
     teacher_model: str,
     max_attempts: int,
     min_chars: int,
+    include_tactical_facts: bool = False,
+    single_shot: bool = False,
 ) -> tuple[dict[str, Any] | None, int, dict[str, int]]:
-    """Run rejection sampling for a single row and return ``(accepted_row, attempts, rejections)``."""
+    """Run rejection sampling (or single-shot eval) for a single row."""
     fen = row["fen"]
     task_type = infer_task_type(row)
     best_move_uci = str(row.get("best_move_uci") or row.get("best_move") or "")
-    user_prompt = build_teacher_prompt(row, task_type=task_type)
+    tactical_facts = _resolve_tactical_facts(row) if include_tactical_facts else None
+    prompt_row = (
+        {**row, "tactical_facts": tactical_facts}
+        if include_tactical_facts and tactical_facts is not None
+        else row
+    )
+    user_prompt = build_teacher_prompt(
+        prompt_row,
+        task_type=task_type,
+        include_tactical_facts=include_tactical_facts,
+    )
     local_rejections: dict[str, int] = {}
     attempts = 0
+    effective_attempts = 1 if single_shot else max_attempts
 
-    for attempt in range(1, max_attempts + 1):
+    for attempt in range(1, effective_attempts + 1):
         attempts += 1
         try:
             raw_text = teacher_fn(SYSTEM_PROMPT, user_prompt)
         except Exception:
             local_rejections["backend_error"] = local_rejections.get("backend_error", 0) + 1
-            continue
+            if single_shot:
+                raw_text = ""
+            else:
+                continue
+
+        if single_shot:
+            cleaned = strip_reasoning_blocks(raw_text)
+            v2_report = verify_claims(fen, cleaned, engine=None, check_boilerplate=True)
+            v1_report = verify_claims_v1(fen, cleaned)
+            act_eval_passed = bool(v2_report["passed"]) and len(cleaned) >= min_chars
+            v1_passed = bool(v1_report["passed"]) and len(cleaned) >= min_chars
+            spoiler = False
+            if task_type in ("socratic_l1", "socratic_l2") and best_move_uci:
+                try:
+                    spoiler = bool(contains_move_spoiler(cleaned, best_move_uci, fen))
+                except ValueError:
+                    spoiler = False
+            tf_cov = (
+                compute_tactical_fact_coverage(cleaned, tactical_facts, task_type=task_type)
+                if tactical_facts is not None
+                else 0.0
+            )
+            record: dict[str, Any] = {
+                "fen": fen,
+                "task_type": task_type,
+                "best_move_uci": best_move_uci,
+                "best_move": best_move_uci,
+                "student_move": str(row.get("student_move") or row.get("played_move_uci") or ""),
+                "student_elo": row.get("student_elo", 1200),
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                    {"role": "assistant", "content": cleaned},
+                ],
+                "prompt": format_chatml_prompt(SYSTEM_PROMPT, user_prompt),
+                "completion": f"{cleaned}<|im_end|>",
+                "response": cleaned,
+                "teacher_model": teacher_model,
+                "attempts_used": 1,
+                "verified": bool(act_eval_passed and not spoiler),
+                "act_eval_passed": act_eval_passed,
+                "v1_passed": v1_passed,
+                "spoiler_free": not spoiler,
+                "violations": list(v2_report.get("violations", [])),
+                "tactical_fact_coverage": tf_cov,
+            }
+            if tactical_facts is not None:
+                record["tactical_facts"] = tactical_facts
+            if task_type in _SOCRATIC_LEVELS:
+                record["level"] = _SOCRATIC_LEVELS[task_type]
+            if not act_eval_passed:
+                reason = "empty_or_short" if len(cleaned) < min_chars else "claim_violation"
+                local_rejections[reason] = local_rejections.get(reason, 0) + 1
+            elif spoiler:
+                local_rejections["spoiler_leak"] = local_rejections.get("spoiler_leak", 0) + 1
+            return record, attempts, local_rejections
 
         decision = verify_candidate(
             fen=fen,
@@ -396,7 +519,7 @@ def _distill_single_row(
             min_chars=min_chars,
         )
         if decision.accepted:
-            record: dict[str, Any] = {
+            record = {
                 "fen": fen,
                 "task_type": task_type,
                 "best_move_uci": best_move_uci,
@@ -415,6 +538,11 @@ def _distill_single_row(
                 "act_eval_passed": True,
                 "spoiler_free": True,
             }
+            if include_tactical_facts and tactical_facts is not None:
+                record["tactical_facts"] = tactical_facts
+                record["tactical_fact_coverage"] = compute_tactical_fact_coverage(
+                    decision.cleaned_text, tactical_facts, task_type=task_type
+                )
             if task_type in _SOCRATIC_LEVELS:
                 record["level"] = _SOCRATIC_LEVELS[task_type]
             return record, attempts, local_rejections
@@ -435,8 +563,10 @@ def distill_rows(
     min_chars: int = 20,
     workers: int = 1,
     coaching_only: bool = True,
+    include_tactical_facts: bool = False,
+    single_shot: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Run rejection-sampled distillation across ``rows`` and return ``(accepted, audit)``."""
+    """Run rejection-sampled distillation (or single-shot eval) across ``rows``."""
     if max_attempts < 1:
         raise ValueError("max_attempts must be >= 1")
 
@@ -483,6 +613,8 @@ def distill_rows(
             teacher_model=teacher_model,
             max_attempts=max_attempts,
             min_chars=min_chars,
+            include_tactical_facts=include_tactical_facts,
+            single_shot=single_shot,
         )
 
     if effective_workers == 1:
@@ -501,16 +633,20 @@ def distill_rows(
             per_task_type[task_key] = per_task_type.get(task_key, 0) + 1
 
     processed = len(eligible_rows)
+    verified_count = sum(1 for r in accepted_rows if r.get("verified", True))
     audit = {
         "teacher_model": teacher_model,
         "timestamp_utc": _utc_timestamp(),
         "git_sha": _git_head_sha(),
         "wall_clock_seconds": round(time.monotonic() - start_time, 3),
         "workers": effective_workers,
+        "include_tactical_facts": include_tactical_facts,
+        "single_shot": single_shot,
         "input_rows": processed,
         "skipped_non_coaching_rows": skipped_non_coaching,
         "accepted_rows": len(accepted_rows),
-        "acceptance_rate": round(len(accepted_rows) / max(1, processed), 4),
+        "verified_rows": verified_count,
+        "acceptance_rate": round(verified_count / max(1, processed), 4),
         "total_attempts": total_attempts,
         "rejection_counts": rejection_counts,
         "per_task_type": per_task_type,
@@ -561,6 +697,25 @@ def main(argv: list[str] | None = None) -> int:
         help="Include raw engine_best_line rows instead of filtering to coaching rows only",
     )
     parser.add_argument(
+        "--include-tactical-facts",
+        action="store_true",
+        help="Inject deterministic python-chess Tactical Facts into teacher prompts and output rows",
+    )
+    parser.add_argument(
+        "--single-shot",
+        action="store_true",
+        help=(
+            "Single-shot evaluation mode: max_attempts=1, default temperature=0.2, writes EVERY "
+            "row without dropping failures while recording honest V1/V2/spoiler/coverage metrics"
+        ),
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="Sampling temperature (defaults to 0.2 under --single-shot, else 0.4)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate input rows and print sample teacher prompt without calling the server",
@@ -585,17 +740,33 @@ def main(argv: list[str] | None = None) -> int:
         if valid:
             task = infer_task_type(valid[0])
             print(f"[dry-run] Sample prompt ({task}, model={args.model}):\n")
-            print(build_teacher_prompt(valid[0], task_type=task))
+            print(
+                build_teacher_prompt(
+                    valid[0],
+                    task_type=task,
+                    include_tactical_facts=args.include_tactical_facts,
+                )
+            )
         return 0
 
-    teacher = OpenAICompatibleTeacher(base_url=args.base_url, model=args.model)
+    temperature = (
+        args.temperature if args.temperature is not None else (0.2 if args.single_shot else 0.4)
+    )
+    effective_attempts = 1 if args.single_shot else args.max_attempts
+    teacher = OpenAICompatibleTeacher(
+        base_url=args.base_url,
+        model=args.model,
+        temperature=temperature,
+    )
     accepted, audit = distill_rows(
         rows,
         teacher,
         teacher_model=args.model,
-        max_attempts=args.max_attempts,
+        max_attempts=effective_attempts,
         workers=args.workers,
         coaching_only=coaching_only,
+        include_tactical_facts=args.include_tactical_facts,
+        single_shot=args.single_shot,
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -606,8 +777,9 @@ def main(argv: list[str] | None = None) -> int:
     audit_path = args.output.with_suffix(".audit.json")
     audit_path.write_text(json.dumps(audit, indent=2) + "\n", encoding="utf-8")
     print(
-        f"Distillation complete: {audit['accepted_rows']}/{audit['input_rows']} accepted "
-        f"({audit['acceptance_rate']:.1%}) -> {args.output} (audit: {audit_path})"
+        f"Distillation complete: {audit['accepted_rows']}/{audit['input_rows']} written "
+        f"(verified {audit['verified_rows']}/{audit['input_rows']} = {audit['acceptance_rate']:.1%}) "
+        f"-> {args.output} (audit: {audit_path})"
     )
     return 0
 
