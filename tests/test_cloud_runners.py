@@ -965,3 +965,34 @@ class TestPhase4ACloudAndExportPlumbing:
         assert len(gguf_calls) == 1
         assert gguf_calls[0]["coach_v2"] is True
         assert gguf_calls[0]["keep_f16"] is False
+
+    def test_batch_grpo_and_coach_eval_routing(self, monkeypatch, tmp_path):
+        import json
+
+        mt = _load_script_module("modal_train_batch_test", "modal_train.py")
+        grpo_batch_calls: list[dict] = []
+        eval_batch_calls: list[dict] = []
+
+        class _Rec:
+            def __init__(self, bucket):
+                self._b = bucket
+
+            def remote(self, **kwargs):
+                self._b.append(kwargs)
+                return "[]"
+
+        monkeypatch.setattr(mt, "run_grpo_batch_a100", _Rec(grpo_batch_calls))
+        monkeypatch.setattr(mt, "run_coach_benchmark_batch_l4", _Rec(eval_batch_calls))
+
+        jobs_file = tmp_path / "jobs.json"
+        jobs_payload = [{"output_subdir": "e5_arm_a_grpo", "steps": 40}]
+        jobs_file.write_text(json.dumps(jobs_payload), encoding="utf-8")
+
+        mt.main(task="grpo-batch", gpu="a100", jobs_json=str(jobs_file))
+        assert len(grpo_batch_calls) == 1
+        assert json.loads(grpo_batch_calls[0]["jobs_json"]) == jobs_payload
+
+        inline = json.dumps([{"output_subdir": "phase2/e5/eval1", "batch_size": 16}])
+        mt.main(task="coach-benchmark-batch", gpu="l4", jobs_json=inline)
+        assert len(eval_batch_calls) == 1
+        assert eval_batch_calls[0]["jobs_json"] == inline

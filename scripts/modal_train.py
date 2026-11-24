@@ -86,11 +86,13 @@ VALID_TASKS = (
     "sft",
     "sft-student",
     "grpo",
+    "grpo-batch",
     "eval",
     "static-eval",
     "pass-at-k",
     "coach-eval",
     "coach-benchmark",
+    "coach-benchmark-batch",
     "distill-teacher",
     "p4a-vllm-batch",
     "export-gguf",
@@ -262,13 +264,19 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, cwd=REMOTE_REPO, check=True)
 
 
+_INSTALLED = False
+
+
 def _ensure_installed() -> None:
+    global _INSTALLED
     os.makedirs(f"{VOL_MOUNT}/checkpoints", exist_ok=True)
     os.makedirs(f"{VOL_MOUNT}/data", exist_ok=True)
     os.makedirs(f"{VOL_MOUNT}/results/pgns", exist_ok=True)
     os.makedirs(f"{VOL_MOUNT}/exports", exist_ok=True)
     os.makedirs(f"{VOL_MOUNT}/hf_cache", exist_ok=True)
-    _run(["pip", "install", "--no-deps", "-e", "."])
+    if not _INSTALLED:
+        _run(["pip", "install", "--no-deps", "-e", "."])
+        _INSTALLED = True
     src_path = str(Path(REMOTE_REPO) / "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
@@ -946,6 +954,36 @@ def run_grpo_a100(
         max_prompt_length=max_prompt_length,
         max_completion_length=max_completion_length,
     )
+
+
+@app.function(
+    gpu="A100-80GB",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 6,
+)
+def run_grpo_batch_a100(jobs_json: str) -> str:
+    """Execute multiple GRPO runs sequentially inside one warm A100-80GB container."""
+    import gc
+    import json
+
+    import torch
+
+    jobs = json.loads(jobs_json)
+    if not isinstance(jobs, list) or not jobs:
+        raise ValueError("jobs_json must be a non-empty JSON list of GRPO job dicts")
+    outputs: list[str] = []
+    for idx, job in enumerate(jobs, start=1):
+        print(
+            f"\n========== GRPO BATCH JOB {idx}/{len(jobs)}: {job.get('output_subdir')} ==========\n",
+            flush=True,
+        )
+        ckpt = _exec_grpo(**job)
+        outputs.append(ckpt)
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    return json.dumps(outputs)
 
 
 @app.function(
@@ -2085,6 +2123,37 @@ def run_coach_benchmark_modern_l4(
     )
 
 
+@app.function(
+    gpu="L4",
+    volumes={VOL_MOUNT: volume},
+    secrets=_SECRETS,
+    timeout=60 * 60 * 2,
+)
+def run_coach_benchmark_batch_l4(jobs_json: str) -> str:
+    """Execute multiple batched coach evaluations sequentially inside one warm L4 container."""
+    import gc
+    import json
+
+    import torch
+
+    jobs = json.loads(jobs_json)
+    if not isinstance(jobs, list) or not jobs:
+        raise ValueError("jobs_json must be a non-empty JSON list of coach benchmark job dicts")
+    outputs: list[str] = []
+    for idx, job in enumerate(jobs, start=1):
+        print(
+            f"\n========== COACH BENCHMARK BATCH JOB {idx}/{len(jobs)}: "
+            f"{job.get('output_subdir')} ==========\n",
+            flush=True,
+        )
+        summary_path = _exec_coach_benchmark(**job)
+        outputs.append(summary_path)
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    return json.dumps(outputs)
+
+
 @app.local_entrypoint()
 def main(
     task: str = "smoke-pipeline",
@@ -2171,6 +2240,7 @@ def main(
     eval_workers: int = 32,
     skip_coach: bool = False,
     sft_resume: bool = False,
+    jobs_json: str = "",
 ) -> None:
     gpu_tier = gpu.strip().lower()
     if gpu_tier not in {"l4", "a100", "h100"}:
@@ -2189,7 +2259,7 @@ def main(
                 f"model {resolved_model!r}. Use --gpu l4 for modern tracks."
             )
     elif gpu_tier == "a100":
-        a100_tasks = {"sft", "grpo", "smoke-pipeline"}
+        a100_tasks = {"sft", "grpo", "grpo-batch", "smoke-pipeline"}
         if task not in a100_tasks:
             raise ValueError(
                 f"--gpu a100 is only supported for tasks {sorted(a100_tasks)} "
@@ -2432,6 +2502,24 @@ def main(
             base_model=base_model,
         )
         print(f"Coach ACT-Eval benchmark summary saved to Modal volume: {summary_path}")
+    elif task == "grpo-batch":
+        if not jobs_json:
+            raise ValueError("grpo-batch requires --jobs-json (JSON string or local path)")
+        payload = (
+            Path(jobs_json).read_text(encoding="utf-8") if Path(jobs_json).is_file() else jobs_json
+        )
+        res = run_grpo_batch_a100.remote(jobs_json=payload)
+        print(f"GRPO batch completed: {res}")
+    elif task == "coach-benchmark-batch":
+        if not jobs_json:
+            raise ValueError(
+                "coach-benchmark-batch requires --jobs-json (JSON string or local path)"
+            )
+        payload = (
+            Path(jobs_json).read_text(encoding="utf-8") if Path(jobs_json).is_file() else jobs_json
+        )
+        res = run_coach_benchmark_batch_l4.remote(jobs_json=payload)
+        print(f"Coach benchmark batch completed: {res}")
     elif task == "export-gguf":
         export_dir = run_export_gguf.remote(
             model=resolved_model,
